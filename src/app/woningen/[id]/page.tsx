@@ -10,6 +10,7 @@ import { getKamersVoorWoning } from "@/services/kamers";
 import { getBewonersVoorVerhuurperiode } from "@/services/bewoners";
 import { getInspectiesVoorWoning } from "@/services/inspecties";
 import { getMeldingenVoorWoning } from "@/services/meldingen";
+import EnergieVerbruikGrafieken from "@/components/energie/EnergieVerbruikGrafieken";
 import EnergieVerbruikOverzicht from "@/components/energie/EnergieVerbruikOverzicht";
 import { getMeterstandenVoorWoning } from "@/services/meterstanden";
 
@@ -370,6 +371,23 @@ export default async function WoningDossierPage({
           <EnergieVerbruikOverzicht
             meterstanden={meterstanden}
           />
+
+          <div className="mt-8 border-t border-slate-200 pt-8">
+            <h3 className="text-lg font-bold">
+              Verbruiksgrafieken en afwijkingen
+            </h3>
+
+            <p className="mt-1 text-slate-600">
+              Vergelijking van het verbruik per bewoner per
+              week met eerdere meetperiodes.
+            </p>
+
+            <div className="mt-5">
+              <EnergieVerbruikGrafieken
+                meterstanden={meterstanden}
+              />
+            </div>
+          </div>
         </section>
 
         <section className="mb-8 rounded-2xl bg-white p-6 shadow">
