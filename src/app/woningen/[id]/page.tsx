@@ -73,6 +73,14 @@ export default async function WoningDossierPage({
             ← Terug naar woningen
           </Link>
 
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href={`/woningen/${woning.id}/inspecties/nieuw`}
+              className="rounded-xl border border-emerald-700 px-5 py-3 font-medium text-emerald-700"
+            >
+              Nieuwe inspectie
+            </Link>
+
           {actieveVerhuur ? (
             <Link
               href={`/woningen/${woning.id}/verhuur/beeindigen`}
@@ -88,6 +96,7 @@ export default async function WoningDossierPage({
               Verhuurperiode starten
             </Link>
           )}
+          </div>
         </div>
 
         <header className="mb-8 rounded-2xl bg-white p-8 shadow">
