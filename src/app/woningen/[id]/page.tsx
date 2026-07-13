@@ -10,6 +10,7 @@ import { getKamersVoorWoning } from "@/services/kamers";
 import { getBewonersVoorVerhuurperiode } from "@/services/bewoners";
 import { getInspectiesVoorWoning } from "@/services/inspecties";
 import { getMeldingenVoorWoning } from "@/services/meldingen";
+import EnergieVerbruikOverzicht from "@/components/energie/EnergieVerbruikOverzicht";
 import { getMeterstandenVoorWoning } from "@/services/meterstanden";
 
 export const dynamic = "force-dynamic";
@@ -353,6 +354,22 @@ export default async function WoningDossierPage({
               </table>
             </div>
           )}
+        </section>
+
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+          <div className="mb-5">
+            <h2 className="text-xl font-bold">
+              Energieverbruik
+            </h2>
+            <p className="mt-1 text-slate-600">
+              Verbruik tussen opeenvolgende meteropnames,
+              omgerekend per bewoner per week.
+            </p>
+          </div>
+
+          <EnergieVerbruikOverzicht
+            meterstanden={meterstanden}
+          />
         </section>
 
         <section className="mb-8 rounded-2xl bg-white p-6 shadow">
