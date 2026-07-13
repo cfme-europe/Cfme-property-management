@@ -6,6 +6,7 @@ import {
   getVerhuurhistorieVoorWoning,
 } from "@/services/verhuurperiodes";
 import { getHuurdersVoorVerhuurperiode } from "@/services/huurders";
+import { getKamersVoorWoning } from "@/services/kamers";
 
 export const dynamic = "force-dynamic";
 
@@ -46,9 +47,12 @@ export default async function WoningDossierPage({
     getVerhuurhistorieVoorWoning(woningId),
   ]);
 
-  const huurders = actieveVerhuur
-    ? await getHuurdersVoorVerhuurperiode(actieveVerhuur.id)
-    : [];
+  const [huurders, kamers] = await Promise.all([
+    actieveVerhuur
+      ? getHuurdersVoorVerhuurperiode(actieveVerhuur.id)
+      : Promise.resolve([]),
+    getKamersVoorWoning(woningId),
+  ]);
 
   if (!woning) {
     notFound();
@@ -195,6 +199,98 @@ export default async function WoningDossierPage({
                 </p>
               </div>
             </div>
+          )}
+        </section>
+
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold">Kamers</h2>
+              <p className="mt-1 text-slate-600">
+                Kamerindeling en geregistreerde capaciteit.
+              </p>
+            </div>
+
+            <Link
+              href={`/woningen/${woning.id}/kamers`}
+              className="rounded-xl border border-emerald-700 px-5 py-3 font-medium text-emerald-700"
+            >
+              Kamers beheren
+            </Link>
+          </div>
+
+          {kamers.length === 0 ? (
+            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
+              Nog geen kamers geregistreerd.
+            </p>
+          ) : (
+            <>
+              <div className="mb-5 grid gap-4 sm:grid-cols-3">
+                <div className="rounded-xl bg-slate-100 p-4">
+                  <p className="text-sm text-slate-500">
+                    Totaal kamers
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {kamers.length}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-slate-100 p-4">
+                  <p className="text-sm text-slate-500">
+                    Actieve kamers
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {kamers.filter((kamer) => kamer.actief).length}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-slate-100 p-4">
+                  <p className="text-sm text-slate-500">
+                    Totale capaciteit
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {kamers
+                      .filter((kamer) => kamer.actief)
+                      .reduce(
+                        (totaal, kamer) =>
+                          totaal + kamer.capaciteit,
+                        0
+                      )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {kamers.map((kamer) => (
+                  <div
+                    key={kamer.id}
+                    className="rounded-xl border border-slate-200 p-5"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="font-semibold">{kamer.naam}</p>
+
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          kamer.actief
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-slate-200 text-slate-700"
+                        }`}
+                      >
+                        {kamer.actief ? "Actief" : "Inactief"}
+                      </span>
+                    </div>
+
+                    <p className="mt-3 text-sm text-slate-600">
+                      Verdieping: {kamer.verdieping || "—"}
+                    </p>
+
+                    <p className="text-sm text-slate-600">
+                      Capaciteit: {kamer.capaciteit}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </section>
 
