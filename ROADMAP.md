@@ -16,6 +16,7 @@
 - 0.5B Meldingen en schade-opvolging
 - 0.5C Meterstanden en energieverbruik
 - 0.6A Maandrapportages
+- 0.6A-4 PDF-generatie maandrapport
 
 ## Volgende bouwblok
 

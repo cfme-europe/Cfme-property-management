@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import MaandrapportageInhoud from "@/components/rapportages/MaandrapportageInhoud";
 import MaandrapportageVerwijderenButton from "@/components/rapportages/MaandrapportageVerwijderenButton";
 import RapportageGenererenButton from "@/components/rapportages/RapportageGenererenButton";
+import RapportagePdfButton from "@/components/rapportages/RapportagePdfButton";
 import { getMaandrapportageById } from "@/services/maandrapportages";
 import { getWoningById } from "@/services/woningen";
 import type { MaandrapportageStatus } from "@/types/maandrapportage";
@@ -120,6 +121,13 @@ export default async function RapportageDetailPage({
             <div className="flex flex-wrap gap-3">
               <RapportageGenererenButton
                 rapportage={rapportage}
+              />
+
+              <RapportagePdfButton
+                rapportage={rapportage}
+                adres={woning.adres}
+                postcode={woning.postcode}
+                plaats={woning.plaats}
               />
 
               <Link
