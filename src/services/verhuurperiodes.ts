@@ -39,3 +39,77 @@ export async function getVerhuurhistorieVoorWoning(
 
   return data ?? [];
 }
+
+export type BedrijfWoningKoppeling = {
+  id: number;
+  woning_id: number;
+  bedrijf_id: number;
+  startdatum: string;
+  geplande_einddatum: string | null;
+  werkelijke_einddatum: string | null;
+  maandhuur: number;
+  status: string;
+  woning: {
+    id: number;
+    adres: string;
+    postcode: string;
+    plaats: string;
+  } | null;
+};
+
+export async function getVerhuurperiodesVoorBedrijf(
+  bedrijfId: number
+): Promise<BedrijfWoningKoppeling[]> {
+  const { data, error } = await supabase
+    .from("verhuurperiodes")
+    .select(`
+      id,
+      woning_id,
+      bedrijf_id,
+      startdatum,
+      geplande_einddatum,
+      werkelijke_einddatum,
+      maandhuur,
+      status,
+      woning:woningen (
+        id,
+        adres,
+        postcode,
+        plaats
+      )
+    `)
+    .eq("bedrijf_id", bedrijfId)
+    .order("startdatum", { ascending: false });
+
+  if (error) {
+    throw new Error(
+      `Woningen van bedrijf ophalen mislukt: ${error.message}`
+    );
+  }
+
+  const rijen = (data ?? []) as unknown as Array<
+    Omit<BedrijfWoningKoppeling, "woning"> & {
+      woning:
+        | {
+            id: number;
+            adres: string;
+            postcode: string;
+            plaats: string;
+          }
+        | Array<{
+            id: number;
+            adres: string;
+            postcode: string;
+            plaats: string;
+          }>
+        | null;
+    }
+  >;
+
+  return rijen.map((rij) => ({
+    ...rij,
+    woning: Array.isArray(rij.woning)
+      ? rij.woning[0] ?? null
+      : rij.woning ?? null,
+  }));
+}

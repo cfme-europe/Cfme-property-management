@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import BedrijfStatusButton from "@/components/bedrijven/BedrijfStatusButton";
 import { getBedrijfById } from "@/services/bedrijven";
+import { getVerhuurperiodesVoorBedrijf } from "@/services/verhuurperiodes";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,10 @@ export default async function BedrijfDossierPage({
     notFound();
   }
 
-  const bedrijf = await getBedrijfById(bedrijfId);
+  const [bedrijf, verhuurperiodes] = await Promise.all([
+    getBedrijfById(bedrijfId),
+    getVerhuurperiodesVoorBedrijf(bedrijfId),
+  ]);
 
   if (!bedrijf) {
     notFound();
@@ -70,6 +74,89 @@ export default async function BedrijfDossierPage({
             Klantnummer: {waarde(bedrijf.klantnummer)}
           </p>
         </header>
+
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold">Woningen en verhuurperiodes</h2>
+              <p className="mt-1 text-slate-600">
+                {verhuurperiodes.length} gekoppelde verhuurperiode
+                {verhuurperiodes.length === 1 ? "" : "s"}
+              </p>
+            </div>
+          </div>
+
+          {verhuurperiodes.length === 0 ? (
+            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
+              Er zijn nog geen woningen aan dit bedrijf gekoppeld.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px]">
+                <thead className="border-b bg-slate-100">
+                  <tr>
+                    <th className="p-4 text-left">Woning</th>
+                    <th className="p-4 text-left">Periode</th>
+                    <th className="p-4 text-left">Maandhuur</th>
+                    <th className="p-4 text-left">Status</th>
+                    <th className="p-4 text-right">Actie</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {verhuurperiodes.map((periode) => (
+                    <tr
+                      key={periode.id}
+                      className="border-b border-slate-200 last:border-0"
+                    >
+                      <td className="p-4">
+                        <p className="font-medium">
+                          {periode.woning?.adres ?? "Onbekende woning"}
+                        </p>
+                        <p className="text-sm text-slate-500">
+                          {[periode.woning?.postcode, periode.woning?.plaats]
+                            .filter(Boolean)
+                            .join(" ") || "—"}
+                        </p>
+                      </td>
+
+                      <td className="p-4">
+                        {periode.startdatum}
+                        {" – "}
+                        {periode.werkelijke_einddatum ??
+                          periode.geplande_einddatum ??
+                          "heden"}
+                      </td>
+
+                      <td className="p-4">
+                        € {Number(periode.maandhuur).toFixed(2)}
+                      </td>
+
+                      <td className="p-4">
+                        <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800">
+                          {periode.status}
+                        </span>
+                      </td>
+
+                      <td className="p-4 text-right">
+                        {periode.woning ? (
+                          <Link
+                            href={`/woningen/${periode.woning.id}`}
+                            className="font-medium text-emerald-700 hover:underline"
+                          >
+                            Woning openen
+                          </Link>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
 
         <div className="grid gap-6 md:grid-cols-2">
           <section className="rounded-2xl bg-white p-6 shadow">
