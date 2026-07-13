@@ -68,3 +68,44 @@ export async function createBedrijf(
 
   return data;
 }
+
+export async function updateBedrijf(
+  id: number,
+  invoer: NieuwBedrijf
+): Promise<Bedrijf> {
+  const naam = invoer.naam.trim();
+
+  if (naam.length < 2) {
+    throw new Error("Bedrijfsnaam moet minimaal 2 tekens bevatten.");
+  }
+
+  const { data, error } = await supabase
+    .from("bedrijven")
+    .update({
+      ...invoer,
+      naam,
+    })
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(`Bedrijf wijzigen mislukt: ${error.message}`);
+  }
+
+  return data;
+}
+
+export async function setBedrijfActief(
+  id: number,
+  actief: boolean
+): Promise<void> {
+  const { error } = await supabase
+    .from("bedrijven")
+    .update({ actief })
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(`Bedrijfstatus wijzigen mislukt: ${error.message}`);
+  }
+}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import BedrijfStatusButton from "@/components/bedrijven/BedrijfStatusButton";
 import { getBedrijfById } from "@/services/bedrijven";
 
 export const dynamic = "force-dynamic";
@@ -35,15 +36,29 @@ export default async function BedrijfDossierPage({
             ← Terug naar bedrijven
           </Link>
 
-          <span
-            className={`rounded-full px-4 py-2 text-sm font-semibold ${
-              bedrijf.actief
-                ? "bg-emerald-100 text-emerald-800"
-                : "bg-slate-200 text-slate-700"
-            }`}
-          >
-            {bedrijf.actief ? "Actief" : "Inactief"}
-          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span
+              className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                bedrijf.actief
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-slate-200 text-slate-700"
+              }`}
+            >
+              {bedrijf.actief ? "Actief" : "Inactief"}
+            </span>
+
+            <Link
+              href={`/bedrijven/${bedrijf.id}/bewerken`}
+              className="rounded-xl border border-slate-300 px-5 py-3 font-medium"
+            >
+              Bewerken
+            </Link>
+
+            <BedrijfStatusButton
+              bedrijfId={bedrijf.id}
+              actief={bedrijf.actief}
+            />
+          </div>
         </div>
 
         <header className="mb-8 rounded-2xl bg-white p-8 shadow">
