@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import MaandrapportageInhoud from "@/components/rapportages/MaandrapportageInhoud";
 import MaandrapportageVerwijderenButton from "@/components/rapportages/MaandrapportageVerwijderenButton";
+import RapportageGenererenButton from "@/components/rapportages/RapportageGenererenButton";
 import { getMaandrapportageById } from "@/services/maandrapportages";
 import { getWoningById } from "@/services/woningen";
 import type { MaandrapportageStatus } from "@/types/maandrapportage";
@@ -115,12 +117,18 @@ export default async function RapportageDetailPage({
               </p>
             </div>
 
-            <Link
-              href={`/woningen/${woning.id}/rapportages/${rapportage.id}/bewerken`}
-              className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
-            >
-              Bewerken
-            </Link>
+            <div className="flex flex-wrap gap-3">
+              <RapportageGenererenButton
+                rapportage={rapportage}
+              />
+
+              <Link
+                href={`/woningen/${woning.id}/rapportages/${rapportage.id}/bewerken`}
+                className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
+              >
+                Bewerken
+              </Link>
+            </div>
           </div>
 
           <dl className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -201,17 +209,9 @@ export default async function RapportageDetailPage({
             </p>
           </section>
 
-          <section className="mt-8 rounded-xl bg-amber-50 p-5 text-amber-900">
-            <h2 className="font-semibold">
-              Rapportinhoud
-            </h2>
-
-            <p className="mt-2">
-              De automatische verzameling van inspecties,
-              meldingen, bewoners en energiegegevens wordt
-              in 0.6A-3 toegevoegd.
-            </p>
-          </section>
+          <MaandrapportageInhoud
+            rapportage={rapportage}
+          />
 
           <div className="mt-8 border-t border-slate-200 pt-6">
             <MaandrapportageVerwijderenButton
