@@ -7,6 +7,7 @@ import {
 } from "@/services/verhuurperiodes";
 import { getHuurdersVoorVerhuurperiode } from "@/services/huurders";
 import { getKamersVoorWoning } from "@/services/kamers";
+import { getBewonersVoorVerhuurperiode } from "@/services/bewoners";
 
 export const dynamic = "force-dynamic";
 
@@ -47,11 +48,14 @@ export default async function WoningDossierPage({
     getVerhuurhistorieVoorWoning(woningId),
   ]);
 
-  const [huurders, kamers] = await Promise.all([
+  const [huurders, kamers, bewoners] = await Promise.all([
     actieveVerhuur
       ? getHuurdersVoorVerhuurperiode(actieveVerhuur.id)
       : Promise.resolve([]),
     getKamersVoorWoning(woningId),
+    actieveVerhuur
+      ? getBewonersVoorVerhuurperiode(actieveVerhuur.id)
+      : Promise.resolve([]),
   ]);
 
   if (!woning) {
@@ -291,6 +295,102 @@ export default async function WoningDossierPage({
                 ))}
               </div>
             </>
+          )}
+        </section>
+
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold">Bewoners</h2>
+              <p className="mt-1 text-slate-600">
+                Bewoners en kamerbezetting binnen de actieve verhuurperiode.
+              </p>
+            </div>
+
+            {actieveVerhuur && (
+              <Link
+                href={`/woningen/${woning.id}/bewoners/nieuw`}
+                className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
+              >
+                Bewoner toevoegen
+              </Link>
+            )}
+          </div>
+
+          {!actieveVerhuur ? (
+            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
+              Start eerst een verhuurperiode om bewoners te registreren.
+            </p>
+          ) : bewoners.length === 0 ? (
+            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
+              Nog geen bewoners geregistreerd.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[850px]">
+                <thead className="border-b bg-slate-100">
+                  <tr>
+                    <th className="p-4 text-left">Bewoner</th>
+                    <th className="p-4 text-left">Kamer</th>
+                    <th className="p-4 text-left">Incheckdatum</th>
+                    <th className="p-4 text-left">Uitcheckdatum</th>
+                    <th className="p-4 text-left">Status</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {bewoners.map((bewoner) => {
+                    const bewonersnaam = [
+                      bewoner.voornaam,
+                      bewoner.tussenvoegsel,
+                      bewoner.achternaam,
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+
+                    return (
+                      <tr
+                        key={bewoner.id}
+                        className="border-b border-slate-200 last:border-0"
+                      >
+                        <td className="p-4">
+                          <Link
+                            href={`/woningen/${woning.id}/bewoners/${bewoner.id}`}
+                            className="font-semibold text-emerald-700 hover:underline"
+                          >
+                            {bewonersnaam}
+                          </Link>
+                        </td>
+
+                        <td className="p-4">
+                          {bewoner.kamer?.naam || "Niet toegewezen"}
+                        </td>
+
+                        <td className="p-4">
+                          {datum(bewoner.incheckdatum)}
+                        </td>
+
+                        <td className="p-4">
+                          {datum(bewoner.uitcheckdatum)}
+                        </td>
+
+                        <td className="p-4">
+                          <span
+                            className={`rounded-full px-3 py-1 text-sm font-semibold ${
+                              bewoner.status === "actief"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-slate-200 text-slate-700"
+                            }`}
+                          >
+                            {bewoner.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
 

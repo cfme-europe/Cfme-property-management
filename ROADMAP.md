@@ -11,6 +11,7 @@
 - 0.3C Actieve verhuur en huurhistorie
 - 0.3D Verhuurperiode beëindigen
 - 0.4A Huurdersbeheer
+- 0.4B Bewoners- en kamerbeheer
 
 ## Volgende bouwblok
 
