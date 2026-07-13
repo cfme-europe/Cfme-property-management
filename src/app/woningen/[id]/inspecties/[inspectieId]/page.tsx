@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import Image from "next/image";
+import InspectieFotoUpload from "@/components/inspecties/InspectieFotoUpload";
 import InspectieVerwijderenButton from "@/components/inspecties/InspectieVerwijderenButton";
+import { getInspectieFotos } from "@/services/inspectiefotos";
 import { getInspectieById } from "@/services/inspecties";
 import { getWoningById } from "@/services/woningen";
 import type {
@@ -81,9 +84,10 @@ export default async function InspectieDetailPage({
     notFound();
   }
 
-  const [woning, inspectie] = await Promise.all([
+  const [woning, inspectie, fotos] = await Promise.all([
     getWoningById(woningId),
     getInspectieById(inspectieNummer),
+    getInspectieFotos(inspectieNummer),
   ]);
 
   if (
@@ -225,6 +229,77 @@ export default async function InspectieDetailPage({
               {inspectie.opmerkingen ||
                 "Geen opmerkingen."}
             </p>
+          </section>
+
+          <section className="mt-8">
+            <div className="mb-4">
+              <h2 className="text-xl font-bold">
+                Foto&apos;s
+              </h2>
+
+              <p className="mt-1 text-slate-600">
+                Fotobewijs en visuele vastlegging van de inspectie.
+              </p>
+            </div>
+
+            <InspectieFotoUpload
+              inspectieId={inspectie.id}
+            />
+
+            {fotos.length === 0 ? (
+              <p className="mt-5 rounded-xl bg-slate-100 p-5 text-slate-600">
+                Nog geen foto&apos;s toegevoegd.
+              </p>
+            ) : (
+              <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {fotos.map((foto) => (
+                  <article
+                    key={foto.id}
+                    className="overflow-hidden rounded-xl border border-slate-200 bg-white"
+                  >
+                    {foto.tijdelijke_url ? (
+                      <div className="relative aspect-[4/3] bg-slate-100">
+                        <Image
+                          src={foto.tijdelijke_url}
+                          alt={
+                            foto.omschrijving ||
+                            foto.bestandsnaam
+                          }
+                          fill
+                          unoptimized
+                          className="object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex aspect-[4/3] items-center justify-center bg-slate-100 p-4 text-center text-sm text-slate-500">
+                        Voorbeeld niet beschikbaar
+                      </div>
+                    )}
+
+                    <div className="p-4">
+                      <p className="break-all text-sm font-semibold">
+                        {foto.bestandsnaam}
+                      </p>
+
+                      <p className="mt-2 text-sm text-slate-600">
+                        {foto.omschrijving ||
+                          "Geen omschrijving."}
+                      </p>
+
+                      <p className="mt-3 text-xs text-slate-500">
+                        {new Intl.NumberFormat("nl-NL", {
+                          maximumFractionDigits: 1,
+                        }).format(
+                          foto.bestandsgrootte /
+                            (1024 * 1024)
+                        )}{" "}
+                        MB
+                      </p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
 
           <div className="mt-8 border-t border-slate-200 pt-6">
