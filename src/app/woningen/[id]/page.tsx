@@ -10,6 +10,7 @@ import { getKamersVoorWoning } from "@/services/kamers";
 import { getBewonersVoorVerhuurperiode } from "@/services/bewoners";
 import { getInspectiesVoorWoning } from "@/services/inspecties";
 import { getMeldingenVoorWoning } from "@/services/meldingen";
+import { getMeterstandenVoorWoning } from "@/services/meterstanden";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,7 @@ export default async function WoningDossierPage({
     bewoners,
     inspecties,
     meldingen,
+    meterstanden,
   ] = await Promise.all([
     actieveVerhuur
       ? getHuurdersVoorVerhuurperiode(actieveVerhuur.id)
@@ -66,6 +68,7 @@ export default async function WoningDossierPage({
       : Promise.resolve([]),
     getInspectiesVoorWoning(woningId),
     getMeldingenVoorWoning(woningId),
+    getMeterstandenVoorWoning(woningId),
   ]);
 
   if (!woning) {
@@ -228,6 +231,126 @@ export default async function WoningDossierPage({
                     : "niet verplicht"}
                 </p>
               </div>
+            </div>
+          )}
+        </section>
+
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold">
+                Meterstanden
+              </h2>
+              <p className="mt-1 text-slate-600">
+                Historie van elektriciteit, gas en water.
+              </p>
+            </div>
+
+            <Link
+              href={`/woningen/${woning.id}/meterstanden/nieuw`}
+              className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
+            >
+              Nieuwe meteropname
+            </Link>
+          </div>
+
+          {meterstanden.length === 0 ? (
+            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
+              Nog geen meterstanden geregistreerd.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px]">
+                <thead className="border-b bg-slate-100">
+                  <tr>
+                    <th className="p-4 text-left">
+                      Datum
+                    </th>
+                    <th className="p-4 text-left">
+                      Bewoners
+                    </th>
+                    <th className="p-4 text-left">
+                      Elektriciteit
+                    </th>
+                    <th className="p-4 text-left">
+                      Gas
+                    </th>
+                    <th className="p-4 text-left">
+                      Water
+                    </th>
+                    <th className="p-4 text-left">
+                      Opgenomen door
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {meterstanden.map((meterstand) => (
+                    <tr
+                      key={meterstand.id}
+                      className="border-b border-slate-200 last:border-0"
+                    >
+                      <td className="p-4">
+                        <Link
+                          href={`/woningen/${woning.id}/meterstanden/${meterstand.id}`}
+                          className="font-semibold text-emerald-700 hover:underline"
+                        >
+                          {datum(meterstand.opnamedatum)}
+                        </Link>
+                      </td>
+
+                      <td className="p-4">
+                        {meterstand.bewoners_aantal}
+                      </td>
+
+                      <td className="p-4">
+                        {meterstand.elektriciteit_kwh ===
+                        null
+                          ? "—"
+                          : `${new Intl.NumberFormat(
+                              "nl-NL",
+                              {
+                                maximumFractionDigits: 3,
+                              }
+                            ).format(
+                              meterstand.elektriciteit_kwh
+                            )} kWh`}
+                      </td>
+
+                      <td className="p-4">
+                        {meterstand.gas_m3 === null
+                          ? "—"
+                          : `${new Intl.NumberFormat(
+                              "nl-NL",
+                              {
+                                maximumFractionDigits: 3,
+                              }
+                            ).format(
+                              meterstand.gas_m3
+                            )} m³`}
+                      </td>
+
+                      <td className="p-4">
+                        {meterstand.water_m3 === null
+                          ? "—"
+                          : `${new Intl.NumberFormat(
+                              "nl-NL",
+                              {
+                                maximumFractionDigits: 3,
+                              }
+                            ).format(
+                              meterstand.water_m3
+                            )} m³`}
+                      </td>
+
+                      <td className="p-4">
+                        {meterstand.opgenomen_door ||
+                          "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </section>

@@ -14,6 +14,7 @@
 - 0.4B Bewoners- en kamerbeheer
 - 0.5A Inspecties
 - 0.5B Meldingen en schade-opvolging
+- 0.5C Meterstanden en energieverbruik
 
 ## Volgende bouwblok
 
