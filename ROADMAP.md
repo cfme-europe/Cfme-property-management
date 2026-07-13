@@ -15,6 +15,7 @@
 - 0.5A Inspecties
 - 0.5B Meldingen en schade-opvolging
 - 0.5C Meterstanden en energieverbruik
+- 0.6A Maandrapportages
 
 ## Volgende bouwblok
 

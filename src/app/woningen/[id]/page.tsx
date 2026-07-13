@@ -13,6 +13,7 @@ import { getMeldingenVoorWoning } from "@/services/meldingen";
 import EnergieVerbruikGrafieken from "@/components/energie/EnergieVerbruikGrafieken";
 import EnergieVerbruikOverzicht from "@/components/energie/EnergieVerbruikOverzicht";
 import { getMeterstandenVoorWoning } from "@/services/meterstanden";
+import { getMaandrapportagesVoorWoning } from "@/services/maandrapportages";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,7 @@ export default async function WoningDossierPage({
     inspecties,
     meldingen,
     meterstanden,
+    maandrapportages,
   ] = await Promise.all([
     actieveVerhuur
       ? getHuurdersVoorVerhuurperiode(actieveVerhuur.id)
@@ -71,6 +73,7 @@ export default async function WoningDossierPage({
     getInspectiesVoorWoning(woningId),
     getMeldingenVoorWoning(woningId),
     getMeterstandenVoorWoning(woningId),
+    getMaandrapportagesVoorWoning(woningId),
   ]);
 
   if (!woning) {
@@ -233,6 +236,124 @@ export default async function WoningDossierPage({
                     : "niet verplicht"}
                 </p>
               </div>
+            </div>
+          )}
+        </section>
+
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold">
+                Maandrapportages
+              </h2>
+              <p className="mt-1 text-slate-600">
+                Rapportages voor inspecties, meldingen,
+                bewoners en energieverbruik.
+              </p>
+            </div>
+
+            <Link
+              href={`/woningen/${woning.id}/rapportages/nieuw`}
+              className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
+            >
+              Nieuwe rapportage
+            </Link>
+          </div>
+
+          {maandrapportages.length === 0 ? (
+            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
+              Nog geen maandrapportages aangemaakt.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[850px]">
+                <thead className="border-b bg-slate-100">
+                  <tr>
+                    <th className="p-4 text-left">
+                      Periode
+                    </th>
+                    <th className="p-4 text-left">
+                      Titel
+                    </th>
+                    <th className="p-4 text-left">
+                      Ontvanger
+                    </th>
+                    <th className="p-4 text-left">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {maandrapportages.map(
+                    (rapportage) => {
+                      const maandNaam =
+                        new Intl.DateTimeFormat(
+                          "nl-NL",
+                          { month: "long" }
+                        ).format(
+                          new Date(
+                            rapportage.rapportjaar,
+                            rapportage.rapportmaand - 1,
+                            1
+                          )
+                        );
+
+                      const statusLabels = {
+                        concept: "Concept",
+                        definitief: "Definitief",
+                        verzonden: "Verzonden",
+                      };
+
+                      return (
+                        <tr
+                          key={rapportage.id}
+                          className="border-b border-slate-200 last:border-0"
+                        >
+                          <td className="p-4 capitalize">
+                            {maandNaam}{" "}
+                            {rapportage.rapportjaar}
+                          </td>
+
+                          <td className="p-4">
+                            <Link
+                              href={`/woningen/${woning.id}/rapportages/${rapportage.id}`}
+                              className="font-semibold text-emerald-700 hover:underline"
+                            >
+                              {rapportage.titel}
+                            </Link>
+                          </td>
+
+                          <td className="p-4">
+                            {rapportage.ontvanger_naam ||
+                              "—"}
+                          </td>
+
+                          <td className="p-4">
+                            <span
+                              className={`rounded-full px-3 py-1 text-sm font-semibold ${
+                                rapportage.status ===
+                                "verzonden"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : rapportage.status ===
+                                      "definitief"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-slate-200 text-slate-700"
+                              }`}
+                            >
+                              {
+                                statusLabels[
+                                  rapportage.status
+                                ]
+                              }
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    }
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
         </section>
