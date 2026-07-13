@@ -199,3 +199,110 @@ export async function createVerhuurperiode(
 
   return data as Verhuurperiode;
 }
+
+export type VerhuurperiodeBeeindigen = {
+  verhuurperiode_id: number;
+  woning_id: number;
+  opzegdatum: string;
+  werkelijke_einddatum: string;
+  opleverdatum: string;
+};
+
+export async function beeindigVerhuurperiode(
+  invoer: VerhuurperiodeBeeindigen
+): Promise<Verhuurperiode> {
+  if (
+    !Number.isInteger(invoer.verhuurperiode_id) ||
+    invoer.verhuurperiode_id <= 0
+  ) {
+    throw new Error("Ongeldige verhuurperiode.");
+  }
+
+  if (!Number.isInteger(invoer.woning_id) || invoer.woning_id <= 0) {
+    throw new Error("Ongeldige woning.");
+  }
+
+  if (!invoer.opzegdatum) {
+    throw new Error("Opzegdatum is verplicht.");
+  }
+
+  if (!invoer.werkelijke_einddatum) {
+    throw new Error("Werkelijke einddatum is verplicht.");
+  }
+
+  if (!invoer.opleverdatum) {
+    throw new Error("Opleverdatum is verplicht.");
+  }
+
+  const { data: huidigePeriode, error: controleFout } = await supabase
+    .from("verhuurperiodes")
+    .select("id, woning_id, startdatum, status")
+    .eq("id", invoer.verhuurperiode_id)
+    .eq("woning_id", invoer.woning_id)
+    .maybeSingle();
+
+  if (controleFout) {
+    throw new Error(
+      `Verhuurperiode controleren mislukt: ${controleFout.message}`
+    );
+  }
+
+  if (!huidigePeriode) {
+    throw new Error("Verhuurperiode niet gevonden.");
+  }
+
+  if (huidigePeriode.status !== "actief") {
+    throw new Error("Deze verhuurperiode is niet meer actief.");
+  }
+
+  if (invoer.opzegdatum < huidigePeriode.startdatum) {
+    throw new Error("Opzegdatum mag niet vóór de startdatum liggen.");
+  }
+
+  if (invoer.werkelijke_einddatum < huidigePeriode.startdatum) {
+    throw new Error(
+      "Werkelijke einddatum mag niet vóór de startdatum liggen."
+    );
+  }
+
+  if (invoer.werkelijke_einddatum < invoer.opzegdatum) {
+    throw new Error(
+      "Werkelijke einddatum mag niet vóór de opzegdatum liggen."
+    );
+  }
+
+  if (invoer.opleverdatum < invoer.werkelijke_einddatum) {
+    throw new Error(
+      "Opleverdatum mag niet vóór de werkelijke einddatum liggen."
+    );
+  }
+
+  const { data, error } = await supabase
+    .from("verhuurperiodes")
+    .update({
+      opzegdatum: invoer.opzegdatum,
+      werkelijke_einddatum: invoer.werkelijke_einddatum,
+      opleverdatum: invoer.opleverdatum,
+      status: "beëindigd",
+    })
+    .eq("id", invoer.verhuurperiode_id)
+    .eq("woning_id", invoer.woning_id)
+    .eq("status", "actief")
+    .select(`
+      *,
+      bedrijf:bedrijven(*)
+    `)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Verhuurperiode beëindigen mislukt: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new Error(
+      "De verhuurperiode kon niet worden beëindigd. Vernieuw de pagina."
+    );
+  }
+
+  return data as Verhuurperiode;
+}

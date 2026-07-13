@@ -60,7 +60,14 @@ export default async function WoningDossierPage({
             ← Terug naar woningen
           </Link>
 
-          {!actieveVerhuur && (
+          {actieveVerhuur ? (
+            <Link
+              href={`/woningen/${woning.id}/verhuur/beeindigen`}
+              className="rounded-xl bg-red-700 px-5 py-3 font-medium text-white"
+            >
+              Verhuurperiode beëindigen
+            </Link>
+          ) : (
             <Link
               href={`/woningen/${woning.id}/verhuur/nieuw`}
               className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
@@ -200,11 +207,14 @@ export default async function WoningDossierPage({
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px]">
+              <table className="w-full min-w-[1200px]">
                 <thead className="border-b bg-slate-100">
                   <tr>
                     <th className="p-4 text-left">Bedrijf</th>
-                    <th className="p-4 text-left">Periode</th>
+                    <th className="p-4 text-left">Startdatum</th>
+                    <th className="p-4 text-left">Opzegdatum</th>
+                    <th className="p-4 text-left">Werkelijke einddatum</th>
+                    <th className="p-4 text-left">Opleverdatum</th>
                     <th className="p-4 text-left">Maandhuur</th>
                     <th className="p-4 text-left">Referentie</th>
                     <th className="p-4 text-left">Status</th>
@@ -232,11 +242,18 @@ export default async function WoningDossierPage({
 
                       <td className="p-4">
                         {datum(periode.startdatum)}
-                        {" – "}
-                        {datum(
-                          periode.werkelijke_einddatum ??
-                            periode.geplande_einddatum
-                        )}
+                      </td>
+
+                      <td className="p-4">
+                        {datum(periode.opzegdatum)}
+                      </td>
+
+                      <td className="p-4">
+                        {datum(periode.werkelijke_einddatum)}
+                      </td>
+
+                      <td className="p-4">
+                        {datum(periode.opleverdatum)}
                       </td>
 
                       <td className="p-4">
