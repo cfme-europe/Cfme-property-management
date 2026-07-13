@@ -9,6 +9,7 @@ import { getHuurdersVoorVerhuurperiode } from "@/services/huurders";
 import { getKamersVoorWoning } from "@/services/kamers";
 import { getBewonersVoorVerhuurperiode } from "@/services/bewoners";
 import { getInspectiesVoorWoning } from "@/services/inspecties";
+import { getMeldingenVoorWoning } from "@/services/meldingen";
 
 export const dynamic = "force-dynamic";
 
@@ -49,17 +50,23 @@ export default async function WoningDossierPage({
     getVerhuurhistorieVoorWoning(woningId),
   ]);
 
-  const [huurders, kamers, bewoners, inspecties] =
-    await Promise.all([
-      actieveVerhuur
-        ? getHuurdersVoorVerhuurperiode(actieveVerhuur.id)
-        : Promise.resolve([]),
-      getKamersVoorWoning(woningId),
-      actieveVerhuur
-        ? getBewonersVoorVerhuurperiode(actieveVerhuur.id)
-        : Promise.resolve([]),
-      getInspectiesVoorWoning(woningId),
-    ]);
+  const [
+    huurders,
+    kamers,
+    bewoners,
+    inspecties,
+    meldingen,
+  ] = await Promise.all([
+    actieveVerhuur
+      ? getHuurdersVoorVerhuurperiode(actieveVerhuur.id)
+      : Promise.resolve([]),
+    getKamersVoorWoning(woningId),
+    actieveVerhuur
+      ? getBewonersVoorVerhuurperiode(actieveVerhuur.id)
+      : Promise.resolve([]),
+    getInspectiesVoorWoning(woningId),
+    getMeldingenVoorWoning(woningId),
+  ]);
 
   if (!woning) {
     notFound();
@@ -222,6 +229,190 @@ export default async function WoningDossierPage({
                 </p>
               </div>
             </div>
+          )}
+        </section>
+
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold">Meldingen</h2>
+              <p className="mt-1 text-slate-600">
+                Schades, onderhoud en overige opvolgpunten.
+              </p>
+            </div>
+
+            <Link
+              href={`/woningen/${woning.id}/meldingen/nieuw`}
+              className="rounded-xl bg-amber-700 px-5 py-3 font-medium text-white"
+            >
+              Nieuwe melding
+            </Link>
+          </div>
+
+          {meldingen.length === 0 ? (
+            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
+              Nog geen meldingen geregistreerd.
+            </p>
+          ) : (
+            <>
+              <div className="mb-5 grid gap-4 sm:grid-cols-3">
+                <div className="rounded-xl bg-slate-100 p-4">
+                  <p className="text-sm text-slate-500">
+                    Totaal
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {meldingen.length}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-amber-50 p-4">
+                  <p className="text-sm text-amber-700">
+                    Openstaand
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-amber-900">
+                    {
+                      meldingen.filter(
+                        (melding) =>
+                          melding.status !== "opgelost"
+                      ).length
+                    }
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-red-50 p-4">
+                  <p className="text-sm text-red-700">
+                    Hoog of spoed
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-red-900">
+                    {
+                      meldingen.filter(
+                        (melding) =>
+                          melding.status !== "opgelost" &&
+                          (
+                            melding.prioriteit === "hoog" ||
+                            melding.prioriteit === "spoed"
+                          )
+                      ).length
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[950px]">
+                  <thead className="border-b bg-slate-100">
+                    <tr>
+                      <th className="p-4 text-left">
+                        Datum
+                      </th>
+                      <th className="p-4 text-left">
+                        Melding
+                      </th>
+                      <th className="p-4 text-left">
+                        Categorie
+                      </th>
+                      <th className="p-4 text-left">
+                        Prioriteit
+                      </th>
+                      <th className="p-4 text-left">
+                        Verantwoordelijke
+                      </th>
+                      <th className="p-4 text-left">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {meldingen.map((melding) => {
+                      const categorieLabels = {
+                        schade: "Schade",
+                        onderhoud: "Onderhoud",
+                        veiligheid: "Veiligheid",
+                        schoonmaak: "Schoonmaak",
+                        installatie: "Installatie",
+                        overig: "Overig",
+                      };
+
+                      const prioriteitLabels = {
+                        laag: "Laag",
+                        normaal: "Normaal",
+                        hoog: "Hoog",
+                        spoed: "Spoed",
+                      };
+
+                      const statusLabels = {
+                        open: "Open",
+                        in_behandeling:
+                          "In behandeling",
+                        opgelost: "Opgelost",
+                      };
+
+                      return (
+                        <tr
+                          key={melding.id}
+                          className="border-b border-slate-200 last:border-0"
+                        >
+                          <td className="p-4">
+                            {datum(melding.melddatum)}
+                          </td>
+
+                          <td className="p-4">
+                            <Link
+                              href={`/woningen/${woning.id}/meldingen/${melding.id}`}
+                              className="font-semibold text-amber-800 hover:underline"
+                            >
+                              {melding.titel}
+                            </Link>
+                          </td>
+
+                          <td className="p-4">
+                            {
+                              categorieLabels[
+                                melding.categorie
+                              ]
+                            }
+                          </td>
+
+                          <td className="p-4">
+                            {
+                              prioriteitLabels[
+                                melding.prioriteit
+                              ]
+                            }
+                          </td>
+
+                          <td className="p-4">
+                            {melding.verantwoordelijke ||
+                              "—"}
+                          </td>
+
+                          <td className="p-4">
+                            <span
+                              className={`rounded-full px-3 py-1 text-sm font-semibold ${
+                                melding.status ===
+                                "opgelost"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : melding.status ===
+                                      "in_behandeling"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-amber-100 text-amber-800"
+                              }`}
+                            >
+                              {
+                                statusLabels[
+                                  melding.status
+                                ]
+                              }
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </section>
 

@@ -12,6 +12,8 @@
 - 0.3D Verhuurperiode beëindigen
 - 0.4A Huurdersbeheer
 - 0.4B Bewoners- en kamerbeheer
+- 0.5A Inspecties
+- 0.5B Meldingen en schade-opvolging
 
 ## Volgende bouwblok
 
