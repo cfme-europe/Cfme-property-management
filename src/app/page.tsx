@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-10 text-slate-900">
@@ -23,7 +25,7 @@ export default function Home() {
           <h2 className="text-xl font-semibold">Snelle acties</h2>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <a href="/woningen/nieuw" className="rounded-xl bg-emerald-700 px-4 py-3 text-left font-medium text-white">Woning toevoegen</a>
+            <Link href="/woningen/nieuw" className="rounded-xl bg-emerald-700 px-4 py-3 text-left font-medium text-white">Woning toevoegen</Link>
             <Button text="Inspectie starten" />
             <Button text="Melding toevoegen" />
             <Button text="Meterstanden invoeren" />
