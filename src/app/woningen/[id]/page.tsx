@@ -84,6 +84,13 @@ export default async function WoningDossierPage({
               Nieuwe inspectie
             </Link>
 
+            <Link
+              href={`/woningen/${woning.id}/meldingen/nieuw`}
+              className="rounded-xl border border-amber-700 px-5 py-3 font-medium text-amber-800"
+            >
+              Nieuwe melding
+            </Link>
+
           {actieveVerhuur ? (
             <Link
               href={`/woningen/${woning.id}/verhuur/beeindigen`}
