@@ -17,6 +17,7 @@
 - 0.5C Meterstanden en energieverbruik
 - 0.6A Maandrapportages
 - 0.6A-4 PDF-generatie maandrapport
+- 0.7A Managementdashboard
 
 ## Volgende bouwblok
 
