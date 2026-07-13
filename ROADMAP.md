@@ -10,21 +10,11 @@
 - 0.3B Nieuwe verhuurperiode starten
 - 0.3C Actieve verhuur en huurhistorie
 - 0.3D Verhuurperiode beëindigen
+- 0.4A Huurdersbeheer
 
 ## Volgende bouwblok
 
-### 0.4A Huurdersbeheer
-
-Bouw:
-- huurder aan actieve verhuurperiode koppelen;
-- persoonsgegevens opslaan;
-- contactgegevens;
-- geboortedatum;
-- nationaliteit;
-- ID- of paspoortnummer;
-- opmerkingen;
-- volledige CRUD;
-- bereikbaar vanuit woningdossier.
+Nog te bepalen.
 
 ## Vaste werkwijze
 

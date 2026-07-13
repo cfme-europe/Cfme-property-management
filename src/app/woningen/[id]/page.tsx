@@ -5,6 +5,7 @@ import {
   getActieveVerhuurperiodeVoorWoning,
   getVerhuurhistorieVoorWoning,
 } from "@/services/verhuurperiodes";
+import { getHuurdersVoorVerhuurperiode } from "@/services/huurders";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,10 @@ export default async function WoningDossierPage({
     getActieveVerhuurperiodeVoorWoning(woningId),
     getVerhuurhistorieVoorWoning(woningId),
   ]);
+
+  const huurders = actieveVerhuur
+    ? await getHuurdersVoorVerhuurperiode(actieveVerhuur.id)
+    : [];
 
   if (!woning) {
     notFound();
@@ -189,6 +194,64 @@ export default async function WoningDossierPage({
                     : "niet verplicht"}
                 </p>
               </div>
+            </div>
+          )}
+        </section>
+
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold">Huurders</h2>
+              <p className="mt-1 text-slate-600">
+                Bewoners binnen de actieve verhuurperiode.
+              </p>
+            </div>
+
+            {actieveVerhuur && (
+              <Link
+                href={`/woningen/${woning.id}/huurders/nieuw`}
+                className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
+              >
+                Huurder toevoegen
+              </Link>
+            )}
+          </div>
+
+          {!actieveVerhuur ? (
+            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
+              Start eerst een verhuurperiode om huurders te registreren.
+            </p>
+          ) : huurders.length === 0 ? (
+            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
+              Nog geen huurders geregistreerd.
+            </p>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {huurders.map((huurder) => {
+                const volledigeNaam = [
+                  huurder.voornaam,
+                  huurder.tussenvoegsel,
+                  huurder.achternaam,
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                return (
+                  <Link
+                    key={huurder.id}
+                    href={`/woningen/${woning.id}/huurders/${huurder.id}`}
+                    className="rounded-xl border border-slate-200 p-5 transition hover:border-emerald-600 hover:shadow"
+                  >
+                    <p className="font-semibold">{volledigeNaam}</p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      {huurder.telefoon || "Geen telefoonnummer"}
+                    </p>
+                    <p className="text-sm text-slate-600">
+                      {huurder.email || "Geen e-mailadres"}
+                    </p>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </section>
