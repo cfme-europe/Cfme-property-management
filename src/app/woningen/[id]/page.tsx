@@ -8,6 +8,7 @@ import {
 import { getHuurdersVoorVerhuurperiode } from "@/services/huurders";
 import { getKamersVoorWoning } from "@/services/kamers";
 import { getBewonersVoorVerhuurperiode } from "@/services/bewoners";
+import { getInspectiesVoorWoning } from "@/services/inspecties";
 
 export const dynamic = "force-dynamic";
 
@@ -48,15 +49,17 @@ export default async function WoningDossierPage({
     getVerhuurhistorieVoorWoning(woningId),
   ]);
 
-  const [huurders, kamers, bewoners] = await Promise.all([
-    actieveVerhuur
-      ? getHuurdersVoorVerhuurperiode(actieveVerhuur.id)
-      : Promise.resolve([]),
-    getKamersVoorWoning(woningId),
-    actieveVerhuur
-      ? getBewonersVoorVerhuurperiode(actieveVerhuur.id)
-      : Promise.resolve([]),
-  ]);
+  const [huurders, kamers, bewoners, inspecties] =
+    await Promise.all([
+      actieveVerhuur
+        ? getHuurdersVoorVerhuurperiode(actieveVerhuur.id)
+        : Promise.resolve([]),
+      getKamersVoorWoning(woningId),
+      actieveVerhuur
+        ? getBewonersVoorVerhuurperiode(actieveVerhuur.id)
+        : Promise.resolve([]),
+      getInspectiesVoorWoning(woningId),
+    ]);
 
   if (!woning) {
     notFound();
@@ -212,6 +215,185 @@ export default async function WoningDossierPage({
                 </p>
               </div>
             </div>
+          )}
+        </section>
+
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold">Inspecties</h2>
+              <p className="mt-1 text-slate-600">
+                Inspectiehistorie en openstaande controles.
+              </p>
+            </div>
+
+            <Link
+              href={`/woningen/${woning.id}/inspecties/nieuw`}
+              className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
+            >
+              Nieuwe inspectie
+            </Link>
+          </div>
+
+          {inspecties.length === 0 ? (
+            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
+              Nog geen inspecties geregistreerd.
+            </p>
+          ) : (
+            <>
+              <div className="mb-5 grid gap-4 sm:grid-cols-3">
+                <div className="rounded-xl bg-slate-100 p-4">
+                  <p className="text-sm text-slate-500">
+                    Totaal
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {inspecties.length}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-amber-50 p-4">
+                  <p className="text-sm text-amber-700">
+                    Open
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-amber-900">
+                    {
+                      inspecties.filter(
+                        (inspectie) =>
+                          inspectie.status === "open"
+                      ).length
+                    }
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-red-50 p-4">
+                  <p className="text-sm text-red-700">
+                    Met schade
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-red-900">
+                    {
+                      inspecties.filter(
+                        (inspectie) =>
+                          inspectie.schade_aanwezig
+                      ).length
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[950px]">
+                  <thead className="border-b bg-slate-100">
+                    <tr>
+                      <th className="p-4 text-left">
+                        Datum
+                      </th>
+                      <th className="p-4 text-left">
+                        Type
+                      </th>
+                      <th className="p-4 text-left">
+                        Toestand
+                      </th>
+                      <th className="p-4 text-left">
+                        Orde en netheid
+                      </th>
+                      <th className="p-4 text-left">
+                        Schade
+                      </th>
+                      <th className="p-4 text-left">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {inspecties.map((inspectie) => {
+                      const typeLabels = {
+                        begininspectie:
+                          "Begininspectie",
+                        periodiek:
+                          "Periodiek",
+                        eindinspectie:
+                          "Eindinspectie",
+                        incident:
+                          "Incident",
+                      };
+
+                      const toestandLabels = {
+                        goed: "Goed",
+                        aandacht_nodig:
+                          "Aandacht nodig",
+                        slecht: "Slecht",
+                      };
+
+                      return (
+                        <tr
+                          key={inspectie.id}
+                          className="border-b border-slate-200 last:border-0"
+                        >
+                          <td className="p-4">
+                            <Link
+                              href={`/woningen/${woning.id}/inspecties/${inspectie.id}`}
+                              className="font-semibold text-emerald-700 hover:underline"
+                            >
+                              {datum(
+                                inspectie.inspectiedatum
+                              )}
+                            </Link>
+                          </td>
+
+                          <td className="p-4">
+                            {
+                              typeLabels[
+                                inspectie.type
+                              ]
+                            }
+                          </td>
+
+                          <td className="p-4">
+                            {
+                              toestandLabels[
+                                inspectie
+                                  .algemene_toestand
+                              ]
+                            }
+                          </td>
+
+                          <td className="p-4">
+                            {
+                              inspectie
+                                .orde_netheid_score
+                            }{" "}
+                            van 5
+                          </td>
+
+                          <td className="p-4">
+                            {inspectie.schade_aanwezig
+                              ? "Ja"
+                              : "Nee"}
+                          </td>
+
+                          <td className="p-4">
+                            <span
+                              className={`rounded-full px-3 py-1 text-sm font-semibold ${
+                                inspectie.status ===
+                                "afgerond"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-amber-100 text-amber-800"
+                              }`}
+                            >
+                              {inspectie.status ===
+                              "afgerond"
+                                ? "Afgerond"
+                                : "Open"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </section>
 
