@@ -30,9 +30,12 @@ develop
 
 ## 0.4
 
-- 0.4A Huurders
-- 0.4B Kamers
-- 0.4C Bewoners ↔ kamers
+- 0.4A Huurders ✅
+
+- 0.4B Kamers ✅
+
+- 0.4C Bewoners ↔ kamers ✅
+
 
 ## 0.5
 
