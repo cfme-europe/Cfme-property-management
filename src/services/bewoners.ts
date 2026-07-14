@@ -227,3 +227,41 @@ export async function deleteBewoner(
     );
   }
 }
+
+export async function uitcheckBewoner(
+  bewonerId: number,
+  verhuurperiodeId: number,
+  uitcheckdatum: string
+): Promise<Bewoner> {
+  if (!Number.isInteger(bewonerId) || bewonerId <= 0) {
+    throw new Error("Ongeldige bewoner.")
+  }
+
+  const bestaand = await getBewonerById(bewonerId)
+  if (!bestaand) {
+  throw new Error("Bewoner niet gevonden.")
+}
+
+  if (bestaand.uitcheckdatum) {
+    throw new Error("Bewoner is al uitgecheckt.")
+  }
+
+  if (uitcheckdatum < bestaand.incheckdatum) {
+    throw new Error("Uitcheckdatum ligt vóór de incheckdatum.")
+  }
+
+  const invoer: BewonerInvoer = {
+    verhuurperiode_id: bestaand.verhuurperiode_id,
+    huurder_id: bestaand.huurder_id,
+    kamer_id: null,
+    voornaam: bestaand.voornaam,
+    tussenvoegsel: bestaand.tussenvoegsel,
+    achternaam: bestaand.achternaam,
+    incheckdatum: bestaand.incheckdatum,
+    uitcheckdatum,
+    status: "uitgecheckt",
+    opmerkingen: bestaand.opmerkingen,
+  }
+
+  return updateBewoner(bewonerId, invoer)
+}
