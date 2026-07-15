@@ -2,7 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import BewonerVerwijderenButton from "@/components/bewoners/BewonerVerwijderenButton";
 import BewonerVerhuizenButton from "@/components/bewoners/BewonerVerhuizenButton";
-import { getBewonerById } from "@/services/bewoners";
+import {
+  getBewonerById,
+  getBewonerKamerHistorie,
+} from "@/services/bewoners";
 import { getKamersVoorWoning } from "@/services/kamers";
 import { getWoningById } from "@/services/woningen";
 
@@ -39,11 +42,12 @@ export default async function BewonerDetailPage({
     notFound();
   }
 
-  const [woning, bewoner, kamers] = await Promise.all([
-    getWoningById(woningId),
-    getBewonerById(bewonerNummer),
-    getKamersVoorWoning(woningId),
-  ]);
+  const [woning, bewoner, kamers, kamerHistorie] = await Promise.all([
+  getWoningById(woningId),
+  getBewonerById(bewonerNummer),
+  getKamersVoorWoning(woningId),
+  getBewonerKamerHistorie(bewonerNummer),
+]);
 
   if (!woning || !bewoner) {
     notFound();

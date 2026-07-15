@@ -358,3 +358,22 @@ export async function verhuisBewoner(
 
   return updateBewoner(bewonerId, invoer)
 }
+export async function getBewonerKamerHistorie(bewonerId: number) {
+  if (!Number.isInteger(bewonerId) || bewonerId <= 0) {
+    throw new Error("Ongeldige bewoner.")
+  }
+
+  const { data, error } = await supabase
+    .from("bewoner_kamerhistorie")
+    .select("*")
+    .eq("bewoner_id", bewonerId)
+    .order("verhuisdatum", { ascending: false })
+
+  if (error) {
+    throw new Error(
+      `Kamerhistorie ophalen mislukt: ${error.message}`
+    )
+  }
+
+  return data ?? []
+}
