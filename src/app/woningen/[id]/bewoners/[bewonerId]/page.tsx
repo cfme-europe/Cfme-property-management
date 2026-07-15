@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BewonerVerwijderenButton from "@/components/bewoners/BewonerVerwijderenButton";
+import BewonerVerhuizenButton from "@/components/bewoners/BewonerVerhuizenButton";
 import { getBewonerById } from "@/services/bewoners";
+import { getKamersVoorWoning } from "@/services/kamers";
 import { getWoningById } from "@/services/woningen";
 
 export const dynamic = "force-dynamic";
@@ -37,9 +39,10 @@ export default async function BewonerDetailPage({
     notFound();
   }
 
-  const [woning, bewoner] = await Promise.all([
+  const [woning, bewoner, kamers] = await Promise.all([
     getWoningById(woningId),
     getBewonerById(bewonerNummer),
+    getKamersVoorWoning(woningId),
   ]);
 
   if (!woning || !bewoner) {
@@ -146,7 +149,6 @@ export default async function BewonerDetailPage({
               </dd>
             </div>
           </dl>
-
           <div className="mt-8">
             <p className="text-sm text-slate-500">
               Opmerkingen
@@ -158,13 +160,19 @@ export default async function BewonerDetailPage({
             </p>
           </div>
 
-          <div className="mt-8 border-t border-slate-200 pt-6">
+          <div className="mt-8 flex flex-wrap gap-3 border-t border-slate-200 pt-6">
+            <BewonerVerhuizenButton
+              bewonerId={bewoner.id}
+              verhuurperiodeId={bewoner.verhuurperiode_id}
+              huidigeKamerId={bewoner.kamer_id}
+              kamers={kamers}
+              naam={naam}
+            />
+
             <BewonerVerwijderenButton
               woningId={woning.id}
               bewonerId={bewoner.id}
-              verhuurperiodeId={
-                bewoner.verhuurperiode_id
-              }
+              verhuurperiodeId={bewoner.verhuurperiode_id}
               naam={naam}
             />
           </div>
