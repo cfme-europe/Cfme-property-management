@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { registreerWorkflowGebeurtenis } from "@/services/workflow";
 import type {
   Inspectie,
   InspectieInvoer,
@@ -170,7 +171,32 @@ export async function createInspectie(
     );
   }
 
-  return data as Inspectie;
+  const inspectie = data as Inspectie;
+
+  await registreerWorkflowGebeurtenis({
+    woning_id: inspectie.woning_id,
+    controlesessie_id: null,
+    gebeurtenis_type: inspectie.schade_aanwezig
+      ? "inspectie.schade_vastgesteld"
+      : "inspectie.aangemaakt",
+    bron_type: "inspectie",
+    bron_id: inspectie.id,
+    prioriteit: inspectie.schade_aanwezig
+      ? "hoog"
+      : "normaal",
+    deduplicatie_sleutel: `inspectie:${inspectie.id}:aangemaakt`,
+    payload: {
+      inspectie_type: inspectie.type,
+      inspectiedatum: inspectie.inspectiedatum,
+      status: inspectie.status,
+      algemene_toestand: inspectie.algemene_toestand,
+      orde_netheid_score: inspectie.orde_netheid_score,
+      schade_aanwezig: inspectie.schade_aanwezig,
+      schade_omschrijving: inspectie.schade_omschrijving,
+    },
+  });
+
+  return inspectie;
 }
 
 export async function updateInspectie(

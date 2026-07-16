@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { registreerWorkflowGebeurtenis } from "@/services/workflow";
 import type {
   Melding,
   MeldingInvoer,
@@ -213,7 +214,29 @@ export async function createMelding(
     );
   }
 
-  return data as Melding;
+  const melding = data as Melding;
+
+  await registreerWorkflowGebeurtenis({
+    woning_id: melding.woning_id,
+    controlesessie_id: null,
+    gebeurtenis_type: "melding.aangemaakt",
+    bron_type: "melding",
+    bron_id: melding.id,
+    prioriteit: melding.prioriteit,
+    deduplicatie_sleutel: `melding:${melding.id}:aangemaakt`,
+    payload: {
+      titel: melding.titel,
+      omschrijving: melding.omschrijving,
+      categorie: melding.categorie,
+      prioriteit: melding.prioriteit,
+      status: melding.status,
+      inspectie_id: melding.inspectie_id,
+      melddatum: melding.melddatum,
+      factuur_naar: melding.factuur_naar,
+    },
+  });
+
+  return melding;
 }
 
 export async function updateMelding(

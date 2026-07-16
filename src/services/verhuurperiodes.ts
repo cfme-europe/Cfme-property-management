@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { registreerWorkflowGebeurtenis } from "@/services/workflow";
 import type { Verhuurperiode } from "@/types/verhuurperiode";
 
 export async function getActieveVerhuurperiodeVoorWoning(
@@ -197,7 +198,28 @@ export async function createVerhuurperiode(
     throw new Error(`Verhuurperiode opslaan mislukt: ${error.message}`);
   }
 
-  return data as Verhuurperiode;
+  const verhuurperiode = data as Verhuurperiode;
+
+  await registreerWorkflowGebeurtenis({
+    woning_id: verhuurperiode.woning_id,
+    controlesessie_id: null,
+    gebeurtenis_type: "verhuurperiode.gestart",
+    bron_type: "verhuurperiode",
+    bron_id: verhuurperiode.id,
+    prioriteit: "hoog",
+    deduplicatie_sleutel:
+      `verhuurperiode:${verhuurperiode.id}:gestart`,
+    payload: {
+      bedrijf_id: verhuurperiode.bedrijf_id,
+      startdatum: verhuurperiode.startdatum,
+      geplande_einddatum:
+        verhuurperiode.geplande_einddatum,
+      begininspectie_verplicht:
+        verhuurperiode.begininspectie_verplicht,
+    },
+  });
+
+  return verhuurperiode;
 }
 
 export type VerhuurperiodeBeeindigen = {
@@ -304,5 +326,27 @@ export async function beeindigVerhuurperiode(
     );
   }
 
-  return data as Verhuurperiode;
+  const verhuurperiode = data as Verhuurperiode;
+
+  await registreerWorkflowGebeurtenis({
+    woning_id: verhuurperiode.woning_id,
+    controlesessie_id: null,
+    gebeurtenis_type: "verhuurperiode.beeindigd",
+    bron_type: "verhuurperiode",
+    bron_id: verhuurperiode.id,
+    prioriteit: "hoog",
+    deduplicatie_sleutel:
+      `verhuurperiode:${verhuurperiode.id}:beeindigd`,
+    payload: {
+      bedrijf_id: verhuurperiode.bedrijf_id,
+      opzegdatum: verhuurperiode.opzegdatum,
+      werkelijke_einddatum:
+        verhuurperiode.werkelijke_einddatum,
+      opleverdatum: verhuurperiode.opleverdatum,
+      eindinspectie_verplicht:
+        verhuurperiode.eindinspectie_verplicht,
+    },
+  });
+
+  return verhuurperiode;
 }
