@@ -158,3 +158,21 @@ Een release is pas gereed wanneer:
 - git diff --cached gecontroleerd
 - commit
 - push
+
+<!-- BP-ARCH-001 -->
+## Enterprise-bouwpakketten
+
+De verdere ontwikkeling volgt de bouwpakketstructuur uit
+`docs/ENTERPRISE-BLUEPRINT.md`.
+
+Volgorde:
+
+1. BP-ARCH-001 — Enterprise Blueprint
+2. BP-CORE-001 — Controlesessie en Gebeurtenis Engine
+3. BP-CORE-002 — Workflow Engine
+4. BP-INTELLIGENCE — Woning-DNA, trends en controlebriefing
+5. BP-PLAN — Rayon- en taaktoewijzing
+6. BP-REPORT — Modulair rapportplatform
+7. BP-ADMIN — Rollen, rechten en instellingen
+
+De bestaande versienummers blijven historische projectmijlpalen.

@@ -169,3 +169,15 @@ Wanneer implementatie en documentatie verschillen:
 2. implementatie corrigeren of documentatie bijwerken;
 3. repository weer synchroon maken.
 
+<!-- BP-ARCH-001 -->
+## Enterprise-platformarchitectuur
+
+De actuele platformarchitectuur is vastgelegd in
+`docs/ENTERPRISE-BLUEPRINT.md`.
+
+Nieuwe functionaliteit volgt centraal de keten:
+
+Planning → Controlesessie → Gebeurtenis → Intelligence → Workflow →
+Opvolging → Rapportage.
+
+Operationele tabellen worden stapsgewijs aangesloten en niet onnodig vervangen.
