@@ -14,6 +14,8 @@ import EnergieVerbruikGrafieken from "@/components/energie/EnergieVerbruikGrafie
 import EnergieVerbruikOverzicht from "@/components/energie/EnergieVerbruikOverzicht";
 import { getMeterstandenVoorWoning } from "@/services/meterstanden";
 import { getMaandrapportagesVoorWoning } from "@/services/maandrapportages";
+import { getLaatsteWoningDnaVoorWoning } from "@/services/intelligence";
+import WoningDnaOverzicht from "@/components/intelligence/WoningDnaOverzicht";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +64,7 @@ export default async function WoningDossierPage({
     meldingen,
     meterstanden,
     maandrapportages,
+    woningDna,
   ] = await Promise.all([
     actieveVerhuur
       ? getHuurdersVoorVerhuurperiode(actieveVerhuur.id)
@@ -74,6 +77,7 @@ export default async function WoningDossierPage({
     getMeldingenVoorWoning(woningId),
     getMeterstandenVoorWoning(woningId),
     getMaandrapportagesVoorWoning(woningId),
+    getLaatsteWoningDnaVoorWoning(woningId),
   ]);
 
   if (!woning) {
@@ -135,6 +139,8 @@ export default async function WoningDossierPage({
             {woning.postcode} {woning.plaats}
           </p>
         </header>
+
+        <WoningDnaOverzicht snapshot={woningDna} />
 
         <section className="mb-8 rounded-2xl bg-white p-6 shadow">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
