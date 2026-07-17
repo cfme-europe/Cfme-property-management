@@ -15,7 +15,9 @@ import EnergieVerbruikOverzicht from "@/components/energie/EnergieVerbruikOverzi
 import { getMeterstandenVoorWoning } from "@/services/meterstanden";
 import { getMaandrapportagesVoorWoning } from "@/services/maandrapportages";
 import { getLaatsteWoningDnaVoorWoning } from "@/services/intelligence";
+import { getActieveControlebriefingVoorWoning } from "@/services/intelligence-server";
 import WoningDnaOverzicht from "@/components/intelligence/WoningDnaOverzicht";
+import ControlebriefingOverzicht from "@/components/intelligence/ControlebriefingOverzicht";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +67,7 @@ export default async function WoningDossierPage({
     meterstanden,
     maandrapportages,
     woningDna,
+    controlebriefing,
   ] = await Promise.all([
     actieveVerhuur
       ? getHuurdersVoorVerhuurperiode(actieveVerhuur.id)
@@ -78,6 +81,7 @@ export default async function WoningDossierPage({
     getMeterstandenVoorWoning(woningId),
     getMaandrapportagesVoorWoning(woningId),
     getLaatsteWoningDnaVoorWoning(woningId),
+    getActieveControlebriefingVoorWoning(woningId),
   ]);
 
   if (!woning) {
@@ -141,6 +145,10 @@ export default async function WoningDossierPage({
         </header>
 
         <WoningDnaOverzicht snapshot={woningDna} />
+
+        <ControlebriefingOverzicht
+          gegevens={controlebriefing}
+        />
 
         <section className="mb-8 rounded-2xl bg-white p-6 shadow">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
