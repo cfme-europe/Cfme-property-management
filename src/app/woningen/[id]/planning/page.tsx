@@ -44,12 +44,21 @@ export default async function WoningPlanningPage({
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-900 sm:px-6">
       <div className="mx-auto max-w-5xl">
-        <Link
-          href={`/woningen/${woning.id}`}
-          className="font-medium text-blue-700 hover:underline"
-        >
-          ← Terug naar woningdossier
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <Link
+            href={`/woningen/${woning.id}`}
+            className="font-medium text-blue-700 hover:underline"
+          >
+            ← Terug naar woningdossier
+          </Link>
+
+          <Link
+            href="/planning/rayons"
+            className="rounded-xl border border-blue-700 px-5 py-3 font-medium text-blue-700 hover:bg-blue-50"
+          >
+            Rayons beheren
+          </Link>
+        </div>
 
         <header className="my-6 rounded-2xl bg-white p-6 shadow">
           <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
