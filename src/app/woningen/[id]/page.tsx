@@ -18,6 +18,8 @@ import { getLaatsteWoningDnaVoorWoning } from "@/services/intelligence";
 import { getActieveControlebriefingVoorWoning } from "@/services/intelligence-server";
 import WoningDnaOverzicht from "@/components/intelligence/WoningDnaOverzicht";
 import ControlebriefingOverzicht from "@/components/intelligence/ControlebriefingOverzicht";
+import WoningPlanningOverzicht from "@/components/planning/WoningPlanningOverzicht";
+import { getActieveWoningplanning } from "@/services/planning";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +70,7 @@ export default async function WoningDossierPage({
     maandrapportages,
     woningDna,
     controlebriefing,
+    woningplanning,
   ] = await Promise.all([
     actieveVerhuur
       ? getHuurdersVoorVerhuurperiode(actieveVerhuur.id)
@@ -82,6 +85,7 @@ export default async function WoningDossierPage({
     getMaandrapportagesVoorWoning(woningId),
     getLaatsteWoningDnaVoorWoning(woningId),
     getActieveControlebriefingVoorWoning(woningId),
+    getActieveWoningplanning(woningId),
   ]);
 
   if (!woning) {
@@ -143,6 +147,11 @@ export default async function WoningDossierPage({
             {woning.postcode} {woning.plaats}
           </p>
         </header>
+
+        <WoningPlanningOverzicht
+          woningId={woning.id}
+          planning={woningplanning}
+        />
 
         <WoningDnaOverzicht snapshot={woningDna} />
 

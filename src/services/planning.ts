@@ -152,6 +152,28 @@ export async function getActieveProfielen(): Promise<
   return (data ?? []) as ProfielSamenvatting[];
 }
 
+export async function getActieveWoningRayonToewijzing(
+  woningId: number
+): Promise<WoningRayonToewijzing | null> {
+  valideerId(woningId, "woning");
+
+  const { data, error } = await supabase
+    .from("woning_rayon_toewijzingen")
+    .select("*")
+    .eq("woning_id", woningId)
+    .eq("actief", true)
+    .is("geldig_tot", null)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Actieve rayontoewijzing ophalen mislukt: ${error.message}`
+    );
+  }
+
+  return data as WoningRayonToewijzing | null;
+}
+
 export async function getActieveWoningplanning(
   woningId: number
 ): Promise<ActieveWoningplanning | null> {
