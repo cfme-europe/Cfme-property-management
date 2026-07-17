@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   createRayon,
   updateRayon,
-} from "@/services/planning";
+} from "@/services/planning-client";
 import type {
   ProfielSamenvatting,
   Rayon,

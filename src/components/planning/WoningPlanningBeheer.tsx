@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   beeindigWoningRayonToewijzing,
   wijsWoningToeAanRayon,
-} from "@/services/planning";
+} from "@/services/planning-client";
 import type {
   ActieveWoningplanning,
   ProfielSamenvatting,
