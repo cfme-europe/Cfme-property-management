@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getWoningen } from "@/services/woningen-server";
+import { getWoningen } from "@/services/woningen";
 import type { Woning } from "@/types/woning";
 
 export const dynamic = "force-dynamic";
