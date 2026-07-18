@@ -7,7 +7,7 @@ import {
   getActieveWoningRayonToewijzing,
   getRayons,
 } from "@/services/planning";
-import { getWoningById } from "@/services/woningen";
+import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";
 

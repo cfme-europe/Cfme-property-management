@@ -5,7 +5,7 @@ import InspectieFotoUpload from "@/components/inspecties/InspectieFotoUpload";
 import InspectieVerwijderenButton from "@/components/inspecties/InspectieVerwijderenButton";
 import { getInspectieFotos } from "@/services/inspectiefotos";
 import { getInspectieById } from "@/services/inspecties";
-import { getWoningById } from "@/services/woningen";
+import { getWoningById } from "@/services/woningen-server";
 import type {
   AlgemeneToestand,
   InspectieStatus,

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import VerhuurperiodeBeeindigenForm from "@/components/verhuur/VerhuurperiodeBeeindigenForm";
 import { getActieveVerhuurperiodeVoorWoning } from "@/services/verhuurperiodes";
-import { getWoningById } from "@/services/woningen";
+import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";
 

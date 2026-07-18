@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import MeldingForm from "@/components/meldingen/MeldingForm";
 import { getInspectiesVoorWoning } from "@/services/inspecties";
 import { getMeldingById } from "@/services/meldingen";
-import { getWoningById } from "@/services/woningen";
+import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";
 

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import MeterstandForm from "@/components/meterstanden/MeterstandForm";
 import { getBewonersVoorVerhuurperiode } from "@/services/bewoners";
 import { getActieveVerhuurperiodeVoorWoning } from "@/services/verhuurperiodes";
-import { getWoningById } from "@/services/woningen";
+import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";
 

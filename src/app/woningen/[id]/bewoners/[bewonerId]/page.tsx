@@ -7,7 +7,7 @@ import {
   getBewonerKamerHistorie,
 } from "@/services/bewoners";
 import { getKamersVoorWoning } from "@/services/kamers";
-import { getWoningById } from "@/services/woningen";
+import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";
 

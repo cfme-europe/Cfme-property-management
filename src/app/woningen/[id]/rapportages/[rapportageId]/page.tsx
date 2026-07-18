@@ -5,7 +5,7 @@ import MaandrapportageVerwijderenButton from "@/components/rapportages/Maandrapp
 import RapportageGenererenButton from "@/components/rapportages/RapportageGenererenButton";
 import RapportagePdfButton from "@/components/rapportages/RapportagePdfButton";
 import { getMaandrapportageById } from "@/services/maandrapportages";
-import { getWoningById } from "@/services/woningen";
+import { getWoningById } from "@/services/woningen-server";
 import type { MaandrapportageStatus } from "@/types/maandrapportage";
 
 export const dynamic = "force-dynamic";
