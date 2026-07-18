@@ -5,98 +5,13 @@ import type {
   ActieveWoningplanning,
   ProfielSamenvatting,
   Rayon,
-  RayonInvoer,
   WoningRayonToewijzing,
-  WoningRayonToewijzingInvoer,
 } from "@/types/planning";
 
 function valideerId(id: number, naam: string): void {
   if (!Number.isInteger(id) || id <= 0) {
     throw new Error(`Ongeldige ${naam}.`);
   }
-}
-
-function schoon(
-  waarde: string | null | undefined
-): string | null {
-  const resultaat = waarde?.trim() ?? "";
-  return resultaat || null;
-}
-
-function valideerRayonInvoer(
-  invoer: RayonInvoer
-): RayonInvoer {
-  const naam = invoer.naam.trim();
-  const code = invoer.code.trim().toUpperCase();
-
-  if (!naam) {
-    throw new Error("Rayonnaam is verplicht.");
-  }
-
-  if (!code) {
-    throw new Error("Rayoncode is verplicht.");
-  }
-
-  if (
-    !Number.isInteger(
-      invoer.standaard_controlefrequentie_dagen
-    ) ||
-    invoer.standaard_controlefrequentie_dagen <= 0
-  ) {
-    throw new Error(
-      "De standaardcontrolefrequentie moet groter zijn dan nul."
-    );
-  }
-
-  return {
-    naam,
-    code,
-    omschrijving: schoon(invoer.omschrijving),
-    standaard_controleur_id: schoon(
-      invoer.standaard_controleur_id
-    ),
-    standaard_controlefrequentie_dagen:
-      invoer.standaard_controlefrequentie_dagen,
-    actief: invoer.actief,
-  };
-}
-
-function valideerToewijzing(
-  invoer: WoningRayonToewijzingInvoer
-): WoningRayonToewijzingInvoer {
-  valideerId(invoer.woning_id, "woning");
-  valideerId(invoer.rayon_id, "rayon");
-
-  if (!invoer.geldig_vanaf) {
-    throw new Error("Ingangsdatum is verplicht.");
-  }
-
-  if (
-    invoer.controlefrequentie_dagen !== null &&
-    (
-      !Number.isInteger(
-        invoer.controlefrequentie_dagen
-      ) ||
-      invoer.controlefrequentie_dagen <= 0
-    )
-  ) {
-    throw new Error(
-      "De controlefrequentie moet groter zijn dan nul."
-    );
-  }
-
-  return {
-    woning_id: invoer.woning_id,
-    rayon_id: invoer.rayon_id,
-    standaard_controleur_id: schoon(
-      invoer.standaard_controleur_id
-    ),
-    controlefrequentie_dagen:
-      invoer.controlefrequentie_dagen,
-    geldig_vanaf: invoer.geldig_vanaf,
-    reden: schoon(invoer.reden),
-    opmerkingen: schoon(invoer.opmerkingen),
-  };
 }
 
 export async function getRayons(
