@@ -164,7 +164,42 @@ export default async function BewonerDetailPage({
             </p>
           </div>
 
-          <div className="mt-8 flex flex-wrap gap-3 border-t border-slate-200 pt-6">
+          <section className="mt-8 border-t border-slate-200 pt-6">
+        <h2 className="text-lg font-bold">
+          Kamerhistorie
+        </h2>
+
+        <p className="mt-1 text-sm text-slate-600">
+          Historisch overzicht van kamerwissels binnen deze woning.
+        </p>
+
+        {kamerHistorie.length === 0 ? (
+          <p className="mt-4 rounded-xl bg-slate-100 p-4 text-sm text-slate-600">
+            Voor deze bewoner zijn nog geen kamerwissels geregistreerd.
+          </p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {kamerHistorie.map((historie) => (
+              <article
+                key={historie.id}
+                className="rounded-xl border border-slate-200 p-4"
+              >
+                <p className="font-semibold">
+                  {historie.oude_kamer_naam}
+                  {" → "}
+                  {historie.nieuwe_kamer_naam}
+                </p>
+
+                <p className="mt-1 text-sm text-slate-600">
+                  Verhuisdatum: {datum(historie.verhuisdatum)}
+                </p>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <div className="mt-8 flex flex-wrap gap-3 border-t border-slate-200 pt-6">
             <BewonerVerhuizenButton
               bewonerId={bewoner.id}
               verhuurperiodeId={bewoner.verhuurperiode_id}
