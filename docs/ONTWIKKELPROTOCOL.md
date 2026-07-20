@@ -296,3 +296,14 @@ Voor iedere release wordt gecontroleerd:
 
 Pas daarna is een bouwblok gereed.
 
+## Verplichte efficiëntiestandaard
+
+- Er mag geen tijd worden verspild door dubbel werk, heronderzoek of onnodige troubleshooting.
+- Reeds bewezen onderdelen worden niet opnieuw onderzocht.
+- Repository, live database en vastgelegde documentatie vormen samen de bron van waarheid.
+- Per bouwpakket wordt maximaal één volledige verificatieronde uitgevoerd.
+- Alleen ontbrekende, afwijkende of voor de actuele scope noodzakelijke informatie wordt onderzocht.
+- Na verificatie volgt direct een compleet en samenhangend bouwblok.
+- Geen reeksen losse zoekopdrachten, geen herhaling van afgeronde controles en geen zijsporen buiten de actuele scope.
+- De conclusie dat iets niet bestaat, is alleen toegestaan na controle van zowel repository als live database.
+- Efficiëntie, voortgang en het voorkomen van tijdverlies zijn verplichte kwaliteitscriteria naast veiligheid, juistheid, lint, build, commit en push.
