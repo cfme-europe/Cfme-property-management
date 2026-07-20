@@ -385,7 +385,15 @@ Nieuwe Core-tabellen worden niet openbaar schrijfbaar gemaakt.
 5. BP-INTELLIGENCE-002 — Controlebriefing en werkpunten
 6. BP-INTELLIGENCE-003 — Energie- en huurdersignalen
 7. BP-PLAN-001 — Rayon- en standaardtoewijzing
-8. BP-REPORT-001 — Rapportblokken en templates
+8. BP-REPORT-001 — Rapportblokken en templates — GEREED
+   - rapportblokken en doelgroepen;
+   - rapporttemplates en onveranderlijke templateversies;
+   - zichtbaarheid, verplichting en blokvolgorde;
+   - atomaire activering en vervallen van vorige versies;
+   - vaste templateversie per maandrapportage;
+   - templategestuurde rapportinhoud en PDF-export;
+   - rapportagebibliotheek met beheerinterface;
+   - runtime getest met actieve templateversie 2.
 9. BP-REPORT-002 — Rapportbibliotheek en dynamische generator
 10. BP-ADMIN-001 — Uitgebreide rollen en rechten
 
