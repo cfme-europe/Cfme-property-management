@@ -13,6 +13,11 @@ import { getMeldingenVoorWoning } from "@/services/meldingen";
 import EnergieVerbruikGrafieken from "@/components/energie/EnergieVerbruikGrafieken";
 import EnergieVerbruikOverzicht from "@/components/energie/EnergieVerbruikOverzicht";
 import { getMeterstandenVoorWoning } from "@/services/meterstanden";
+import { getCertificeringenVoorWoning } from "@/services/certificeringen";
+import type {
+  CertificeringStatus,
+  CertificeringType,
+} from "@/types/certificering";
 import { getMaandrapportagesVoorWoning } from "@/services/maandrapportages";
 import { getLaatsteWoningDnaVoorWoning } from "@/services/intelligence";
 import { getActieveControlebriefingVoorWoning } from "@/services/intelligence-server";
@@ -67,6 +72,7 @@ export default async function WoningDossierPage({
     inspecties,
     meldingen,
     meterstanden,
+    certificeringen,
     maandrapportages,
     woningDna,
     controlebriefing,
@@ -82,6 +88,7 @@ export default async function WoningDossierPage({
     getInspectiesVoorWoning(woningId),
     getMeldingenVoorWoning(woningId),
     getMeterstandenVoorWoning(woningId),
+    getCertificeringenVoorWoning(woningId),
     getMaandrapportagesVoorWoning(woningId),
     getLaatsteWoningDnaVoorWoning(woningId),
     getActieveControlebriefingVoorWoning(woningId),
@@ -375,6 +382,150 @@ export default async function WoningDossierPage({
                       );
                     }
                   )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold">
+                Certificeringen
+              </h2>
+              <p className="mt-1 text-slate-600">
+                Geldigheid, waarschuwingen en volledige keuringshistorie.
+              </p>
+            </div>
+
+            <Link
+              href={`/woningen/${woning.id}/certificeringen/nieuw`}
+              className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
+            >
+              Nieuwe certificering
+            </Link>
+          </div>
+
+          {certificeringen.length === 0 ? (
+            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
+              Nog geen certificeringen geregistreerd.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[920px]">
+                <thead className="border-b bg-slate-100">
+                  <tr>
+                    <th className="p-4 text-left">Type</th>
+                    <th className="p-4 text-left">Naam</th>
+                    <th className="p-4 text-left">Keuringsdatum</th>
+                    <th className="p-4 text-left">Geldig tot</th>
+                    <th className="p-4 text-left">Status</th>
+                    <th className="p-4 text-left">Actie</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {certificeringen.map((certificering) => {
+                    const typeLabels: Record<
+                      CertificeringType,
+                      string
+                    > = {
+                      scope: "Scope",
+                      brandblusser: "Brandblusser",
+                      cv: "CV",
+                      rookmelder: "Rookmelder",
+                      overig: "Overige keuring",
+                    };
+
+                    const statusLabels: Record<
+                      CertificeringStatus,
+                      string
+                    > = {
+                      geldig: "Geldig",
+                      verloopt_binnenkort:
+                        "Verloopt binnenkort",
+                      verlopen: "Verlopen",
+                      ingetrokken: "Ingetrokken",
+                    };
+
+                    const statusClass: Record<
+                      CertificeringStatus,
+                      string
+                    > = {
+                      geldig:
+                        "bg-emerald-100 text-emerald-800",
+                      verloopt_binnenkort:
+                        "bg-amber-100 text-amber-800",
+                      verlopen:
+                        "bg-red-100 text-red-800",
+                      ingetrokken:
+                        "bg-slate-200 text-slate-700",
+                    };
+
+                    return (
+                      <tr
+                        key={certificering.id}
+                        className="border-b last:border-b-0"
+                      >
+                        <td className="p-4">
+                          {typeLabels[certificering.type]}
+                        </td>
+                        <td className="p-4">
+                          <p className="font-medium">
+                            {certificering.naam}
+                          </p>
+                          {certificering.installatie_omschrijving && (
+                            <p className="mt-1 text-sm text-slate-500">
+                              {
+                                certificering.installatie_omschrijving
+                              }
+                            </p>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          {new Intl.DateTimeFormat(
+                            "nl-NL"
+                          ).format(
+                            new Date(
+                              `${certificering.keuringsdatum}T00:00:00`
+                            )
+                          )}
+                        </td>
+                        <td className="p-4">
+                          {new Intl.DateTimeFormat(
+                            "nl-NL"
+                          ).format(
+                            new Date(
+                              `${certificering.geldig_tot}T00:00:00`
+                            )
+                          )}
+                        </td>
+                        <td className="p-4">
+                          <span
+                            className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${
+                              statusClass[
+                                certificering.compliance_status
+                              ]
+                            }`}
+                          >
+                            {
+                              statusLabels[
+                                certificering.compliance_status
+                              ]
+                            }
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <Link
+                            href={`/woningen/${woning.id}/certificeringen/${certificering.id}/bewerken`}
+                            className="font-medium text-emerald-700 hover:underline"
+                          >
+                            Bewerken
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
