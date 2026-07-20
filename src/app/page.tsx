@@ -105,6 +105,13 @@ export default async function Home() {
                 >
                   Woningen
                 </Link>
+
+          <Link
+            href="/beheer/gebruikers"
+            className="rounded-xl px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-800 hover:text-white"
+          >
+            Gebruikers
+          </Link>
               </div>
             </nav>
           </div>
