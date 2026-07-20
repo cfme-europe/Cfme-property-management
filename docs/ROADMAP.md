@@ -92,9 +92,21 @@ Certificeringen
 - sessiebewuste serveracties
 - lint, productiebuild en runtimecontrole geslaagd
 
-## 0.6B
+## 0.6B ✅
 
 Takenplanner
+
+- taken gekoppeld aan woningen, inspecties en meldingen
+- categorie, prioriteit, status, planning en toewijzing
+- openstaande, verlopen en afgeronde taken zichtbaar
+- toevoegen en wijzigen via sessiebewuste serveracties
+- dubbele verzending geblokkeerd
+- betrouwbare iPad- en Safari-navigatie na opslag
+- workflowgebeurtenissen kunnen automatisch taken aanmaken
+- RLS-lezen voor authenticated gebruikers
+- schrijven uitsluitend voor bevoegde planning- en administratierollen
+- fysieke verwijdering niet beschikbaar in de beheerinterface
+- lint, productiebuild en runtimecontrole geslaagd
 
 ## 0.6C
 

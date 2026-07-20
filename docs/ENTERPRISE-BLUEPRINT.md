@@ -435,6 +435,28 @@ Nieuwe Core-tabellen worden niet openbaar schrijfbaar gemaakt.
    - lint en productiebuild geslaagd;
    - runtime bewezen met succesvolle opslag en dossierweergave.
 
+
+12. BP-TAKEN-001 — Takenplanner — GEREED
+   - taken gekoppeld aan woningen, inspecties en meldingen;
+   - categorieën voor inspectie, schade, onderhoud, veiligheid, schoonmaak, installatie, administratie en overig;
+   - prioriteiten laag, normaal, hoog en spoed;
+   - statussen open, in behandeling, afgerond en geannuleerd;
+   - startdatum, deadline, afrondingsdatum, toewijzing en externe referentie;
+   - databasevalidaties voor titel, datums en afrondingsstatus;
+   - automatische updated-at- en afrondingsverwerking;
+   - workflowdispatcher maakt idempotent taken vanuit gebeurtenissen aan;
+   - taken worden gebruikt door Woning-DNA en trendanalyse;
+   - RLS-leesrecht voor authenticated gebruikers;
+   - toevoegen en wijzigen uitsluitend voor bevoegde planning- en administratierollen;
+   - anonrechten ingetrokken en geen delete-recht voor de applicatie;
+   - sessiebewuste serverservice en serveracties;
+   - woningdossieroverzicht met aantallen, deadlinebewaking en statuskleuren;
+   - formulieren voor toevoegen en wijzigen;
+   - dubbele verzending geblokkeerd;
+   - harde, betrouwbare navigatie voor iPad en Safari;
+   - lint en productiebuild geslaagd;
+   - runtime bewezen met één succesvolle opslag en correcte dossierweergave.
+
 ## 17. Definition of Done
 
 Een bouwpakket is pas gereed wanneer:
