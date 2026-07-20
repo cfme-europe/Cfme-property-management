@@ -29,6 +29,7 @@ import { getActieveControlebriefingVoorWoning } from "@/services/intelligence-se
 import WoningDnaOverzicht from "@/components/intelligence/WoningDnaOverzicht";
 import ControlebriefingOverzicht from "@/components/intelligence/ControlebriefingOverzicht";
 import WoningPlanningOverzicht from "@/components/planning/WoningPlanningOverzicht";
+import WoningQrCode from "@/components/woningen/WoningQrCode";
 import { getActieveWoningplanning } from "@/services/planning";
 
 export const dynamic = "force-dynamic";
@@ -165,6 +166,13 @@ export default async function WoningDossierPage({
         <WoningPlanningOverzicht
           woningId={woning.id}
           planning={woningplanning}
+        />
+
+        <WoningQrCode
+          woningId={woning.id}
+          adres={woning.adres}
+          postcode={woning.postcode}
+          plaats={woning.plaats}
         />
 
         <WoningDnaOverzicht snapshot={woningDna} />
