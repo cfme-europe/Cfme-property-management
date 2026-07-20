@@ -418,6 +418,23 @@ Nieuwe Core-tabellen worden niet openbaar schrijfbaar gemaakt.
    - lint, productiebuild en runtimecontrole geslaagd;
    - runtime bewezen met 404 voor medewerker en 200 voor admin.
 
+
+11. BP-COMPLIANCE-001 — Certificeringen — GEREED
+   - certificeringen gekoppeld aan woningen;
+   - typen voor Scope, brandblussers, CV, rookmelders en overige keuringen;
+   - keuringsdatum, geldig-totdatum en configureerbare waarschuwingstermijn;
+   - databaseconstraints voor geldige datums en consistente intrekking;
+   - actieve en ingetrokken certificeringen blijven als historie behouden;
+   - automatische statussen geldig, verloopt binnenkort, verlopen en ingetrokken;
+   - indexen en unieke actieve certificering per woning, type en object;
+   - RLS-leesrecht voor authenticated gebruikers;
+   - schrijven uitsluitend voor bevoegde administratie-, medewerker- en adminrollen;
+   - sessiebewuste serverservice en serveractie;
+   - woningdossieroverzicht met statuskleuren;
+   - formulieren voor toevoegen, wijzigen en intrekken;
+   - lint en productiebuild geslaagd;
+   - runtime bewezen met succesvolle opslag en dossierweergave.
+
 ## 17. Definition of Done
 
 Een bouwpakket is pas gereed wanneer:

@@ -76,7 +76,7 @@ Energie per persoon per week
 
 # 0.6 Compliance
 
-## 0.6A
+## 0.6A ✅
 
 Certificeringen
 
@@ -85,6 +85,12 @@ Certificeringen
 - CV
 - Rookmelders
 - Overige keuringen
+- geldigheid en waarschuwingstermijnen
+- intrekken zonder historie te verwijderen
+- woningdossieroverzicht en beheerformulieren
+- PostgreSQL-validaties, RLS en rolgebaseerde schrijfrechten
+- sessiebewuste serveracties
+- lint, productiebuild en runtimecontrole geslaagd
 
 ## 0.6B
 
