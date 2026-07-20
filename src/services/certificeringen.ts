@@ -1,4 +1,6 @@
-import { supabase } from "@/lib/supabase";
+import "server-only";
+
+import { createClient } from "@/lib/supabase/server";
 import type {
   Certificering,
   CertificeringInvoer,
@@ -110,6 +112,8 @@ export async function getCertificeringenVoorWoning(
     throw new Error("Ongeldige woning.");
   }
 
+  const supabase = await createClient();
+
   const { data, error } = await supabase
     .from("certificeringen_overzicht")
     .select("*")
@@ -136,6 +140,8 @@ export async function getCertificeringById(
     throw new Error("Ongeldige certificering.");
   }
 
+  const supabase = await createClient();
+
   const { data, error } = await supabase
     .from("certificeringen_overzicht")
     .select("*")
@@ -155,6 +161,8 @@ export async function createCertificering(
   invoer: CertificeringInvoer
 ): Promise<Certificering> {
   const geldig = valideer(invoer);
+
+  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("certificeringen")
@@ -197,6 +205,8 @@ export async function updateCertificering(
   }
 
   const geldig = valideer(invoer);
+
+  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("certificeringen")

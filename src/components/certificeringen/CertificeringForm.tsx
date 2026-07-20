@@ -2,10 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import {
-  createCertificering,
-  updateCertificering,
-} from "@/services/certificeringen";
+import { certificeringOpslaan } from "@/app/woningen/[id]/certificeringen/actions";
 import type {
   Certificering,
   CertificeringInvoer,
@@ -104,14 +101,10 @@ export default function CertificeringForm({
     };
 
     try {
-      if (certificering) {
-        await updateCertificering(
-          certificering.id,
-          invoer
-        );
-      } else {
-        await createCertificering(invoer);
-      }
+      await certificeringOpslaan(
+        certificering?.id ?? null,
+        invoer
+      );
 
       router.push(`/woningen/${woningId}`);
       router.refresh();
