@@ -512,3 +512,26 @@ export async function slaConceptTemplateblokkenOp(
     );
   }
 }
+
+export async function activeerRapporttemplateversie(
+  templateversieId: number
+): Promise<Rapporttemplateversie> {
+  valideerId(templateversieId, "templateversie");
+
+  const supabase = createClient();
+
+  const { data, error } = await supabase.rpc(
+    "activeer_rapporttemplateversie",
+    {
+      p_templateversie_id: templateversieId,
+    }
+  );
+
+  if (error) {
+    throw new Error(
+      `Templateversie activeren mislukt: ${error.message}`
+    );
+  }
+
+  return data as Rapporttemplateversie;
+}
