@@ -25,6 +25,7 @@ export default function TemplateversieBeheer({
   rapportblokken,
 }: Props) {
   const router = useRouter();
+
   const bestaand = useMemo(
     () =>
       new Map(
@@ -36,6 +37,21 @@ export default function TemplateversieBeheer({
     [versie.blokken]
   );
 
+  const beginVolgorde = useMemo(() => {
+    const gekoppeldeIds = versie.blokken
+      .sort((a, b) => a.volgorde - b.volgorde)
+      .map((blok) => blok.rapportblok_id);
+
+    const overigeIds = rapportblokken
+      .map((blok) => blok.id)
+      .filter((id) => !gekoppeldeIds.includes(id));
+
+    return [...gekoppeldeIds, ...overigeIds];
+  }, [rapportblokken, versie.blokken]);
+
+  const [volgorde, setVolgorde] =
+    useState<number[]>(beginVolgorde);
+
   const [geselecteerd, setGeselecteerd] =
     useState<Set<number>>(
       new Set(
@@ -44,6 +60,7 @@ export default function TemplateversieBeheer({
           .map((blok) => blok.rapportblok_id)
       )
     );
+
   const [verplicht, setVerplicht] =
     useState<Set<number>>(
       new Set(
@@ -52,10 +69,20 @@ export default function TemplateversieBeheer({
           .map((blok) => blok.rapportblok_id)
       )
     );
+
   const [bezig, setBezig] = useState(false);
   const [fout, setFout] = useState("");
 
   const wijzigbaar = versie.status === "concept";
+
+  const blokkenOpVolgorde = volgorde
+    .map((id) =>
+      rapportblokken.find((blok) => blok.id === id)
+    )
+    .filter(
+      (blok): blok is Rapportblok =>
+        blok !== undefined
+    );
 
   function wissel(
     setWaarde: Set<number>,
@@ -73,13 +100,39 @@ export default function TemplateversieBeheer({
     return nieuw;
   }
 
+  function verplaats(
+    id: number,
+    richting: -1 | 1
+  ) {
+    setVolgorde((huidig) => {
+      const index = huidig.indexOf(id);
+      const doelIndex = index + richting;
+
+      if (
+        index < 0 ||
+        doelIndex < 0 ||
+        doelIndex >= huidig.length
+      ) {
+        return huidig;
+      }
+
+      const nieuw = [...huidig];
+      [nieuw[index], nieuw[doelIndex]] = [
+        nieuw[doelIndex],
+        nieuw[index],
+      ];
+
+      return nieuw;
+    });
+  }
+
   async function opslaan() {
     setBezig(true);
     setFout("");
 
     try {
       const blokken: RapporttemplateblokInvoer[] =
-        rapportblokken
+        blokkenOpVolgorde
           .filter((blok) =>
             geselecteerd.has(blok.id)
           )
@@ -151,11 +204,12 @@ export default function TemplateversieBeheer({
 
       <p className="text-slate-600">
         Doelgroep: {template.doelgroep}. De
-        blokvolgorde volgt de onderstaande lijst.
+        blokvolgorde wordt van boven naar beneden
+        opgeslagen.
       </p>
 
       <div className="mt-6 space-y-3">
-        {rapportblokken.map((blok, index) => {
+        {blokkenOpVolgorde.map((blok, index) => {
           const gekozen = geselecteerd.has(
             blok.id
           );
@@ -169,12 +223,44 @@ export default function TemplateversieBeheer({
                 <strong>
                   {index + 1}. {blok.naam}
                 </strong>
+
                 <p className="text-sm text-slate-500">
                   {blok.code} · {blok.doelgroep}
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-5">
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={
+                    !wijzigbaar ||
+                    bezig ||
+                    index === 0
+                  }
+                  onClick={() =>
+                    verplaats(blok.id, -1)
+                  }
+                  className="rounded-lg border px-3 py-2 text-sm disabled:opacity-40"
+                >
+                  Omhoog
+                </button>
+
+                <button
+                  type="button"
+                  disabled={
+                    !wijzigbaar ||
+                    bezig ||
+                    index ===
+                      blokkenOpVolgorde.length - 1
+                  }
+                  onClick={() =>
+                    verplaats(blok.id, 1)
+                  }
+                  className="rounded-lg border px-3 py-2 text-sm disabled:opacity-40"
+                >
+                  Omlaag
+                </button>
+
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -236,7 +322,7 @@ export default function TemplateversieBeheer({
             onClick={opslaan}
             className="rounded-xl border border-emerald-700 px-5 py-3 font-medium text-emerald-800 disabled:opacity-50"
           >
-            Blokken opslaan
+            Volgorde en blokken opslaan
           </button>
 
           <button
