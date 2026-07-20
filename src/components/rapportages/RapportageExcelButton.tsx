@@ -206,9 +206,9 @@ export default function RapportageExcelButton({
         );
       }
 
-      XLSX.writeFile(werkmap, bestandsnaam);
-
       await voltooiRapportexport(exportId);
+
+      XLSX.writeFile(werkmap, bestandsnaam);
     } catch (error) {
       const melding =
         error instanceof Error
