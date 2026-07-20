@@ -403,7 +403,20 @@ Nieuwe Core-tabellen worden niet openbaar schrijfbaar gemaakt.
    - externe exports respecteren zichtbaarheid en blokvolgorde;
    - mislukte exportpogingen blijven als historie behouden;
    - Excel-download en exportregistratie runtime getest.
-10. BP-ADMIN-001 — Uitgebreide rollen en rechten
+10. BP-ADMIN-001 — Uitgebreide rollen en rechten — GEREED
+   - uitgebreide rolset met admin, planner, controleur, administratie, management en lezen;
+   - bestaande legacyrol medewerker blijft ondersteund;
+   - centrale rol- en autorisatiefuncties in PostgreSQL;
+   - afzonderlijke rechten voor planning, controles, administratie, rapportages en managementinformatie;
+   - RLS-policies voor planning en controles per handeling aangescherpt;
+   - rapportage- en exportbeheer beperkt tot bevoegde rollen;
+   - applicatietypes en autorisatieservice op de nieuwe rolset aangesloten;
+   - beheerinterface voor bestaande gebruikersprofielen;
+   - rollen wijzigen en gebruikers activeren of deactiveren;
+   - bescherming tegen het deactiveren of degraderen van het eigen adminaccount;
+   - beheerroute alleen toegankelijk voor actieve admins;
+   - lint, productiebuild en runtimecontrole geslaagd;
+   - runtime bewezen met 404 voor medewerker en 200 voor admin.
 
 ## 17. Definition of Done
 
