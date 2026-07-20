@@ -2,7 +2,14 @@ export type ProfielSamenvatting = {
   id: string;
   email: string | null;
   volledige_naam: string | null;
-  rol: "admin" | "medewerker" | "lezen";
+  rol:
+    | "admin"
+    | "medewerker"
+    | "planner"
+    | "controleur"
+    | "administratie"
+    | "management"
+    | "lezen";
   actief: boolean;
 };
 

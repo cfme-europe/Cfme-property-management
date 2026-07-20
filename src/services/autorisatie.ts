@@ -24,5 +24,10 @@ export async function magRapportagebibliotheekBeheren(): Promise<boolean> {
     return false;
   }
 
-  return data.rol === "admin" || data.rol === "medewerker";
+  return [
+    "admin",
+    "medewerker",
+    "administratie",
+    "management",
+  ].includes(data.rol);
 }
