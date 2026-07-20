@@ -17,6 +17,7 @@ export type Maandrapportage = {
   updated_at: string;
   woning_id: number;
   verhuurperiode_id: number | null;
+  templateversie_id: number;
   rapportjaar: number;
   rapportmaand: number;
   titel: string;
@@ -32,6 +33,7 @@ export type Maandrapportage = {
 export type MaandrapportageInvoer = {
   woning_id: number;
   verhuurperiode_id: number | null;
+  templateversie_id: number;
   rapportjaar: number;
   rapportmaand: number;
   titel: string;

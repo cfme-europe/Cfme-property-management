@@ -33,6 +33,8 @@ export default function RapportageGenererenButton({
           woning_id: rapportage.woning_id,
           verhuurperiode_id:
             rapportage.verhuurperiode_id,
+          templateversie_id:
+            rapportage.templateversie_id,
           rapportjaar: rapportage.rapportjaar,
           rapportmaand:
             rapportage.rapportmaand,

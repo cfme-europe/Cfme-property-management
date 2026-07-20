@@ -48,6 +48,13 @@ function valideer(
   }
 
   if (
+    !Number.isInteger(invoer.templateversie_id) ||
+    invoer.templateversie_id <= 0
+  ) {
+    throw new Error("Ongeldige rapporttemplateversie.");
+  }
+
+  if (
     !Number.isInteger(invoer.rapportjaar) ||
     invoer.rapportjaar < 2000 ||
     invoer.rapportjaar > 2100
@@ -72,6 +79,7 @@ function valideer(
   return {
     woning_id: invoer.woning_id,
     verhuurperiode_id: invoer.verhuurperiode_id,
+    templateversie_id: invoer.templateversie_id,
     rapportjaar: invoer.rapportjaar,
     rapportmaand: invoer.rapportmaand,
     titel,

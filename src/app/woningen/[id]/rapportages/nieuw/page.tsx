@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import MaandrapportageForm from "@/components/rapportages/MaandrapportageForm";
 import { getActieveVerhuurperiodeVoorWoning } from "@/services/verhuurperiodes";
+import { getActieveRapporttemplates } from "@/services/rapportagebibliotheek";
 import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";
@@ -21,12 +22,13 @@ export default async function NieuweRapportagePage({
     notFound();
   }
 
-  const [woning, actieveVerhuur] =
+  const [woning, actieveVerhuur, actieveTemplates] =
     await Promise.all([
       getWoningById(woningId),
       getActieveVerhuurperiodeVoorWoning(
         woningId
       ),
+      getActieveRapporttemplates(),
     ]);
 
   if (!woning) {
@@ -63,6 +65,7 @@ export default async function NieuweRapportagePage({
               verhuurperiodeId={
                 actieveVerhuur?.id ?? null
               }
+              actieveTemplates={actieveTemplates}
             />
           </div>
         </div>

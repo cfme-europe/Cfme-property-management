@@ -11,6 +11,9 @@ import type {
   MaandrapportageInvoer,
   MaandrapportageStatus,
 } from "@/types/maandrapportage";
+import type {
+  ActieveRapporttemplate,
+} from "@/types/rapportagebibliotheek";
 
 type Props = {
   woningId: number;
@@ -18,6 +21,7 @@ type Props = {
   standaardOntvangerNaam?: string;
   standaardOntvangerEmail?: string;
   rapportage?: Maandrapportage;
+  actieveTemplates?: ActieveRapporttemplate[];
 };
 
 const maanden = [
@@ -41,9 +45,19 @@ export default function MaandrapportageForm({
   standaardOntvangerNaam = "",
   standaardOntvangerEmail = "",
   rapportage,
+  actieveTemplates = [],
 }: Props) {
   const router = useRouter();
   const vandaag = new Date();
+
+  const [templateversieId, setTemplateversieId] =
+    useState(
+      String(
+        rapportage?.templateversie_id ??
+          actieveTemplates[0]?.versie.id ??
+          ""
+      )
+    );
 
   const [rapportjaar, setRapportjaar] = useState(
     String(rapportage?.rapportjaar ?? vandaag.getFullYear())
@@ -104,6 +118,7 @@ export default function MaandrapportageForm({
     const invoer: MaandrapportageInvoer = {
       woning_id: woningId,
       verhuurperiode_id: verhuurperiodeId,
+      templateversie_id: Number(templateversieId),
       rapportjaar: Number(rapportjaar),
       rapportmaand: Number(rapportmaand),
       titel,
@@ -144,6 +159,41 @@ export default function MaandrapportageForm({
           {fout}
         </div>
       )}
+
+      <label className="block">
+        <span className="mb-1 block text-sm font-medium">
+          Rapporttemplate *
+        </span>
+
+        <select
+          required
+          disabled={Boolean(rapportage)}
+          value={templateversieId}
+          onChange={(event) =>
+            setTemplateversieId(event.target.value)
+          }
+          className={invoerClass}
+        >
+          <option value="">
+            Selecteer een actief rapporttemplate
+          </option>
+
+          {actieveTemplates.map(({ template, versie }) => (
+            <option
+              key={versie.id}
+              value={versie.id}
+            >
+              {template.naam} — versie {versie.versienummer}
+            </option>
+          ))}
+        </select>
+
+        {rapportage && (
+          <p className="mt-2 text-sm text-slate-500">
+            De gekoppelde templateversie is onveranderlijk.
+          </p>
+        )}
+      </label>
 
       <div className="grid gap-4 md:grid-cols-3">
         <label>
