@@ -394,7 +394,15 @@ Nieuwe Core-tabellen worden niet openbaar schrijfbaar gemaakt.
    - templategestuurde rapportinhoud en PDF-export;
    - rapportagebibliotheek met beheerinterface;
    - runtime getest met actieve templateversie 2.
-9. BP-REPORT-002 — Rapportbibliotheek en dynamische generator
+9. BP-REPORT-002 — Rapportbibliotheek en dynamische generator — GEREED
+   - herleidbare rapportexporthistorie;
+   - exportstatussen aangemaakt, gereed en mislukt;
+   - vaste koppeling met maandrapportage en templateversie;
+   - templategestuurde Excel-export;
+   - PDF- en Excel-export bevatten dezelfde kerngegevens;
+   - externe exports respecteren zichtbaarheid en blokvolgorde;
+   - mislukte exportpogingen blijven als historie behouden;
+   - Excel-download en exportregistratie runtime getest.
 10. BP-ADMIN-001 — Uitgebreide rollen en rechten
 
 ## 17. Definition of Done
