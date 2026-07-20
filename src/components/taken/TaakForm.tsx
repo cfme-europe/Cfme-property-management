@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useRef, useState, type FormEvent } from "react";
 import { taakOpslaan } from "@/app/woningen/[id]/taken/actions";
 import type {
   Taak,
@@ -50,7 +49,7 @@ export default function TaakForm({
   woningId,
   taak,
 }: Props) {
-  const router = useRouter();
+  const verzendingActief = useRef(false);
 
   const [titel, setTitel] = useState(taak?.titel ?? "");
   const [omschrijving, setOmschrijving] = useState(
@@ -91,6 +90,12 @@ export default function TaakForm({
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
+
+    if (verzendingActief.current) {
+      return;
+    }
+
+    verzendingActief.current = true;
     setBezig(true);
     setFout("");
 
@@ -118,8 +123,7 @@ export default function TaakForm({
 
     try {
       await taakOpslaan(taak?.id ?? null, invoer);
-      router.push(`/woningen/${woningId}`);
-      router.refresh();
+      window.location.replace(`/woningen/${woningId}`);
     } catch (error) {
       setFout(
         error instanceof Error
@@ -127,6 +131,7 @@ export default function TaakForm({
           : "Taak opslaan mislukt."
       );
     } finally {
+      verzendingActief.current = false;
       setBezig(false);
     }
   }
@@ -323,7 +328,7 @@ export default function TaakForm({
 
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={() => window.history.back()}
           className="rounded-xl border border-slate-300 px-5 py-3 font-medium"
         >
           Annuleren
