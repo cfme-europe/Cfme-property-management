@@ -4,6 +4,7 @@ import { getInspectiesVoorWoning } from "@/services/inspecties";
 import { getMeldingenVoorWoning } from "@/services/meldingen";
 import { getMeterstandenVoorWoning } from "@/services/meterstanden";
 import { getWoningById } from "@/services/woningen";
+import { getRapporttemplateversieVoorGeneratie } from "@/services/rapportagebibliotheek-client";
 import type {
   JsonWaarde,
   Maandrapportage,
@@ -64,6 +65,7 @@ export async function genereerMaandrapportageData(
     meldingen,
     meterstanden,
     bewoners,
+    templateversie,
   ] = await Promise.all([
     getWoningById(rapportage.woning_id),
     getInspectiesVoorWoning(rapportage.woning_id),
@@ -74,6 +76,9 @@ export async function genereerMaandrapportageData(
           rapportage.verhuurperiode_id
         )
       : Promise.resolve([]),
+    getRapporttemplateversieVoorGeneratie(
+      rapportage.templateversie_id
+    ),
   ]);
 
   if (!woning) {
@@ -143,9 +148,31 @@ export async function genereerMaandrapportageData(
       (inspectie) => inspectie.schade_aanwezig
     );
 
+  const zichtbareBlokken =
+    templateversie.blokken.map((koppeling) => ({
+      code: koppeling.rapportblok.code,
+      bloktype: koppeling.rapportblok.bloktype,
+      titel:
+        koppeling.titel_override ??
+        koppeling.rapportblok.naam,
+      volgorde: koppeling.volgorde,
+      verplicht: koppeling.verplicht,
+    }));
+
+  const zichtbareBloktypen = new Set(
+    zichtbareBlokken.map((blok) => blok.bloktype)
+  );
+
   return {
-    versie: 1,
+    versie: 2,
     gegenereerd_op: new Date().toISOString(),
+
+    template: {
+      templateversie_id: templateversie.id,
+      template_id: templateversie.template_id,
+      versienummer: templateversie.versienummer,
+      blokken: zichtbareBlokken,
+    },
 
     rapportperiode: {
       jaar: rapportage.rapportjaar,
@@ -161,7 +188,9 @@ export async function genereerMaandrapportageData(
       plaats: woning.plaats,
     },
 
-    samenvatting: {
+    ...(zichtbareBloktypen.has("samenvatting")
+      ? {
+          samenvatting: {
       bewoners_aantal: periodeBewoners.length,
       inspecties_aantal: periodeInspecties.length,
       inspecties_met_schade:
@@ -174,11 +203,15 @@ export async function genereerMaandrapportageData(
         schademeldingen.length,
       meteropnames_aantal:
         periodeMeterstanden.length,
-      verbruiksperiodes_aantal:
-        verbruiksperiodes.length,
-    },
+            verbruiksperiodes_aantal:
+              verbruiksperiodes.length,
+          },
+        }
+      : {}),
 
-    bewoners: periodeBewoners.map((bewoner) => ({
+    ...(zichtbareBloktypen.has("bewoners")
+      ? {
+          bewoners: periodeBewoners.map((bewoner) => ({
       id: bewoner.id,
       naam: [
         bewoner.voornaam,
@@ -190,10 +223,14 @@ export async function genereerMaandrapportageData(
       kamer: bewoner.kamer?.naam ?? null,
       incheckdatum: bewoner.incheckdatum,
       uitcheckdatum: bewoner.uitcheckdatum,
-      status: bewoner.status,
-    })),
+            status: bewoner.status,
+          })),
+        }
+      : {}),
 
-    inspecties: periodeInspecties.map(
+    ...(zichtbareBloktypen.has("inspecties")
+      ? {
+          inspecties: periodeInspecties.map(
       (inspectie) => ({
         id: inspectie.id,
         inspectiedatum:
@@ -211,10 +248,14 @@ export async function genereerMaandrapportageData(
         uitgevoerd_door:
           inspectie.uitgevoerd_door,
         opmerkingen: inspectie.opmerkingen,
-      })
-    ),
+            })
+          ),
+        }
+      : {}),
 
-    meldingen: periodeMeldingen.map(
+    ...(zichtbareBloktypen.has("meldingen")
+      ? {
+          meldingen: periodeMeldingen.map(
       (melding) => ({
         id: melding.id,
         titel: melding.titel,
@@ -230,10 +271,14 @@ export async function genereerMaandrapportageData(
         factuur_naar: melding.factuur_naar,
         extern_referentienummer:
           melding.extern_referentienummer,
-      })
-    ),
+            })
+          ),
+        }
+      : {}),
 
-    meterstanden: periodeMeterstanden.map(
+    ...(zichtbareBloktypen.has("meterstanden")
+      ? {
+          meterstanden: periodeMeterstanden.map(
       (meterstand) => ({
         id: meterstand.id,
         opnamedatum: meterstand.opnamedatum,
@@ -245,10 +290,14 @@ export async function genereerMaandrapportageData(
         water_m3: meterstand.water_m3,
         opgenomen_door:
           meterstand.opgenomen_door,
-      })
-    ),
+            })
+          ),
+        }
+      : {}),
 
-    energieverbruik: verbruiksperiodes.map(
+    ...(zichtbareBloktypen.has("energieverbruik")
+      ? {
+          energieverbruik: verbruiksperiodes.map(
       (verbruiksperiode) => ({
         van_datum:
           verbruiksperiode.van_datum,
@@ -275,7 +324,16 @@ export async function genereerMaandrapportageData(
         water_per_bewoner_per_week:
           verbruiksperiode.water
             .per_bewoner_per_week,
-      })
-    ),
+            })
+          ),
+        }
+      : {}),
+
+    ...(zichtbareBloktypen.has("opmerkingen")
+      ? {
+          opmerkingen:
+            rapportage.opmerkingen ?? null,
+        }
+      : {}),
   };
 }

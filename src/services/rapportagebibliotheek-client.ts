@@ -9,6 +9,7 @@ import type {
   RapporttemplateInvoer,
   Rapporttemplateversie,
   RapporttemplateversieInvoer,
+  RapporttemplateversieMetBlokken,
 } from "@/types/rapportagebibliotheek";
 
 function valideerId(id: number, naam: string): void {
@@ -534,4 +535,49 @@ export async function activeerRapporttemplateversie(
   }
 
   return data as Rapporttemplateversie;
+}
+
+export async function getRapporttemplateversieVoorGeneratie(
+  templateversieId: number
+): Promise<RapporttemplateversieMetBlokken> {
+  valideerId(templateversieId, "templateversie");
+
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("rapporttemplateversies")
+    .select(`
+      *,
+      blokken:rapporttemplateblokken (
+        *,
+        rapportblok:rapportblokken (
+          *
+        )
+      )
+    `)
+    .eq("id", templateversieId)
+    .eq("status", "actief")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Gekoppelde templateversie ophalen mislukt: ${error.message}`
+    );
+  }
+
+  if (!data) {
+    throw new Error(
+      "De gekoppelde templateversie is niet actief of bestaat niet."
+    );
+  }
+
+  const versie =
+    data as RapporttemplateversieMetBlokken;
+
+  return {
+    ...versie,
+    blokken: [...versie.blokken]
+      .filter((blok) => blok.zichtbaar)
+      .sort((a, b) => a.volgorde - b.volgorde),
+  };
 }
