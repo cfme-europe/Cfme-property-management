@@ -4,6 +4,7 @@ import MaandrapportageInhoud from "@/components/rapportages/MaandrapportageInhou
 import MaandrapportageVerwijderenButton from "@/components/rapportages/MaandrapportageVerwijderenButton";
 import RapportageGenererenButton from "@/components/rapportages/RapportageGenererenButton";
 import RapportagePdfButton from "@/components/rapportages/RapportagePdfButton";
+import RapportageExcelButton from "@/components/rapportages/RapportageExcelButton";
 import { getMaandrapportageById } from "@/services/maandrapportages";
 import { getWoningById } from "@/services/woningen-server";
 import type { MaandrapportageStatus } from "@/types/maandrapportage";
@@ -128,6 +129,11 @@ export default async function RapportageDetailPage({
                 adres={woning.adres}
                 postcode={woning.postcode}
                 plaats={woning.plaats}
+              />
+
+              <RapportageExcelButton
+                rapportage={rapportage}
+                adres={woning.adres}
               />
 
               <Link
