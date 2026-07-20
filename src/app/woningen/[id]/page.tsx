@@ -10,6 +10,11 @@ import { getKamersVoorWoning } from "@/services/kamers";
 import { getBewonersVoorVerhuurperiode } from "@/services/bewoners";
 import { getInspectiesVoorWoning } from "@/services/inspecties";
 import { getMeldingenVoorWoning } from "@/services/meldingen";
+import { getTakenVoorWoning } from "@/services/taken";
+import type {
+  TaakPrioriteit,
+  TaakStatus,
+} from "@/types/taak";
 import EnergieVerbruikGrafieken from "@/components/energie/EnergieVerbruikGrafieken";
 import EnergieVerbruikOverzicht from "@/components/energie/EnergieVerbruikOverzicht";
 import { getMeterstandenVoorWoning } from "@/services/meterstanden";
@@ -71,6 +76,7 @@ export default async function WoningDossierPage({
     bewoners,
     inspecties,
     meldingen,
+    taken,
     meterstanden,
     certificeringen,
     maandrapportages,
@@ -87,6 +93,7 @@ export default async function WoningDossierPage({
       : Promise.resolve([]),
     getInspectiesVoorWoning(woningId),
     getMeldingenVoorWoning(woningId),
+    getTakenVoorWoning(woningId),
     getMeterstandenVoorWoning(woningId),
     getCertificeringenVoorWoning(woningId),
     getMaandrapportagesVoorWoning(woningId),
@@ -683,6 +690,178 @@ export default async function WoningDossierPage({
               />
             </div>
           </div>
+        </section>
+
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold">Taken</h2>
+              <p className="mt-1 text-slate-600">
+                Openstaande acties, deadlines en afgeronde opvolging.
+              </p>
+            </div>
+
+            <Link
+              href={`/woningen/${woning.id}/taken/nieuw`}
+              className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
+            >
+              Nieuwe taak
+            </Link>
+          </div>
+
+          {taken.length === 0 ? (
+            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
+              Nog geen taken geregistreerd.
+            </p>
+          ) : (
+            <>
+              <div className="mb-5 grid gap-4 sm:grid-cols-3">
+                <div className="rounded-xl bg-slate-100 p-4">
+                  <p className="text-sm text-slate-500">
+                    Openstaand
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {
+                      taken.filter((taak) =>
+                        ["open", "in_behandeling"].includes(
+                          taak.status
+                        )
+                      ).length
+                    }
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-red-50 p-4">
+                  <p className="text-sm text-red-700">
+                    Over deadline
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-red-900">
+                    {
+                      taken.filter(
+                        (taak) =>
+                          ["open", "in_behandeling"].includes(
+                            taak.status
+                          ) &&
+                          taak.deadline !== null &&
+                          taak.deadline <
+                            new Date()
+                              .toISOString()
+                              .slice(0, 10)
+                      ).length
+                    }
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-emerald-50 p-4">
+                  <p className="text-sm text-emerald-700">
+                    Afgerond
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-emerald-900">
+                    {
+                      taken.filter(
+                        (taak) => taak.status === "afgerond"
+                      ).length
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[980px]">
+                  <thead className="border-b bg-slate-100">
+                    <tr>
+                      <th className="p-4 text-left">Taak</th>
+                      <th className="p-4 text-left">Prioriteit</th>
+                      <th className="p-4 text-left">Deadline</th>
+                      <th className="p-4 text-left">Toegewezen</th>
+                      <th className="p-4 text-left">Status</th>
+                      <th className="p-4 text-left">Actie</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {taken.map((taak) => {
+                      const statusLabels: Record<
+                        TaakStatus,
+                        string
+                      > = {
+                        open: "Open",
+                        in_behandeling: "In behandeling",
+                        afgerond: "Afgerond",
+                        geannuleerd: "Geannuleerd",
+                      };
+
+                      const prioriteitLabels: Record<
+                        TaakPrioriteit,
+                        string
+                      > = {
+                        laag: "Laag",
+                        normaal: "Normaal",
+                        hoog: "Hoog",
+                        spoed: "Spoed",
+                      };
+
+                      const statusClass: Record<
+                        TaakStatus,
+                        string
+                      > = {
+                        open: "bg-amber-100 text-amber-800",
+                        in_behandeling:
+                          "bg-blue-100 text-blue-800",
+                        afgerond:
+                          "bg-emerald-100 text-emerald-800",
+                        geannuleerd:
+                          "bg-slate-200 text-slate-700",
+                      };
+
+                      return (
+                        <tr
+                          key={taak.id}
+                          className="border-b last:border-b-0"
+                        >
+                          <td className="p-4">
+                            <p className="font-medium">
+                              {taak.titel}
+                            </p>
+                            {taak.omschrijving && (
+                              <p className="mt-1 max-w-md text-sm text-slate-500">
+                                {taak.omschrijving}
+                              </p>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            {prioriteitLabels[taak.prioriteit]}
+                          </td>
+                          <td className="p-4">
+                            {datum(taak.deadline)}
+                          </td>
+                          <td className="p-4">
+                            {taak.toegewezen_aan ?? "—"}
+                          </td>
+                          <td className="p-4">
+                            <span
+                              className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${
+                                statusClass[taak.status]
+                              }`}
+                            >
+                              {statusLabels[taak.status]}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <Link
+                              href={`/woningen/${woning.id}/taken/${taak.id}/bewerken`}
+                              className="font-medium text-emerald-700 hover:underline"
+                            >
+                              Bewerken
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </section>
 
         <section className="mb-8 rounded-2xl bg-white p-6 shadow">

@@ -1,4 +1,6 @@
-import { supabase } from "@/lib/supabase";
+import "server-only";
+
+import { createClient } from "@/lib/supabase/server";
 import type {
   Taak,
   TaakInvoer,
@@ -83,6 +85,8 @@ function valideer(invoer: TaakInvoer): TaakInvoer {
 }
 
 export async function getTaken(): Promise<Taak[]> {
+  const supabase = await createClient();
+
   const { data, error } = await supabase
     .from("taken")
     .select("*")
@@ -111,6 +115,8 @@ export async function getTakenVoorWoning(
   ) {
     throw new Error("Ongeldige woning.");
   }
+
+  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("taken")
@@ -142,6 +148,8 @@ export async function getOpenTakenVoorWoning(
     throw new Error("Ongeldige woning.");
   }
 
+  const supabase = await createClient();
+
   const { data, error } = await supabase
     .from("taken")
     .select("*")
@@ -172,6 +180,8 @@ export async function getTaakById(
     throw new Error("Ongeldige taak.");
   }
 
+  const supabase = await createClient();
+
   const { data, error } = await supabase
     .from("taken")
     .select("*")
@@ -191,6 +201,8 @@ export async function createTaak(
   invoer: TaakInvoer
 ): Promise<Taak> {
   const geldig = valideer(invoer);
+
+  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("taken")
@@ -219,6 +231,8 @@ export async function updateTaak(
   }
 
   const geldig = valideer(invoer);
+
+  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("taken")
@@ -260,6 +274,8 @@ export async function updateTaakStatus(
         : null,
   };
 
+  const supabase = await createClient();
+
   const { data, error } = await supabase
     .from("taken")
     .update(wijzigingen)
@@ -297,6 +313,8 @@ export async function deleteTaak(
   ) {
     throw new Error("Ongeldige woning.");
   }
+
+  const supabase = await createClient();
 
   const { error } = await supabase
     .from("taken")
