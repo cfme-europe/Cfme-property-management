@@ -15,6 +15,14 @@ type Props = {
 
 type JsonObject = Record<string, JsonWaarde>;
 
+type TemplateblokSnapshot = {
+  code: string;
+  bloktype: string;
+  titel: string;
+  volgorde: number;
+  verplicht: boolean;
+};
+
 const maanden = [
   "januari",
   "februari",
@@ -72,22 +80,28 @@ function tekst(
     return String(waarde);
   }
 
+  if (typeof waarde === "boolean") {
+    return waarde ? "Ja" : "Nee";
+  }
+
   return standaard;
 }
 
-function getal(
-  object: JsonObject,
-  sleutel: string
-): number | null {
-  const waarde = object[sleutel];
-  return typeof waarde === "number" ? waarde : null;
-}
-
-function jaNee(
-  object: JsonObject,
-  sleutel: string
+function nummer(
+  waarde: JsonWaarde | undefined,
+  eenheid = ""
 ): string {
-  return object[sleutel] === true ? "Ja" : "Nee";
+  if (typeof waarde !== "number") {
+    return "—";
+  }
+
+  const resultaat = new Intl.NumberFormat("nl-NL", {
+    maximumFractionDigits: 2,
+  }).format(waarde);
+
+  return eenheid
+    ? `${resultaat} ${eenheid}`
+    : resultaat;
 }
 
 function datum(waarde: string): string {
@@ -102,28 +116,87 @@ function datum(waarde: string): string {
   }).format(new Date(`${waarde}T00:00:00`));
 }
 
-function nummer(
-  waarde: number | null,
-  eenheid = ""
-): string {
-  if (waarde === null) {
-    return "—";
-  }
-
-  const resultaat = new Intl.NumberFormat("nl-NL", {
-    maximumFractionDigits: 2,
-  }).format(waarde);
-
-  return eenheid
-    ? `${resultaat} ${eenheid}`
-    : resultaat;
-}
-
 function veiligeBestandsnaam(waarde: string): string {
   return waarde
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function templateblokken(
+  data: JsonObject
+): TemplateblokSnapshot[] {
+  const template = alsObject(data.template);
+  const blokken = template?.blokken;
+
+  if (!Array.isArray(blokken)) {
+    return [
+      {
+        code: "samenvatting",
+        bloktype: "samenvatting",
+        titel: "Samenvatting",
+        volgorde: 1,
+        verplicht: true,
+      },
+      {
+        code: "bewoners",
+        bloktype: "bewoners",
+        titel: "Bewoners",
+        volgorde: 2,
+        verplicht: false,
+      },
+      {
+        code: "inspecties",
+        bloktype: "inspecties",
+        titel: "Inspecties",
+        volgorde: 3,
+        verplicht: false,
+      },
+      {
+        code: "meldingen",
+        bloktype: "meldingen",
+        titel: "Meldingen",
+        volgorde: 4,
+        verplicht: false,
+      },
+      {
+        code: "meterstanden",
+        bloktype: "meterstanden",
+        titel: "Meterstanden",
+        volgorde: 5,
+        verplicht: false,
+      },
+      {
+        code: "energieverbruik",
+        bloktype: "energieverbruik",
+        titel: "Energieverbruik per bewoner per week",
+        volgorde: 6,
+        verplicht: false,
+      },
+      {
+        code: "opmerkingen",
+        bloktype: "opmerkingen",
+        titel: "Aanvullende opmerkingen",
+        volgorde: 7,
+        verplicht: false,
+      },
+    ];
+  }
+
+  return blokken
+    .map(alsObject)
+    .filter(
+      (blok): blok is JsonObject =>
+        blok !== null
+    )
+    .map((blok) => ({
+      code: tekst(blok, "code", ""),
+      bloktype: tekst(blok, "bloktype", ""),
+      titel: tekst(blok, "titel", "Rapportblok"),
+      volgorde: Number(blok.volgorde ?? 0),
+      verplicht: blok.verplicht === true,
+    }))
+    .sort((a, b) => a.volgorde - b.volgorde);
 }
 
 export default function RapportagePdfButton({
@@ -143,6 +216,7 @@ export default function RapportagePdfButton({
 
     try {
       const { jsPDF } = await import("jspdf");
+
       const document = new jsPDF({
         orientation: "portrait",
         unit: "mm",
@@ -150,17 +224,6 @@ export default function RapportagePdfButton({
       });
 
       const data = rapportage.rapport_data;
-      const samenvatting =
-        alsObject(data.samenvatting) ?? {};
-      const bewoners = alsObjecten(data.bewoners);
-      const inspecties = alsObjecten(data.inspecties);
-      const meldingen = alsObjecten(data.meldingen);
-      const meterstanden = alsObjecten(
-        data.meterstanden
-      );
-      const energieverbruik = alsObjecten(
-        data.energieverbruik
-      );
 
       if (!data.gegenereerd_op) {
         throw new Error(
@@ -168,19 +231,19 @@ export default function RapportagePdfButton({
         );
       }
 
+      const blokken = templateblokken(data);
       const paginaBreedte =
         document.internal.pageSize.getWidth();
       const paginaHoogte =
         document.internal.pageSize.getHeight();
-
       const marge = 16;
       const inhoudBreedte =
         paginaBreedte - marge * 2;
+
       let y = 18;
 
       function voettekst() {
-        const pagina =
-          document.getNumberOfPages();
+        const pagina = document.getNumberOfPages();
 
         document.setFont("helvetica", "normal");
         document.setFontSize(8);
@@ -218,7 +281,7 @@ export default function RapportagePdfButton({
       }
 
       function regel(
-        tekstWaarde: string,
+        waarde: string,
         opties?: {
           grootte?: number;
           vet?: boolean;
@@ -238,7 +301,7 @@ export default function RapportagePdfButton({
         document.setTextColor(15, 23, 42);
 
         const regels = document.splitTextToSize(
-          tekstWaarde,
+          waarde,
           inhoudBreedte - inspringen
         ) as string[];
 
@@ -257,10 +320,13 @@ export default function RapportagePdfButton({
         y += hoogte;
       }
 
-      function sectieTitel(titel: string) {
+      function sectieTitel(
+        titel: string,
+        verplicht: boolean
+      ) {
         controleerRuimte(15);
-
         y += 4;
+
         document.setFillColor(5, 150, 105);
         document.roundedRect(
           marge,
@@ -275,7 +341,11 @@ export default function RapportagePdfButton({
         document.setFont("helvetica", "bold");
         document.setFontSize(12);
         document.setTextColor(255, 255, 255);
-        document.text(titel, marge + 4, y + 1.5);
+        document.text(
+          verplicht ? `${titel} *` : titel,
+          marge + 4,
+          y + 1.5
+        );
 
         y += 10;
       }
@@ -303,149 +373,37 @@ export default function RapportagePdfButton({
         y += Math.max(6, regels.length * 4.2);
       }
 
-      function kaart(
-        titel: string,
-        waarde: string,
-        x: number,
-        kaartY: number,
-        breedte: number
-      ) {
-        document.setFillColor(241, 245, 249);
-        document.roundedRect(
-          x,
-          kaartY,
-          breedte,
-          20,
-          2,
-          2,
-          "F"
-        );
+      function toonSamenvatting() {
+        const samenvatting =
+          alsObject(data.samenvatting) ?? {};
 
-        document.setFont("helvetica", "normal");
-        document.setFontSize(8);
-        document.setTextColor(100, 116, 139);
-        document.text(titel, x + 3, kaartY + 6);
+        const waarden = [
+          ["Bewoners", "bewoners_aantal"],
+          ["Inspecties", "inspecties_aantal"],
+          ["Open meldingen", "meldingen_open"],
+          ["Schademeldingen", "schademeldingen_aantal"],
+          ["Inspecties met schade", "inspecties_met_schade"],
+          ["Opgeloste meldingen", "meldingen_opgelost"],
+          ["Meteropnames", "meteropnames_aantal"],
+          ["Verbruiksperiodes", "verbruiksperiodes_aantal"],
+        ];
 
-        document.setFont("helvetica", "bold");
-        document.setFontSize(15);
-        document.setTextColor(15, 23, 42);
-        document.text(waarde, x + 3, kaartY + 15);
+        waarden.forEach(([label, sleutel]) => {
+          gegevensRij(
+            label,
+            nummer(samenvatting[sleutel])
+          );
+        });
       }
 
-      document.setFillColor(6, 78, 59);
-      document.rect(
-        0,
-        0,
-        paginaBreedte,
-        48,
-        "F"
-      );
+      function toonBewoners() {
+        const bewoners = alsObjecten(data.bewoners);
 
-      document.setFont("helvetica", "bold");
-      document.setFontSize(22);
-      document.setTextColor(255, 255, 255);
-      document.text("CFME Control", marge, 18);
+        if (bewoners.length === 0) {
+          regel("Geen bewoners geregistreerd.");
+          return;
+        }
 
-      document.setFontSize(15);
-      document.text(
-        rapportage.titel,
-        marge,
-        29
-      );
-
-      document.setFont("helvetica", "normal");
-      document.setFontSize(10);
-      document.text(
-        `${adres}, ${postcode} ${plaats}`,
-        marge,
-        38
-      );
-
-      y = 58;
-
-      const maandNaam =
-        maanden[rapportage.rapportmaand - 1];
-
-      gegevensRij(
-        "Rapportperiode",
-        `${maandNaam} ${rapportage.rapportjaar}`
-      );
-      gegevensRij(
-        "Ontvanger",
-        rapportage.ontvanger_naam ?? "—"
-      );
-      gegevensRij(
-        "E-mailadres",
-        rapportage.ontvanger_email ?? "—"
-      );
-      gegevensRij(
-        "Status",
-        rapportage.status
-      );
-
-      sectieTitel("Samenvatting");
-
-      const kaartBreedte =
-        (inhoudBreedte - 9) / 4;
-
-      controleerRuimte(24);
-
-      kaart(
-        "Bewoners",
-        nummer(
-          getal(
-            samenvatting,
-            "bewoners_aantal"
-          )
-        ),
-        marge,
-        y,
-        kaartBreedte
-      );
-      kaart(
-        "Inspecties",
-        nummer(
-          getal(
-            samenvatting,
-            "inspecties_aantal"
-          )
-        ),
-        marge + kaartBreedte + 3,
-        y,
-        kaartBreedte
-      );
-      kaart(
-        "Open meldingen",
-        nummer(
-          getal(
-            samenvatting,
-            "meldingen_open"
-          )
-        ),
-        marge + (kaartBreedte + 3) * 2,
-        y,
-        kaartBreedte
-      );
-      kaart(
-        "Schades",
-        nummer(
-          getal(
-            samenvatting,
-            "schademeldingen_aantal"
-          )
-        ),
-        marge + (kaartBreedte + 3) * 3,
-        y,
-        kaartBreedte
-      );
-
-      y += 26;
-
-      sectieTitel("Bewoners");
-
-      if (bewoners.length === 0) {
-        regel("Geen bewoners geregistreerd.");
-      } else {
         bewoners.forEach((bewoner, index) => {
           regel(
             `${index + 1}. ${tekst(
@@ -454,18 +412,83 @@ export default function RapportagePdfButton({
             )}`,
             { vet: true }
           );
+
           regel(
-            `Kamer: ${tekst(
-              bewoner,
-              "kamer"
-            )} | Incheckdatum: ${datum(
-              tekst(
-                bewoner,
-                "incheckdatum"
-              )
-            )} | Status: ${tekst(
-              bewoner,
-              "status"
+            [
+              `Kamer: ${tekst(bewoner, "kamer")}`,
+              `Incheckdatum: ${datum(
+                tekst(bewoner, "incheckdatum")
+              )}`,
+              `Uitcheckdatum: ${datum(
+                tekst(bewoner, "uitcheckdatum")
+              )}`,
+              `Status: ${tekst(bewoner, "status")}`,
+            ].join(" | "),
+            {
+              grootte: 9,
+              inspringen: 4,
+              ruimteNa: 4,
+            }
+          );
+        });
+      }
+
+      function toonInspecties() {
+        const inspecties =
+          alsObjecten(data.inspecties);
+
+        if (inspecties.length === 0) {
+          regel(
+            "Geen inspecties uitgevoerd in deze periode."
+          );
+          return;
+        }
+
+        inspecties.forEach((inspectie, index) => {
+          regel(
+            `${index + 1}. ${datum(
+              tekst(inspectie, "inspectiedatum")
+            )} — ${tekst(inspectie, "type")}`,
+            { vet: true }
+          );
+
+          regel(
+            [
+              `Algemene toestand: ${tekst(
+                inspectie,
+                "algemene_toestand"
+              )}`,
+              `Orde en netheid: ${tekst(
+                inspectie,
+                "orde_netheid_score"
+              )}/5`,
+              `Schade: ${tekst(
+                inspectie,
+                "schade_aanwezig"
+              )}`,
+            ].join(" | "),
+            {
+              grootte: 9,
+              inspringen: 4,
+            }
+          );
+
+          regel(
+            `Schadeomschrijving: ${tekst(
+              inspectie,
+              "schade_omschrijving"
+            )}`,
+            {
+              grootte: 9,
+              inspringen: 4,
+            }
+          );
+
+          regel(
+            `Opmerkingen: ${tekst(
+              inspectie,
+              "opmerkingen",
+              "Geen opmerkingen"
             )}`,
             {
               grootte: 9,
@@ -476,83 +499,16 @@ export default function RapportagePdfButton({
         });
       }
 
-      sectieTitel("Inspecties");
+      function toonMeldingen() {
+        const meldingen = alsObjecten(data.meldingen);
 
-      if (inspecties.length === 0) {
-        regel(
-          "Geen inspecties uitgevoerd in deze periode."
-        );
-      } else {
-        inspecties.forEach(
-          (inspectie, index) => {
-            regel(
-              `${index + 1}. ${datum(
-                tekst(
-                  inspectie,
-                  "inspectiedatum"
-                )
-              )} — ${tekst(
-                inspectie,
-                "type"
-              )}`,
-              { vet: true }
-            );
+        if (meldingen.length === 0) {
+          regel(
+            "Geen meldingen in deze rapportperiode."
+          );
+          return;
+        }
 
-            regel(
-              `Algemene toestand: ${tekst(
-                inspectie,
-                "algemene_toestand"
-              )} | Orde en netheid: ${tekst(
-                inspectie,
-                "orde_netheid_score"
-              )}/5 | Schade: ${jaNee(
-                inspectie,
-                "schade_aanwezig"
-              )}`,
-              {
-                grootte: 9,
-                inspringen: 4,
-              }
-            );
-
-            if (
-              inspectie.schade_aanwezig === true
-            ) {
-              regel(
-                `Schadeomschrijving: ${tekst(
-                  inspectie,
-                  "schade_omschrijving"
-                )}`,
-                {
-                  grootte: 9,
-                  inspringen: 4,
-                }
-              );
-            }
-
-            regel(
-              `Opmerkingen: ${tekst(
-                inspectie,
-                "opmerkingen",
-                "Geen opmerkingen"
-              )}`,
-              {
-                grootte: 9,
-                inspringen: 4,
-                ruimteNa: 4,
-              }
-            );
-          }
-        );
-      }
-
-      sectieTitel("Meldingen");
-
-      if (meldingen.length === 0) {
-        regel(
-          "Geen meldingen in deze rapportperiode."
-        );
-      } else {
         meldingen.forEach((melding, index) => {
           regel(
             `${index + 1}. ${tekst(
@@ -563,18 +519,23 @@ export default function RapportagePdfButton({
           );
 
           regel(
-            `Datum: ${datum(
-              tekst(melding, "melddatum")
-            )} | Categorie: ${tekst(
-              melding,
-              "categorie"
-            )} | Prioriteit: ${tekst(
-              melding,
-              "prioriteit"
-            )} | Status: ${tekst(
-              melding,
-              "status"
-            )}`,
+            [
+              `Datum: ${datum(
+                tekst(melding, "melddatum")
+              )}`,
+              `Categorie: ${tekst(
+                melding,
+                "categorie"
+              )}`,
+              `Prioriteit: ${tekst(
+                melding,
+                "prioriteit"
+              )}`,
+              `Status: ${tekst(
+                melding,
+                "status"
+              )}`,
+            ].join(" | "),
             {
               grootte: 9,
               inspringen: 4,
@@ -593,15 +554,18 @@ export default function RapportagePdfButton({
           );
 
           regel(
-            `Oplossing: ${tekst(
-              melding,
-              "oplossing",
-              "Nog niet opgelost"
-            )} | Factuur naar: ${tekst(
-              melding,
-              "factuur_naar",
-              "Nog te bepalen"
-            )}`,
+            [
+              `Oplossing: ${tekst(
+                melding,
+                "oplossing",
+                "Nog niet opgelost"
+              )}`,
+              `Factuur naar: ${tekst(
+                melding,
+                "factuur_naar",
+                "Nog te bepalen"
+              )}`,
+            ].join(" | "),
             {
               grootte: 9,
               inspringen: 4,
@@ -611,21 +575,22 @@ export default function RapportagePdfButton({
         });
       }
 
-      sectieTitel("Meterstanden");
+      function toonMeterstanden() {
+        const meterstanden =
+          alsObjecten(data.meterstanden);
 
-      if (meterstanden.length === 0) {
-        regel(
-          "Geen meteropnames in deze rapportperiode."
-        );
-      } else {
+        if (meterstanden.length === 0) {
+          regel(
+            "Geen meteropnames in deze rapportperiode."
+          );
+          return;
+        }
+
         meterstanden.forEach(
           (meterstand, index) => {
             regel(
               `${index + 1}. ${datum(
-                tekst(
-                  meterstand,
-                  "opnamedatum"
-                )
+                tekst(meterstand, "opnamedatum")
               )}`,
               { vet: true }
             );
@@ -637,18 +602,15 @@ export default function RapportagePdfButton({
                   "bewoners_aantal"
                 )}`,
                 `Elektriciteit: ${nummer(
-                  getal(
-                    meterstand,
-                    "elektriciteit_kwh"
-                  ),
+                  meterstand.elektriciteit_kwh,
                   "kWh"
                 )}`,
                 `Gas: ${nummer(
-                  getal(meterstand, "gas_m3"),
+                  meterstand.gas_m3,
                   "m³"
                 )}`,
                 `Water: ${nummer(
-                  getal(meterstand, "water_m3"),
+                  meterstand.water_m3,
                   "m³"
                 )}`,
               ].join(" | "),
@@ -662,15 +624,17 @@ export default function RapportagePdfButton({
         );
       }
 
-      sectieTitel(
-        "Energieverbruik per bewoner per week"
-      );
+      function toonEnergieverbruik() {
+        const energieverbruik =
+          alsObjecten(data.energieverbruik);
 
-      if (energieverbruik.length === 0) {
-        regel(
-          "Geen volledige verbruiksperiode beschikbaar."
-        );
-      } else {
+        if (energieverbruik.length === 0) {
+          regel(
+            "Geen volledige verbruiksperiode beschikbaar."
+          );
+          return;
+        }
+
         energieverbruik.forEach(
           (verbruik, index) => {
             regel(
@@ -685,24 +649,15 @@ export default function RapportagePdfButton({
             regel(
               [
                 `Elektriciteit: ${nummer(
-                  getal(
-                    verbruik,
-                    "elektriciteit_per_bewoner_per_week"
-                  ),
+                  verbruik.elektriciteit_per_bewoner_per_week,
                   "kWh"
                 )}`,
                 `Gas: ${nummer(
-                  getal(
-                    verbruik,
-                    "gas_per_bewoner_per_week"
-                  ),
+                  verbruik.gas_per_bewoner_per_week,
                   "m³"
                 )}`,
                 `Water: ${nummer(
-                  getal(
-                    verbruik,
-                    "water_per_bewoner_per_week"
-                  ),
+                  verbruik.water_per_bewoner_per_week,
                   "m³"
                 )}`,
               ].join(" | "),
@@ -716,9 +671,95 @@ export default function RapportagePdfButton({
         );
       }
 
-      if (rapportage.opmerkingen) {
-        sectieTitel("Aanvullende opmerkingen");
-        regel(rapportage.opmerkingen);
+      function toonVrijeTekst(
+        blok: TemplateblokSnapshot
+      ) {
+        const waarde = data[blok.code];
+
+        if (typeof waarde === "string" && waarde) {
+          regel(waarde);
+          return;
+        }
+
+        regel("Geen inhoud beschikbaar.");
+      }
+
+      document.setFillColor(6, 78, 59);
+      document.rect(
+        0,
+        0,
+        paginaBreedte,
+        48,
+        "F"
+      );
+
+      document.setFont("helvetica", "bold");
+      document.setFontSize(22);
+      document.setTextColor(255, 255, 255);
+      document.text("CFME Control", marge, 18);
+
+      document.setFontSize(15);
+      document.text(rapportage.titel, marge, 29);
+
+      document.setFont("helvetica", "normal");
+      document.setFontSize(10);
+      document.text(
+        `${adres}, ${postcode} ${plaats}`,
+        marge,
+        38
+      );
+
+      y = 58;
+
+      gegevensRij(
+        "Rapportperiode",
+        `${maanden[rapportage.rapportmaand - 1]} ${
+          rapportage.rapportjaar
+        }`
+      );
+      gegevensRij(
+        "Ontvanger",
+        rapportage.ontvanger_naam ?? "—"
+      );
+      gegevensRij(
+        "E-mailadres",
+        rapportage.ontvanger_email ?? "—"
+      );
+      gegevensRij("Status", rapportage.status);
+
+      for (const blok of blokken) {
+        sectieTitel(blok.titel, blok.verplicht);
+
+        switch (blok.bloktype) {
+          case "samenvatting":
+            toonSamenvatting();
+            break;
+          case "bewoners":
+            toonBewoners();
+            break;
+          case "inspecties":
+            toonInspecties();
+            break;
+          case "meldingen":
+            toonMeldingen();
+            break;
+          case "meterstanden":
+            toonMeterstanden();
+            break;
+          case "energieverbruik":
+            toonEnergieverbruik();
+            break;
+          case "opmerkingen":
+            regel(
+              typeof data.opmerkingen === "string"
+                ? data.opmerkingen
+                : rapportage.opmerkingen ??
+                    "Geen aanvullende opmerkingen."
+            );
+            break;
+          default:
+            toonVrijeTekst(blok);
+        }
       }
 
       voettekst();
