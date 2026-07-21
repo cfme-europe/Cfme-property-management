@@ -195,7 +195,7 @@ export default function WoningQrCode({
               unoptimized
               style={{
                 width: "220px",
-                height: "220px",
+                height: "auto",
                 maxWidth: "100%",
                 objectFit: "contain",
               }}

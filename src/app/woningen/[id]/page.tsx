@@ -11,6 +11,7 @@ import { getBewonersVoorVerhuurperiode } from "@/services/bewoners";
 import { getInspectiesVoorWoning } from "@/services/inspecties";
 import { getMeldingenVoorWoning } from "@/services/meldingen";
 import { getTakenVoorWoning } from "@/services/taken";
+import { getDocumentenVoorWoning } from "@/services/documenten";
 import type {
   TaakPrioriteit,
   TaakStatus,
@@ -78,6 +79,7 @@ export default async function WoningDossierPage({
     inspecties,
     meldingen,
     taken,
+    documenten,
     meterstanden,
     certificeringen,
     maandrapportages,
@@ -95,6 +97,7 @@ export default async function WoningDossierPage({
     getInspectiesVoorWoning(woningId),
     getMeldingenVoorWoning(woningId),
     getTakenVoorWoning(woningId),
+    getDocumentenVoorWoning(woningId),
     getMeterstandenVoorWoning(woningId),
     getCertificeringenVoorWoning(woningId),
     getMaandrapportagesVoorWoning(woningId),
@@ -397,6 +400,104 @@ export default async function WoningDossierPage({
                       );
                     }
                   )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold">
+                Documenten
+              </h2>
+              <p className="mt-1 text-slate-600">
+                Private bestanden met volledige versiehistorie.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href={`/woningen/${woning.id}/documenten/archief`}
+                className="rounded-xl border border-slate-300 px-5 py-3 font-medium text-slate-700"
+              >
+                Documentarchief
+              </Link>
+
+              <Link
+                href={`/woningen/${woning.id}/documenten/nieuw`}
+                className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
+              >
+                Nieuw document
+              </Link>
+            </div>
+          </div>
+
+          {documenten.length === 0 ? (
+            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
+              Nog geen documenten geregistreerd.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[860px]">
+                <thead className="border-b bg-slate-100">
+                  <tr>
+                    <th className="p-4 text-left">Titel</th>
+                    <th className="p-4 text-left">Type</th>
+                    <th className="p-4 text-left">Versies</th>
+                    <th className="p-4 text-left">Status</th>
+                    <th className="p-4 text-left">Actie</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {documenten.map((document) => (
+                    <tr
+                      key={document.id}
+                      className="border-b last:border-0"
+                    >
+                      <td className="p-4">
+                        <p className="font-semibold">
+                          {document.titel}
+                        </p>
+                        {document.laatste_bestandsnaam && (
+                          <p className="mt-1 text-sm text-slate-500">
+                            {document.laatste_bestandsnaam}
+                          </p>
+                        )}
+                      </td>
+                      <td className="p-4 capitalize">
+                        {document.document_type.replaceAll(
+                          "_",
+                          " "
+                        )}
+                      </td>
+                      <td className="p-4">
+                        {document.aantal_versies}
+                      </td>
+                      <td className="p-4">
+                        <span
+                          className={`rounded-full px-3 py-1 text-sm font-medium ${
+                            document.status === "actief"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-slate-200 text-slate-700"
+                          }`}
+                        >
+                          {document.status === "actief"
+                            ? "Actief"
+                            : "Gearchiveerd"}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <Link
+                          href={`/woningen/${woning.id}/documenten/${document.id}`}
+                          className="font-medium text-emerald-700 hover:underline"
+                        >
+                          Openen
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
