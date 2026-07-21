@@ -267,9 +267,24 @@ Commits:
 - `e0490d2` RECHTEN-002 Verwijder publieke en delete policies
 - `24e64fa` RECHTEN-003 Beperk schrijfpolicies per rol
 
-## 0.8C
+## 0.8C — Gereed
 
 Auditlog
+
+- centraal auditlog voor wijzigingen in publieke basistabellen
+- registratie van INSERT-, UPDATE- en DELETE-acties
+- gebruiker, database-rol, tabel, record, tijdstip en transactie worden vastgelegd
+- oude en nieuwe waarden worden als JSON bewaard
+- gewijzigde velden worden bij updates afzonderlijk geregistreerd
+- 36 basistabellen zijn via audittriggers aangesloten
+- auditlog is niet beschrijfbaar via authenticated of anon
+- uitsluitend admin en management kunnen auditgegevens lezen
+- anon heeft geen toegang
+- databasecontrole succesvol uitgevoerd
+
+Commits:
+
+- `a7ba6f` AUDIT-001 Voeg centraal onveranderbaar auditlog toe
 
 ## 0.8D
 
