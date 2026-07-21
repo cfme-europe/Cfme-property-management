@@ -121,9 +121,20 @@ QR-codes
 - afzonderlijke afdrukweergave met woninggegevens
 - lint, productiebuild en runtimecontrole geslaagd
 
-## 0.6D
+## 0.6D ✅
 
 Documentbeheer
+
+- private woningdocumenten met documenttype en vertrouwelijkheid
+- volledige versiehistorie zonder overschrijven
+- opslag in beveiligde Supabase Storage-bucket
+- alleen bevoegde administratierollen kunnen toevoegen en archiveren
+- actieve documenten beperkt zichtbaar in het woningdossier
+- gearchiveerde documenten uitsluitend in afzonderlijk documentarchief
+- PDF-, Office- en afbeeldingsbestanden tot 20 MB
+- beveiligde tijdelijke downloadlinks
+- downloads runtime bewezen voor actieve en gearchiveerde versies
+- lint, productiebuild en iPad/Safari-runtimecontrole geslaagd
 
 ---
 

@@ -473,6 +473,25 @@ Nieuwe Core-tabellen worden niet openbaar schrijfbaar gemaakt.
    - lint en productiebuild geslaagd;
    - runtime bewezen met correcte, scanbare dossierweergave.
 
+
+14. BP-DOCUMENTEN-001 — Documentbeheer — GEREED
+   - documenten gekoppeld aan woningen;
+   - documenttypen voor contracten, certificeringen, keuringen, inspecties, verzekeringen, facturen, rapportages, handleidingen, identificatie en overig;
+   - vertrouwelijkheid intern, vertrouwelijk en extern geschikt;
+   - private Supabase Storage-bucket met limiet van 20 MB;
+   - PDF-, DOCX-, XLSX- en gangbare afbeeldingsformaten ondersteund;
+   - documenten en versies zijn historisch en worden niet fysiek verwijderd;
+   - nieuwe versies overschrijven bestaande bestanden niet;
+   - actuele versie en aantal versies beschikbaar via beveiligd overzicht;
+   - RLS-leesrecht voor authenticated gebruikers;
+   - toevoegen, wijzigen en archiveren uitsluitend voor bevoegde administratierollen;
+   - actieve documenten beperkt tot vijf recente items in het woningdossier;
+   - gearchiveerde documenten uitsluitend zichtbaar in een afzonderlijk archief;
+   - tijdelijke ondertekende downloadlinks;
+   - downloadroute uitgevoerd via serverpagina voor betrouwbare Next.js-, iPad- en Safari-werking;
+   - lint en productiebuild geslaagd;
+   - runtime bewezen met documentaanmaak, versie toevoegen, archiveren en downloads van actieve en gearchiveerde bestanden.
+
 ## 17. Definition of Done
 
 Een bouwpakket is pas gereed wanneer:
