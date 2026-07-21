@@ -1,4 +1,6 @@
-import { supabase } from "@/lib/supabase";
+"use client";
+
+import { createClient } from "@/lib/supabase/client";
 import type {
   Maandrapportage,
   MaandrapportageInvoer,
@@ -96,6 +98,8 @@ function valideer(
 export async function getMaandrapportagesVoorWoning(
   woningId: number
 ): Promise<Maandrapportage[]> {
+  const supabase = createClient();
+
   if (
     !Number.isInteger(woningId) ||
     woningId <= 0
@@ -122,6 +126,8 @@ export async function getMaandrapportagesVoorWoning(
 export async function getMaandrapportageById(
   rapportageId: number
 ): Promise<Maandrapportage | null> {
+  const supabase = createClient();
+
   if (
     !Number.isInteger(rapportageId) ||
     rapportageId <= 0
@@ -149,6 +155,8 @@ export async function getMaandrapportageVoorPeriode(
   rapportjaar: number,
   rapportmaand: number
 ): Promise<Maandrapportage | null> {
+  const supabase = createClient();
+
   const { data, error } = await supabase
     .from("maandrapportages")
     .select("*")
@@ -169,6 +177,8 @@ export async function getMaandrapportageVoorPeriode(
 export async function createMaandrapportage(
   invoer: MaandrapportageInvoer
 ): Promise<Maandrapportage> {
+  const supabase = createClient();
+
   const geldig = valideer(invoer);
 
   const { data, error } = await supabase
@@ -196,6 +206,8 @@ export async function updateMaandrapportage(
   rapportageId: number,
   invoer: MaandrapportageInvoer
 ): Promise<Maandrapportage> {
+  const supabase = createClient();
+
   if (
     !Number.isInteger(rapportageId) ||
     rapportageId <= 0

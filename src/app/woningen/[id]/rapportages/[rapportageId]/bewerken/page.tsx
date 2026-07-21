@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import MaandrapportageForm from "@/components/rapportages/MaandrapportageForm";
-import { getMaandrapportageById } from "@/services/maandrapportages";
+import { getMaandrapportageById } from "@/services/maandrapportages-server";
 import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";

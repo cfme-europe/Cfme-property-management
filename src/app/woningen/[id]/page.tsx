@@ -24,7 +24,7 @@ import type {
   CertificeringStatus,
   CertificeringType,
 } from "@/types/certificering";
-import { getMaandrapportagesVoorWoning } from "@/services/maandrapportages";
+import { getMaandrapportagesVoorWoning } from "@/services/maandrapportages-server";
 import { getLaatsteWoningDnaVoorWoning } from "@/services/intelligence";
 import { getActieveControlebriefingVoorWoning } from "@/services/intelligence-server";
 import WoningDnaOverzicht from "@/components/intelligence/WoningDnaOverzicht";
