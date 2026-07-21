@@ -218,6 +218,54 @@ export default async function Home() {
           />
         </section>
 
+        <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <KpiKaart
+            titel="Open taken"
+            waarde={dashboard.kpis.open_taken}
+            toelichting={`${dashboard.kpis.taken_over_deadline} over deadline`}
+            accent={
+              dashboard.kpis.taken_over_deadline > 0
+                ? "rood"
+                : dashboard.kpis.open_taken > 0
+                  ? "amber"
+                  : "groen"
+            }
+          />
+
+          <KpiKaart
+            titel="Compliance"
+            waarde={dashboard.kpis.compliance_aandacht}
+            toelichting="Verlopen of verloopt binnenkort"
+            accent={
+              dashboard.kpis.compliance_aandacht > 0
+                ? "rood"
+                : "groen"
+            }
+          />
+
+          <KpiKaart
+            titel="Woningrisico"
+            waarde={dashboard.kpis.hoge_kritieke_woningen}
+            toelichting="Hoog of kritiek"
+            accent={
+              dashboard.kpis.hoge_kritieke_woningen > 0
+                ? "rood"
+                : "groen"
+            }
+          />
+
+          <KpiKaart
+            titel="Zonder planning"
+            waarde={dashboard.kpis.woningen_zonder_planning}
+            toelichting="Geen actieve rayonplanning"
+            accent={
+              dashboard.kpis.woningen_zonder_planning > 0
+                ? "amber"
+                : "groen"
+            }
+          />
+        </section>
+
         <section className="mt-4 grid gap-4 sm:grid-cols-3">
           <KpiKaart
             titel="Bedrijven"
@@ -452,6 +500,121 @@ export default async function Home() {
                     </Link>
                   )
                 )}
+              </div>
+            )}
+          </section>
+        </div>
+
+        <div className="mt-7 grid gap-7 xl:grid-cols-3">
+          <section className="rounded-2xl bg-white p-5 shadow-sm md:p-6">
+            <h2 className="text-xl font-bold">Open taken</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Eerstvolgende deadlines en achterstanden.
+            </p>
+
+            {dashboard.openTaken.length === 0 ? (
+              <p className="mt-5 rounded-xl bg-emerald-50 p-5 text-emerald-900">
+                Geen open taken.
+              </p>
+            ) : (
+              <div className="mt-5 space-y-3">
+                {dashboard.openTaken.slice(0, 6).map((taak) => (
+                  <Link
+                    key={taak.id}
+                    href={`/woningen/${taak.woning_id}/taken/${taak.id}/bewerken`}
+                    className="block rounded-xl border border-slate-200 p-4 hover:border-emerald-400"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">{taak.titel}</p>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {woningNaam(taak.woning)}
+                        </p>
+                      </div>
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          taak.over_deadline
+                            ? "bg-red-100 text-red-800"
+                            : "bg-amber-100 text-amber-800"
+                        }`}
+                      >
+                        {taak.over_deadline ? "Te laat" : "Open"}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm text-slate-500">
+                      Deadline: {taak.deadline ? datum(taak.deadline) : "geen"}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-2xl bg-white p-5 shadow-sm md:p-6">
+            <h2 className="text-xl font-bold">Compliance</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Certificeringen die actie vereisen.
+            </p>
+
+            {dashboard.complianceAandacht.length === 0 ? (
+              <p className="mt-5 rounded-xl bg-emerald-50 p-5 text-emerald-900">
+                Geen compliance-afwijkingen.
+              </p>
+            ) : (
+              <div className="mt-5 space-y-3">
+                {dashboard.complianceAandacht.slice(0, 6).map((certificering) => (
+                  <Link
+                    key={certificering.id}
+                    href={`/woningen/${certificering.woning_id}/certificeringen/${certificering.id}/bewerken`}
+                    className="block rounded-xl border border-slate-200 p-4 hover:border-red-400"
+                  >
+                    <p className="font-semibold">{certificering.naam}</p>
+                    <p className="mt-1 text-sm text-slate-600">
+                      {woningNaam(certificering.woning)}
+                    </p>
+                    <p className="mt-3 text-sm text-slate-500">
+                      Geldig tot {datum(certificering.geldig_tot)}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-2xl bg-white p-5 shadow-sm md:p-6">
+            <h2 className="text-xl font-bold">Woningrisico</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Laatste hoge en kritieke Woning-DNA-scores.
+            </p>
+
+            {dashboard.woningRisicos.length === 0 ? (
+              <p className="mt-5 rounded-xl bg-emerald-50 p-5 text-emerald-900">
+                Geen hoge of kritieke woningen.
+              </p>
+            ) : (
+              <div className="mt-5 space-y-3">
+                {dashboard.woningRisicos.slice(0, 6).map((risico) => (
+                  <Link
+                    key={risico.woning.id}
+                    href={`/woningen/${risico.woning.id}`}
+                    className="block rounded-xl border border-slate-200 p-4 hover:border-red-400"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold">{risico.woning.adres}</p>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {risico.woning.plaats}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-800">
+                        {risico.risiconiveau}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm text-slate-500">
+                      Risicoscore {getal(risico.risicoscore, 0)}
+                    </p>
+                  </Link>
+                ))}
               </div>
             )}
           </section>

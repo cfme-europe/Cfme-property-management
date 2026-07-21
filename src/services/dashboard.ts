@@ -1,8 +1,16 @@
-import { supabase } from "@/lib/supabase";
+import "server-only";
+
+import { createClient } from "@/lib/supabase/server";
 import { berekenVerbruiksperiodes } from "@/services/energieverbruik";
 import type { Inspectie } from "@/types/inspectie";
 import type { Melding } from "@/types/melding";
 import type { Meterstand } from "@/types/meterstand";
+import type { Taak } from "@/types/taak";
+import type { Certificering } from "@/types/certificering";
+import type {
+  WoningDnaRisiconiveau,
+  WoningDnaSnapshot,
+} from "@/types/intelligence";
 
 type DashboardWoning = {
   id: number;
@@ -17,6 +25,26 @@ export type DashboardMelding = Melding & {
 
 export type DashboardInspectie = Inspectie & {
   woning: DashboardWoning | null;
+};
+
+export type DashboardTaak = Taak & {
+  woning: DashboardWoning | null;
+  over_deadline: boolean;
+};
+
+export type DashboardCertificering = Certificering & {
+  woning: DashboardWoning | null;
+};
+
+export type DashboardWoningRisico = {
+  woning: DashboardWoning;
+  peildatum: string;
+  risicoscore: number;
+  risiconiveau: WoningDnaRisiconiveau;
+  meldingen_open: number;
+  taken_open: number;
+  taken_over_deadline: number;
+  aandachtspunten: string[];
 };
 
 export type DashboardEnergieAfwijking = {
@@ -40,9 +68,18 @@ export type DashboardData = {
     totale_capaciteit: number;
     open_meldingen: number;
     open_inspecties: number;
+    open_taken: number;
+    taken_over_deadline: number;
+    compliance_aandacht: number;
+    woningen_zonder_planning: number;
+    concept_rapportages: number;
+    hoge_kritieke_woningen: number;
   };
   openMeldingen: DashboardMelding[];
   recenteInspecties: DashboardInspectie[];
+  openTaken: DashboardTaak[];
+  complianceAandacht: DashboardCertificering[];
+  woningRisicos: DashboardWoningRisico[];
   energieAfwijkingen: DashboardEnergieAfwijking[];
 };
 
@@ -90,6 +127,8 @@ function foutmelding(
 }
 
 export async function getDashboardData(): Promise<DashboardData> {
+  const supabase = await createClient();
+
   const [
     bedrijvenResultaat,
     woningenResultaat,
@@ -101,6 +140,11 @@ export async function getDashboardData(): Promise<DashboardData> {
     openMeldingenResultaat,
     recenteInspectiesResultaat,
     meterstandenResultaat,
+    openTakenResultaat,
+    complianceResultaat,
+    dnaResultaat,
+    planningResultaat,
+    conceptRapportagesResultaat,
   ] = await Promise.all([
     supabase
       .from("bedrijven")
@@ -179,6 +223,58 @@ export async function getDashboardData(): Promise<DashboardData> {
         ascending: false,
       })
       .limit(500),
+
+    supabase
+      .from("taken")
+      .select("*")
+      .in("status", [
+        "open",
+        "in_behandeling",
+      ])
+      .order("deadline", {
+        ascending: true,
+        nullsFirst: false,
+      })
+      .order("created_at", {
+        ascending: false,
+      })
+      .limit(12),
+
+    supabase
+      .from("certificeringen_overzicht")
+      .select("*")
+      .in("compliance_status", [
+        "verloopt_binnenkort",
+        "verlopen",
+      ])
+      .order("resterende_dagen", {
+        ascending: true,
+      })
+      .limit(12),
+
+    supabase
+      .from("woning_dna_snapshots")
+      .select("*")
+      .order("peildatum", {
+        ascending: false,
+      })
+      .order("berekend_at", {
+        ascending: false,
+      }),
+
+    supabase
+      .from("woning_rayon_toewijzingen")
+      .select("woning_id")
+      .eq("actief", true)
+      .is("geldig_tot", null),
+
+    supabase
+      .from("maandrapportages")
+      .select("*", {
+        count: "exact",
+        head: true,
+      })
+      .eq("status", "concept"),
   ]);
 
   foutmelding(
@@ -221,6 +317,26 @@ export async function getDashboardData(): Promise<DashboardData> {
     "Meterstanden ophalen",
     meterstandenResultaat.error
   );
+  foutmelding(
+    "Open taken ophalen",
+    openTakenResultaat.error
+  );
+  foutmelding(
+    "Compliance-aandacht ophalen",
+    complianceResultaat.error
+  );
+  foutmelding(
+    "Woning-DNA ophalen",
+    dnaResultaat.error
+  );
+  foutmelding(
+    "Woningplanning ophalen",
+    planningResultaat.error
+  );
+  foutmelding(
+    "Conceptrapportages tellen",
+    conceptRapportagesResultaat.error
+  );
 
   const woningen =
     (woningenResultaat.data ??
@@ -258,6 +374,115 @@ export async function getDashboardData(): Promise<DashboardData> {
           inspectie.woning_id
         ) ?? null,
     }));
+
+  const vandaag =
+    new Date().toISOString().slice(0, 10);
+
+  const openTaken =
+    (
+      (openTakenResultaat.data ??
+        []) as Taak[]
+    ).map((taak) => ({
+      ...taak,
+      woning:
+        woningenPerId.get(
+          taak.woning_id
+        ) ?? null,
+      over_deadline:
+        taak.deadline !== null &&
+        taak.deadline < vandaag,
+    }));
+
+  const complianceAandacht =
+    (
+      (complianceResultaat.data ??
+        []) as Certificering[]
+    ).map((certificering) => ({
+      ...certificering,
+      woning:
+        woningenPerId.get(
+          certificering.woning_id
+        ) ?? null,
+    }));
+
+  const laatsteDnaPerWoning =
+    new Map<number, WoningDnaSnapshot>();
+
+  for (
+    const snapshot of
+      (dnaResultaat.data ??
+        []) as WoningDnaSnapshot[]
+  ) {
+    if (
+      !laatsteDnaPerWoning.has(
+        snapshot.woning_id
+      )
+    ) {
+      laatsteDnaPerWoning.set(
+        snapshot.woning_id,
+        snapshot
+      );
+    }
+  }
+
+  const woningRisicos: DashboardWoningRisico[] =
+    [];
+
+  for (
+    const [
+      woningId,
+      snapshot,
+    ] of laatsteDnaPerWoning
+  ) {
+    const woning =
+      woningenPerId.get(woningId);
+
+    if (
+      !woning ||
+      !["hoog", "kritiek"].includes(
+        snapshot.risiconiveau
+      )
+    ) {
+      continue;
+    }
+
+    woningRisicos.push({
+      woning,
+      peildatum: snapshot.peildatum,
+      risicoscore: snapshot.risicoscore,
+      risiconiveau: snapshot.risiconiveau,
+      meldingen_open:
+        snapshot.meldingen_open,
+      taken_open:
+        snapshot.taken_open,
+      taken_over_deadline:
+        snapshot.taken_over_deadline,
+      aandachtspunten:
+        snapshot.aandachtspunten,
+    });
+  }
+
+  woningRisicos.sort(
+    (a, b) =>
+      b.risicoscore - a.risicoscore
+  );
+
+  const geplandeWoningIds =
+    new Set(
+      (
+        planningResultaat.data ??
+        []
+      ).map(
+        (toewijzing) =>
+          Number(toewijzing.woning_id)
+      )
+    );
+
+  const woningenZonderPlanning =
+    woningen.filter(
+      (woning) =>
+        !geplandeWoningIds.has(woning.id)
+    ).length;
 
   const meterstanden =
     (meterstandenResultaat.data ??
@@ -439,9 +664,27 @@ export async function getDashboardData(): Promise<DashboardData> {
       open_inspecties: aantal(
         inspectiesCountResultaat.count
       ),
+      open_taken: openTaken.length,
+      taken_over_deadline:
+        openTaken.filter(
+          (taak) => taak.over_deadline
+        ).length,
+      compliance_aandacht:
+        complianceAandacht.length,
+      woningen_zonder_planning:
+        woningenZonderPlanning,
+      concept_rapportages: aantal(
+        conceptRapportagesResultaat.count
+      ),
+      hoge_kritieke_woningen:
+        woningRisicos.length,
     },
     openMeldingen,
     recenteInspecties,
+    openTaken,
+    complianceAandacht,
+    woningRisicos:
+      woningRisicos.slice(0, 10),
     energieAfwijkingen:
       energieAfwijkingen.slice(0, 10),
   };
