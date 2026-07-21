@@ -5,10 +5,6 @@ import RapportageGenererenButton from "@/components/rapportages/RapportageGenere
 import RapportagePdfButton from "@/components/rapportages/RapportagePdfButton";
 import RapportageExcelButton from "@/components/rapportages/RapportageExcelButton";
 import { getMaandrapportageById } from "@/services/maandrapportages-server";
-import { getRapportexportsVoorRapportage } from "@/services/rapportexports-server";
-import type {
-  RapportexportStatus,
-} from "@/types/rapportexport";
 import { getWoningById } from "@/services/woningen-server";
 import type { MaandrapportageStatus } from "@/types/maandrapportage";
 
@@ -41,39 +37,6 @@ function datumTijd(
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(waarde));
-}
-
-function exportStatusLabel(
-  status: RapportexportStatus
-): string {
-  const labels: Record<
-    RapportexportStatus,
-    string
-  > = {
-    aangemaakt: "Aangemaakt",
-    gereed: "Gereed",
-    mislukt: "Mislukt",
-  };
-
-  return labels[status];
-}
-
-function exportStatusClass(
-  status: RapportexportStatus
-): string {
-  const classes: Record<
-    RapportexportStatus,
-    string
-  > = {
-    aangemaakt:
-      "bg-amber-100 text-amber-800",
-    gereed:
-      "bg-emerald-100 text-emerald-800",
-    mislukt:
-      "bg-red-100 text-red-800",
-  };
-
-  return classes[status];
 }
 
 function statusLabel(
@@ -112,19 +75,13 @@ export default async function RapportageDetailPage({
     notFound();
   }
 
-  const [
-    woning,
-    rapportage,
-    exports,
-  ] = await Promise.all([
-    getWoningById(woningId),
-    getMaandrapportageById(
-      rapportageNummer
-    ),
-    getRapportexportsVoorRapportage(
-      rapportageNummer
-    ),
-  ]);
+  const [woning, rapportage] =
+    await Promise.all([
+      getWoningById(woningId),
+      getMaandrapportageById(
+        rapportageNummer
+      ),
+    ]);
 
   if (
     !woning ||
@@ -269,92 +226,13 @@ export default async function RapportageDetailPage({
             rapportage={rapportage}
           />
 
-          <section className="mt-10">
-            <div>
-              <h2 className="text-xl font-bold">
-                Exportgeschiedenis
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-600">
-                Geregistreerde PDF- en Excel-exports van deze rapportage.
-              </p>
-            </div>
-
-            {exports.length === 0 ? (
-              <p className="mt-4 rounded-xl bg-slate-100 p-5 text-slate-600">
-                Nog geen exports geregistreerd.
-              </p>
-            ) : (
-              <div className="mt-4 overflow-x-auto">
-                <table className="min-w-full border-collapse text-left">
-                  <thead>
-                    <tr className="border-b border-slate-300 text-sm text-slate-600">
-                      <th className="px-3 py-3">
-                        Bestand
-                      </th>
-                      <th className="px-3 py-3">
-                        Formaat
-                      </th>
-                      <th className="px-3 py-3">
-                        Status
-                      </th>
-                      <th className="px-3 py-3">
-                        Aangemaakt
-                      </th>
-                      <th className="px-3 py-3">
-                        Afgerond
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {exports.map((exportItem) => (
-                      <tr
-                        key={exportItem.id}
-                        className="border-b border-slate-200 align-top"
-                      >
-                        <td className="px-3 py-4 font-medium">
-                          {exportItem.bestandsnaam}
-                          {exportItem.foutmelding && (
-                            <p className="mt-1 text-sm font-normal text-red-700">
-                              {exportItem.foutmelding}
-                            </p>
-                          )}
-                        </td>
-
-                        <td className="px-3 py-4 uppercase">
-                          {exportItem.exportformaat}
-                        </td>
-
-                        <td className="px-3 py-4">
-                          <span
-                            className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${exportStatusClass(
-                              exportItem.status
-                            )}`}
-                          >
-                            {exportStatusLabel(
-                              exportItem.status
-                            )}
-                          </span>
-                        </td>
-
-                        <td className="px-3 py-4">
-                          {datumTijd(
-                            exportItem.created_at
-                          )}
-                        </td>
-
-                        <td className="px-3 py-4">
-                          {datumTijd(
-                            exportItem.gegenereerd_at
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+          <section className="mt-10 border-t border-slate-200 pt-6">
+            <Link
+              href={`/woningen/${woning.id}/rapportages/${rapportage.id}/exports`}
+              className="inline-flex rounded-xl border border-slate-300 px-5 py-3 font-medium text-slate-800 hover:bg-slate-50"
+            >
+              Exportgeschiedenis
+            </Link>
           </section>
 
         </div>
