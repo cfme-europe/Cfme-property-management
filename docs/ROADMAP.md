@@ -180,11 +180,25 @@ Commits:
 - `1afce40` RAPPORTAGES-003 Splits rapportageclient en serverservice
 - `360dd37` RAPPORTAGES-004 Genereer rapportages via serveractie
 
-## 0.7C
+## 0.7C — Gereed
 
-PDF-export
+PDF- en Excel-export
 
-Excel-export
+- PDF-generatie via beveiligde serverroute
+- PDF-download zonder navigatieverlies in Safari
+- Excel-export als XLSX-bestand
+- exportregistratie met formaat, status en tijdstippen
+- afzonderlijke pagina voor exportgeschiedenis
+- koppeling met maandrapportage en templateversie
+- alleen geauthenticeerde bevoegde gebruikers
+- sessiebewuste Supabase-client binnen de PDF-route
+- geen publieke of anonieme exporttoegang
+- lint, productiebuild en iPad/Safari-runtimecontrole geslaagd
+
+Commits:
+
+- `687222d` EXPORTS-001 Toon exportgeschiedenis
+- `7133130` EXPORTS-002 Maak PDF-download en exportgeschiedenis robuust
 
 ## 0.7D
 
