@@ -231,20 +231,3 @@ export async function updateMaandrapportage(
 
   return data as Maandrapportage;
 }
-
-export async function deleteMaandrapportage(
-  rapportageId: number,
-  woningId: number
-): Promise<void> {
-  const { error } = await supabase
-    .from("maandrapportages")
-    .delete()
-    .eq("id", rapportageId)
-    .eq("woning_id", woningId);
-
-  if (error) {
-    throw new Error(
-      `Maandrapportage verwijderen mislukt: ${error.message}`
-    );
-  }
-}

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import MaandrapportageInhoud from "@/components/rapportages/MaandrapportageInhoud";
-import MaandrapportageVerwijderenButton from "@/components/rapportages/MaandrapportageVerwijderenButton";
 import RapportageGenererenButton from "@/components/rapportages/RapportageGenererenButton";
 import RapportagePdfButton from "@/components/rapportages/RapportagePdfButton";
 import RapportageExcelButton from "@/components/rapportages/RapportageExcelButton";
@@ -227,12 +226,6 @@ export default async function RapportageDetailPage({
             rapportage={rapportage}
           />
 
-          <div className="mt-8 border-t border-slate-200 pt-6">
-            <MaandrapportageVerwijderenButton
-              woningId={woning.id}
-              rapportageId={rapportage.id}
-            />
-          </div>
         </div>
       </div>
     </main>
