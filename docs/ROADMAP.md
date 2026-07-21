@@ -286,9 +286,21 @@ Commits:
 
 - `a7ba6f` AUDIT-001 Voeg centraal onveranderbaar auditlog toe
 
-## 0.8D
+## 0.8D — Gereed
 
 Back-ups
+
+- logisch back-upscript voor schema, gegevens en databaserollen
+- SHA-256-integriteitscontrole en metadata
+- herstelprocedure, bewaartermijnen en verantwoordelijkheden vastgelegd
+- fysieke Supabase-back-ups en PITR beschreven
+- Supabase Storage opgenomen in het back-upbeleid
+- lokale back-ups uitgesloten van Git
+- scripts syntactisch en functioneel getest
+
+Commits:
+
+- `fba33b9` BACKUP-001 Voeg back-up- en herstelvoorzieningen toe
 
 ## 0.8E
 
