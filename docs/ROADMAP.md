@@ -200,9 +200,27 @@ Commits:
 - `687222d` EXPORTS-001 Toon exportgeschiedenis
 - `7133130` EXPORTS-002 Maak PDF-download en exportgeschiedenis robuust
 
-## 0.7D
+## 0.7D — Gereed
 
 KPI-dashboard
+
+- managementdashboard met sessiebewuste serverdata
+- KPI’s voor woningen, verhuur, bewoners, kamers en capaciteit
+- KPI’s voor open meldingen en open inspecties
+- KPI’s voor open en achterstallige taken
+- compliance-aandacht voor verlopen en binnenkort verlopende certificeringen
+- hoge en kritieke Woning-DNA-risico’s
+- woningen zonder actieve rayonplanning
+- energieafwijkingen van minimaal twintig procent
+- conceptrapportages als afzonderlijke KPI
+- operationele lijsten voor meldingen, inspecties, taken, compliance en woningrisico
+- lint en productiebuild geslaagd
+
+Commits:
+
+- `85f7e7e` DASHBOARD-001 Breid managementdashboard uit
+- `83d5f20` DOCS Rond DASHBOARD-001 af
+- `8e09be2` DASHBOARD-002 Toon conceptrapportages als KPI
 
 ---
 
