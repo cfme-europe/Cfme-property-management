@@ -154,9 +154,31 @@ Dashboard
 - RLS-beveiliging behouden
 - lint, productiebuild en iPad/Safari-runtimecontrole geslaagd
 
-## 0.7B
+## 0.7B — Gereed
 
 Klantrapportages
+
+- maandrapportages per woning en rapportperiode
+- vaste koppeling aan een actieve templateversie
+- statussen concept, definitief en verzonden
+- ontvanger, e-mailadres en interne opmerkingen
+- rapportinhoud voor bewoners, inspecties, meldingen en energie
+- samenvatting met aantallen en schade-indicatoren
+- sessiebewuste server- en browserclients
+- rapportgegevens samenstellen via beveiligde Server Action
+- fysieke verwijdering uit applicatie en service verwijderd
+- alleen geauthenticeerde gebruikers hebben tabeltoegang
+- toevoegen en wijzigen uitsluitend met rapportagebeheerrecht
+- geen toegang voor anon en geen DELETE-recht
+- lint, productiebuild en iPad/Safari-runtimecontrole geslaagd
+- dubbele GoTrueClient-waarschuwing uit rapportageketen verwijderd
+
+Commits:
+
+- `3485928` RAPPORTAGES-001 Beveilig klantrapportages
+- `7e056f2` RAPPORTAGES-002 Verwijder fysieke rapportageverwijdering
+- `1afce40` RAPPORTAGES-003 Splits rapportageclient en serverservice
+- `360dd37` RAPPORTAGES-004 Genereer rapportages via serveractie
 
 ## 0.7C
 
