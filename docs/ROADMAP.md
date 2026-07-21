@@ -108,9 +108,18 @@ Takenplanner
 - fysieke verwijdering niet beschikbaar in de beheerinterface
 - lint, productiebuild en runtimecontrole geslaagd
 
-## 0.6C
+## 0.6C ✅
 
 QR-codes
+
+- QR-code per woning in het beveiligde woningdossier
+- bestemming wordt opgebouwd vanuit de actuele applicatiehost
+- geen publieke woningroute of openbaar toegangstoken
+- na scannen blijft authenticatie verplicht
+- compacte en goed scanbare weergave op iPad en Safari
+- PNG-download in hoge resolutie
+- afzonderlijke afdrukweergave met woninggegevens
+- lint, productiebuild en runtimecontrole geslaagd
 
 ## 0.6D
 

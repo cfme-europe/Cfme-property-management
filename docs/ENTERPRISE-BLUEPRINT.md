@@ -457,6 +457,22 @@ Nieuwe Core-tabellen worden niet openbaar schrijfbaar gemaakt.
    - lint en productiebuild geslaagd;
    - runtime bewezen met één succesvolle opslag en correcte dossierweergave.
 
+
+13. BP-QR-001 — Beveiligde woning-QR-codes — GEREED
+   - iedere woning kan vanuit het woningdossier een QR-code tonen;
+   - de QR-code verwijst uitsluitend naar de interne woningroute;
+   - de bestemming wordt runtime opgebouwd vanuit de actuele applicatiehost;
+   - tijdelijke Codespaces-hostnamen worden niet permanent opgeslagen;
+   - geen publieke woninggegevens, openbare routes of toegangstokens toegevoegd;
+   - authenticatie blijft verplicht na het scannen;
+   - QR-generatie vindt lokaal in de browser plaats;
+   - compacte vaste weergave voor iPad en Safari;
+   - hoge-resolutie PNG-download;
+   - afzonderlijke afdrukweergave met adres- en plaatsgegevens;
+   - foutafhandeling voor generatie en geblokkeerde afdrukvensters;
+   - lint en productiebuild geslaagd;
+   - runtime bewezen met correcte, scanbare dossierweergave.
+
 ## 17. Definition of Done
 
 Een bouwpakket is pas gereed wanneer:
