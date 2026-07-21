@@ -246,9 +246,26 @@ Commits:
 
 - `205421b` GEBRUIKERS-001 Bescherm profielhistorie
 
-## 0.8B
+## 0.8B — Gereed
 
 Rollen en rechten
+
+- uitgebreide rolset voor admin, medewerker, planner, controleur, administratie, management en lezen
+- centrale PostgreSQL-functies voor domeinspecifieke autorisatie
+- geen tabel- of sequencerechten voor anon
+- geen DELETE-, TRUNCATE-, REFERENCES- of TRIGGER-rechten voor authenticated
+- geen anon-policies
+- geen DELETE-policies
+- schrijfpolicies voor bedrijven, woningen, bewoners, huurders, kamers, inspecties, meldingen en meterstanden per rol beperkt
+- controlebriefings, intelligence-werkpunten en workflow per bevoegde rol beperkt
+- geen onbeperkte schrijfpolicies meer
+- remote database gecontroleerd en migraties toegepast
+
+Commits:
+
+- `d7dfb1b` RECHTEN-001 Sluit publieke database toegang af
+- `e0490d2` RECHTEN-002 Verwijder publieke en delete policies
+- `24e64fa` RECHTEN-003 Beperk schrijfpolicies per rol
 
 ## 0.8C
 
