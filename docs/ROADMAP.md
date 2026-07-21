@@ -226,9 +226,25 @@ Commits:
 
 # 0.8 Productie
 
-## 0.8A
+## 0.8A — Gereed
 
 Gebruikers
+
+- beheerinterface voor bestaande gebruikersprofielen
+- uitsluitend toegankelijk voor actieve admins
+- rollen wijzigen
+- gebruikers activeren en deactiveren
+- eigen adminaccount kan niet worden gedeactiveerd of gedegradeerd
+- gebruikersprofielen blijven historisch behouden
+- fysieke verwijderpolicy verwijderd
+- DELETE-recht voor authenticated ingetrokken
+- anon heeft geen toegang tot gebruikersprofielen
+- lokale en remote migratiegeschiedenis hersteld en gelijkgetrokken
+- remote database gecontroleerd en up-to-date
+
+Commits:
+
+- `205421b` GEBRUIKERS-001 Bescherm profielhistorie
 
 ## 0.8B
 
