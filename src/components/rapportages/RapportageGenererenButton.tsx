@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { genereerMaandrapportageData } from "@/services/rapportagegenerator";
-import { updateMaandrapportage } from "@/services/maandrapportages";
+import { rapportageSamenstellen } from "@/app/woningen/[id]/rapportages/actions";
 import type { Maandrapportage } from "@/types/maandrapportage";
 
 type Props = {
@@ -22,31 +21,8 @@ export default function RapportageGenererenButton({
     setFout("");
 
     try {
-      const rapportData =
-        await genereerMaandrapportageData(
-          rapportage
-        );
-
-      await updateMaandrapportage(
-        rapportage.id,
-        {
-          woning_id: rapportage.woning_id,
-          verhuurperiode_id:
-            rapportage.verhuurperiode_id,
-          templateversie_id:
-            rapportage.templateversie_id,
-          rapportjaar: rapportage.rapportjaar,
-          rapportmaand:
-            rapportage.rapportmaand,
-          titel: rapportage.titel,
-          status: rapportage.status,
-          ontvanger_naam:
-            rapportage.ontvanger_naam,
-          ontvanger_email:
-            rapportage.ontvanger_email,
-          opmerkingen: rapportage.opmerkingen,
-          rapport_data: rapportData,
-        }
+      await rapportageSamenstellen(
+        rapportage.id
       );
 
       router.refresh();
