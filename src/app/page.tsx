@@ -266,7 +266,7 @@ export default async function Home() {
           />
         </section>
 
-        <section className="mt-4 grid gap-4 sm:grid-cols-3">
+        <section className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <KpiKaart
             titel="Bedrijven"
             waarde={dashboard.kpis.bedrijven}
@@ -289,6 +289,17 @@ export default async function Home() {
             accent={
               dashboard.energieAfwijkingen.length > 0
                 ? "rood"
+                : "groen"
+            }
+          />
+
+          <KpiKaart
+            titel="Conceptrapportages"
+            waarde={dashboard.kpis.concept_rapportages}
+            toelichting="Nog niet definitief"
+            accent={
+              dashboard.kpis.concept_rapportages > 0
+                ? "amber"
                 : "groen"
             }
           />
