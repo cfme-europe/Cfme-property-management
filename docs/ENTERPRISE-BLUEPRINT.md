@@ -492,6 +492,20 @@ Nieuwe Core-tabellen worden niet openbaar schrijfbaar gemaakt.
    - lint en productiebuild geslaagd;
    - runtime bewezen met documentaanmaak, versie toevoegen, archiveren en downloads van actieve en gearchiveerde bestanden.
 
+
+15. BP-DASHBOARD-001 — Managementdashboard — GEREED
+   - bestaand dashboard hergebruikt en gericht uitgebreid;
+   - kern-KPI's voor vastgoed, bezetting, meldingen, inspecties en energie behouden;
+   - open taken en verstreken deadlines toegevoegd;
+   - compliance-aandacht voor verlopen en binnenkort verlopende certificeringen;
+   - hoge en kritieke Woning-DNA-risico's zichtbaar;
+   - woningen zonder actieve rayonplanning zichtbaar;
+   - operationele lijsten voor taken, compliance en woningrisico;
+   - gegevens worden via een sessiebewuste Supabase-serverclient opgehaald;
+   - bestaande RLS-beveiliging is niet versoepeld;
+   - lint en productiebuild geslaagd;
+   - runtime bewezen op iPad en Safari.
+
 ## 17. Definition of Done
 
 Een bouwpakket is pas gereed wanneer:

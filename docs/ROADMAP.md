@@ -140,9 +140,19 @@ Documentbeheer
 
 # 0.7 Rapportages
 
-## 0.7A
+## 0.7A ✅
 
 Dashboard
+
+- bestaand managementdashboard uitgebreid
+- KPI's voor open taken en achterstallige deadlines
+- compliance-aandacht voor verlopen en binnenkort verlopende certificeringen
+- hoge en kritieke Woning-DNA-risico's
+- woningen zonder actieve rayonplanning
+- operationele overzichten voor taken, compliance en woningrisico
+- sessiebewuste Supabase-serverclient
+- RLS-beveiliging behouden
+- lint, productiebuild en iPad/Safari-runtimecontrole geslaagd
 
 ## 0.7B
 
