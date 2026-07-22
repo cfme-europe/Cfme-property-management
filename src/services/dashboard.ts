@@ -115,15 +115,44 @@ function woningMap(
   );
 }
 
+type SupabaseFout = {
+  message?: string;
+  code?: string;
+  details?: string;
+  hint?: string;
+  status?: number;
+};
+
+function foutDetails(
+  fout: SupabaseFout
+): string {
+  return JSON.stringify({
+    message: fout.message || null,
+    code: fout.code || null,
+    details: fout.details || null,
+    hint: fout.hint || null,
+    status: fout.status || null,
+  });
+}
+
 function foutmelding(
   onderwerp: string,
-  fout: { message: string } | null
+  fout: SupabaseFout | null
 ): void {
-  if (fout) {
-    throw new Error(
-      `${onderwerp} mislukt: ${fout.message}`
-    );
+  if (!fout) {
+    return;
   }
+
+  const details = foutDetails(fout);
+
+  console.error(
+    `[CFME Dashboard] ${onderwerp} mislukt`,
+    details
+  );
+
+  throw new Error(
+    `${onderwerp} mislukt: ${details}`
+  );
 }
 
 export async function getDashboardData(): Promise<DashboardData> {

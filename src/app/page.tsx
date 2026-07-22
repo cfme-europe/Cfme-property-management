@@ -36,7 +36,58 @@ function woningNaam(
 }
 
 export default async function Home() {
-  const dashboard = await getDashboardData();
+  let dashboard;
+
+  try {
+    dashboard = await getDashboardData();
+  } catch (fout) {
+    console.error(
+      "[CFME Homepage] Dashboard laden mislukt",
+      fout instanceof Error
+        ? {
+            name: fout.name,
+            message: fout.message,
+            stack: fout.stack,
+          }
+        : fout
+    );
+
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10 text-slate-900">
+        <section className="w-full max-w-xl rounded-3xl bg-white p-7 shadow-lg sm:p-9">
+          <p className="text-sm font-semibold uppercase tracking-widest text-emerald-700">
+            Complete Facility Management Europe
+          </p>
+
+          <h1 className="mt-3 text-3xl font-bold tracking-tight">
+            Dashboard tijdelijk niet beschikbaar
+          </h1>
+
+          <p className="mt-4 text-slate-600">
+            De beveiligde verbinding met de database kon niet volledig
+            worden opgebouwd. Probeer de pagina opnieuw te laden. Blijft
+            het probleem bestaan, neem dan contact op met de beheerder.
+          </p>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/"
+              className="rounded-xl bg-slate-950 px-5 py-3 font-medium text-white hover:bg-slate-800"
+            >
+              Opnieuw proberen
+            </Link>
+
+            <Link
+              href="/login"
+              className="rounded-xl border border-slate-300 px-5 py-3 font-medium hover:bg-slate-50"
+            >
+              Opnieuw inloggen
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   const bezettingspercentage =
     dashboard.kpis.totale_capaciteit > 0
