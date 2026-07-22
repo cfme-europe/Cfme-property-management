@@ -1,4 +1,6 @@
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
+
+const supabase = createClient();
 import type { Bedrijf } from "@/types/bedrijf";
 
 export type NieuwBedrijf = {
