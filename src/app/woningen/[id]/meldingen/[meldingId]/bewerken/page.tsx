@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import MeldingForm from "@/components/meldingen/MeldingForm";
 import { getInspectiesVoorWoning } from "@/services/inspecties-server";
-import { getMeldingById } from "@/services/meldingen";
+import { getMeldingById } from "@/services/meldingen-server";
 import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";

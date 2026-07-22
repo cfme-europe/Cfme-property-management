@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import MeldingVerwijderenButton from "@/components/meldingen/MeldingVerwijderenButton";
-import { getMeldingById } from "@/services/meldingen";
+import { getMeldingById } from "@/services/meldingen-server";
 import { getWoningById } from "@/services/woningen-server";
 import type {
   FactuurOntvanger,
