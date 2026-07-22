@@ -1,84 +1,178 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import Link from "next/link";
+import {
+  useState,
+  type FormEvent,
+} from "react";
+import { useRouter } from "next/navigation";
 
 export default function NieuweWoningPage() {
-  const [adres, setAdres] = useState('');
-  const [postcode, setPostcode] = useState('');
-  const [plaats, setPlaats] = useState('');
+  const router = useRouter();
 
-  async function opslaan(e: React.FormEvent) {
-    e.preventDefault();
+  const [adres, setAdres] =
+    useState("");
+  const [postcode, setPostcode] =
+    useState("");
+  const [plaats, setPlaats] =
+    useState("");
+  const [fout, setFout] =
+    useState("");
+  const [bezig, setBezig] =
+    useState(false);
 
-    const response = await fetch('/api/woningen', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        adres,
-        postcode,
-        plaats,
-      }),
-    });
+  async function opslaan(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+    setFout("");
+    setBezig(true);
 
-    if (response.ok) {
-      alert('Woning succesvol opgeslagen!');
-      setAdres('');
-      setPostcode('');
-      setPlaats('');
-    } else {
-      alert('Er is iets fout gegaan.');
+    try {
+      const response = await fetch(
+        "/api/woningen",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            adres,
+            postcode,
+            plaats,
+          }),
+        }
+      );
+
+      const resultaat =
+        (await response.json()) as {
+          id?: number;
+          error?: string;
+        };
+
+      if (
+        !response.ok ||
+        !resultaat.id
+      ) {
+        throw new Error(
+          resultaat.error ??
+            "Woning opslaan mislukt."
+        );
+      }
+
+      router.push(
+        `/woningen/${resultaat.id}`
+      );
+      router.refresh();
+    } catch (error) {
+      setFout(
+        error instanceof Error
+          ? error.message
+          : "Woning opslaan mislukt."
+      );
+    } finally {
+      setBezig(false);
     }
   }
 
+  const invoerClass =
+    "w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none focus:border-emerald-600";
+
   return (
-    <main className="min-h-screen bg-slate-100 px-6 py-10">
-      <div className="mx-auto max-w-3xl rounded-2xl bg-white p-6 shadow-sm">
-        <h1 className="text-3xl font-bold text-slate-900">
-  Nieuwe woning toevoegen
-</h1>
-        <p className="mt-2 text-slate-600">
-          Vul hieronder de woninggegevens in.
-        </p>
+    <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-900 sm:px-6">
+      <div className="mx-auto max-w-3xl">
+        <Link
+          href="/woningen"
+          className="mb-6 inline-block font-medium text-emerald-700 hover:underline"
+        >
+          ← Terug naar woningen
+        </Link>
 
-        <form onSubmit={opslaan} className="mt-8 grid gap-5">
+        <section className="rounded-2xl bg-white p-6 shadow-sm sm:p-8">
+          <h1 className="text-3xl font-bold">
+            Nieuwe woning toevoegen
+          </h1>
 
-          <label className="grid gap-2">
-            <span className="font-medium text-slate-900">Adres</span>
-            <input
-              value={adres}
-              onChange={(e) => setAdres(e.target.value)}
-              className="rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-500"
-            />
-          </label>
+          <p className="mt-2 text-slate-600">
+            Vul de woninggegevens in.
+          </p>
 
-          <label className="grid gap-2">
-            <span className="font-medium text-slate-900">Postcode</span>
-            <input
-              value={postcode}
-              onChange={(e) => setPostcode(e.target.value)}
-              className="rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-500"
-            />
-          </label>
-
-          <label className="grid gap-2">
-            <span className="font-medium text-slate-900">Plaats</span>
-            <input
-              value={plaats}
-              onChange={(e) => setPlaats(e.target.value)}
-              className="rounded-xl border border-slate-300 px-4 py-3 text-slate-900 placeholder:text-slate-500"
-            />
-          </label>
-
-          <button
-            type="submit"
-            className="rounded-xl bg-emerald-700 px-4 py-3 font-medium text-white"
+          <form
+            onSubmit={opslaan}
+            className="mt-8 grid gap-5"
           >
-            Woning opslaan
-          </button>
+            {fout && (
+              <p
+                role="alert"
+                className="rounded-xl bg-red-50 p-4 text-red-800"
+              >
+                {fout}
+              </p>
+            )}
 
-        </form>
+            <label className="grid gap-2">
+              <span className="font-medium">
+                Adres
+              </span>
+              <input
+                required
+                minLength={3}
+                value={adres}
+                onChange={(event) =>
+                  setAdres(
+                    event.target.value
+                  )
+                }
+                className={invoerClass}
+              />
+            </label>
+
+            <label className="grid gap-2">
+              <span className="font-medium">
+                Postcode
+              </span>
+              <input
+                required
+                minLength={4}
+                value={postcode}
+                onChange={(event) =>
+                  setPostcode(
+                    event.target.value
+                  )
+                }
+                className={invoerClass}
+              />
+            </label>
+
+            <label className="grid gap-2">
+              <span className="font-medium">
+                Plaats
+              </span>
+              <input
+                required
+                minLength={2}
+                value={plaats}
+                onChange={(event) =>
+                  setPlaats(
+                    event.target.value
+                  )
+                }
+                className={invoerClass}
+              />
+            </label>
+
+            <button
+              type="submit"
+              disabled={bezig}
+              className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white disabled:opacity-50"
+            >
+              {bezig
+                ? "Opslaan..."
+                : "Woning opslaan"}
+            </button>
+          </form>
+        </section>
       </div>
     </main>
   );
