@@ -6,6 +6,8 @@ import InspectieVerwijderenButton from "@/components/inspecties/InspectieVerwijd
 import { getInspectieFotos } from "@/services/inspectiefotos-server";
 import { getInspectieById } from "@/services/inspecties-server";
 import { getWoningById } from "@/services/woningen-server";
+import { getLaatsteControlesessieVoorInspectie } from "@/services/controlesessies-server";
+import ControlesessieBeheer from "@/components/controlesessies/ControlesessieBeheer";
 import type {
   AlgemeneToestand,
   InspectieStatus,
@@ -84,10 +86,18 @@ export default async function InspectieDetailPage({
     notFound();
   }
 
-  const [woning, inspectie, fotos] = await Promise.all([
+  const [
+    woning,
+    inspectie,
+    fotos,
+    controlesessie,
+  ] = await Promise.all([
     getWoningById(woningId),
     getInspectieById(inspectieNummer),
     getInspectieFotos(inspectieNummer),
+    getLaatsteControlesessieVoorInspectie(
+      inspectieNummer
+    ),
   ]);
 
   if (
@@ -230,6 +240,12 @@ export default async function InspectieDetailPage({
                 "Geen opmerkingen."}
             </p>
           </section>
+
+          <ControlesessieBeheer
+            woningId={woning.id}
+            inspectieId={inspectie.id}
+            controlesessie={controlesessie}
+          />
 
           <section className="mt-8">
             <div className="mb-4">
