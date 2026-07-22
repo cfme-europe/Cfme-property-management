@@ -1,4 +1,6 @@
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
+
+const supabase = createClient();
 import { registreerWorkflowGebeurtenis } from "@/services/workflow";
 import type { Verhuurperiode } from "@/types/verhuurperiode";
 
