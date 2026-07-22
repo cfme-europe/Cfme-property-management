@@ -3,16 +3,11 @@ import {
   NextResponse,
   type NextRequest,
 } from "next/server";
-
-const publiekeRoutes = ["/login"];
-
-function isPubliekeRoute(pathname: string) {
-  return publiekeRoutes.some(
-    (route) =>
-      pathname === route ||
-      pathname.startsWith(`${route}/`)
-  );
-}
+import {
+  isPubliekeRoute,
+  loginVolgendeRoute,
+  veiligeVolgendeRoute,
+} from "@/lib/auth/navigatie";
 
 export async function updateSession(
   request: NextRequest
@@ -55,12 +50,32 @@ export async function updateSession(
     }
   );
 
-  const { data: claimsData } =
-    await supabase.auth.getClaims();
+  const {
+    data: claimsData,
+    error: claimsError,
+  } = await supabase.auth.getClaims();
 
-  const claims = claimsData?.claims ?? null;
+  if (claimsError) {
+    console.warn(
+      "[CFME Auth] Sessiecontrole mislukt",
+      {
+        message:
+          claimsError.message || null,
+        code:
+          "code" in claimsError
+            ? claimsError.code
+            : null,
+      }
+    );
+  }
 
-  const pathname = request.nextUrl.pathname;
+  const claims =
+    claimsError
+      ? null
+      : claimsData?.claims ?? null;
+
+  const pathname =
+    request.nextUrl.pathname;
   const publiekeRoute =
     isPubliekeRoute(pathname);
 
@@ -69,11 +84,18 @@ export async function updateSession(
       request.nextUrl.clone();
 
     loginUrl.pathname = "/login";
+    loginUrl.search = "";
 
-    if (pathname !== "/") {
+    const volgende =
+      loginVolgendeRoute(
+        pathname,
+        request.nextUrl.search
+      );
+
+    if (volgende !== "/") {
       loginUrl.searchParams.set(
         "volgende",
-        `${pathname}${request.nextUrl.search}`
+        volgende
       );
     }
 
@@ -84,7 +106,14 @@ export async function updateSession(
     const dashboardUrl =
       request.nextUrl.clone();
 
-    dashboardUrl.pathname = "/";
+    const volgende =
+      veiligeVolgendeRoute(
+        request.nextUrl.searchParams.get(
+          "volgende"
+        )
+      );
+
+    dashboardUrl.pathname = volgende;
     dashboardUrl.search = "";
 
     return NextResponse.redirect(

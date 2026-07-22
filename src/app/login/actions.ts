@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { veiligeVolgendeRoute } from "@/lib/auth/navigatie";
 import { createClient } from "@/lib/supabase/server";
 
 export type LoginState = {
@@ -17,8 +18,6 @@ export async function login(
     formData.get("email");
   const wachtwoordWaarde =
     formData.get("wachtwoord");
-  const volgendeWaarde =
-    formData.get("volgende");
 
   const email =
     typeof emailWaarde === "string"
@@ -31,15 +30,14 @@ export async function login(
       : "";
 
   const volgende =
-    typeof volgendeWaarde === "string" &&
-    volgendeWaarde.startsWith("/") &&
-    !volgendeWaarde.startsWith("//")
-      ? volgendeWaarde
-      : "/";
+    veiligeVolgendeRoute(
+      formData.get("volgende")
+    );
 
   if (!email || !wachtwoord) {
     return {
-      fout: "Vul het e-mailadres en wachtwoord in.",
+      fout:
+        "Vul het e-mailadres en wachtwoord in.",
     };
   }
 
@@ -52,6 +50,14 @@ export async function login(
     });
 
   if (error) {
+    console.warn(
+      "[CFME Auth] Inloggen mislukt",
+      {
+        message: error.message || null,
+        code: error.code || null,
+      }
+    );
+
     return {
       fout:
         "Inloggen mislukt. Controleer het e-mailadres en wachtwoord.",

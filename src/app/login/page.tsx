@@ -1,4 +1,5 @@
 import LoginForm from "@/components/auth/LoginForm";
+import { veiligeVolgendeRoute } from "@/lib/auth/navigatie";
 
 export const metadata = {
   title: "Inloggen | CFME Control",
@@ -16,10 +17,9 @@ export default async function LoginPage({
   const parameters = await searchParams;
 
   const volgende =
-    parameters.volgende?.startsWith("/") &&
-    !parameters.volgende.startsWith("//")
-      ? parameters.volgende
-      : "/";
+    veiligeVolgendeRoute(
+      parameters.volgende
+    );
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-10">
