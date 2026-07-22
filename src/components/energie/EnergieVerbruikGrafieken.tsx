@@ -6,15 +6,30 @@ type Props = {
 };
 
 type Reeks = {
-  sleutel: "elektriciteit" | "gas" | "water";
+  sleutel:
+    | "dagstroom"
+    | "nachtstroom"
+    | "elektriciteit"
+    | "gas"
+    | "water";
   titel: string;
   eenheid: string;
 };
 
 const reeksen: Reeks[] = [
   {
+    sleutel: "dagstroom",
+    titel: "Dagstroom per bewoner per week",
+    eenheid: "kWh",
+  },
+  {
+    sleutel: "nachtstroom",
+    titel: "Nachtstroom per bewoner per week",
+    eenheid: "kWh",
+  },
+  {
     sleutel: "elektriciteit",
-    titel: "Elektriciteit per bewoner per week",
+    titel: "Elektriciteit totaal per bewoner per week",
     eenheid: "kWh",
   },
   {

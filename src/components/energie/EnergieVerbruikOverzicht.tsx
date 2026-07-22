@@ -53,7 +53,7 @@ export default function EnergieVerbruikOverzicht({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[1150px]">
+      <table className="w-full min-w-[1450px]">
         <thead className="border-b bg-slate-100">
           <tr>
             <th className="p-4 text-left">
@@ -64,6 +64,18 @@ export default function EnergieVerbruikOverzicht({
             </th>
             <th className="p-4 text-left">
               Gem. bewoners
+            </th>
+            <th className="p-4 text-left">
+              Dagstroom totaal
+            </th>
+            <th className="p-4 text-left">
+              Dagstroom p.p./week
+            </th>
+            <th className="p-4 text-left">
+              Nachtstroom totaal
+            </th>
+            <th className="p-4 text-left">
+              Nachtstroom p.p./week
             </th>
             <th className="p-4 text-left">
               Elektriciteit totaal
@@ -107,6 +119,36 @@ export default function EnergieVerbruikOverzicht({
                   maximumFractionDigits: 1,
                 }).format(
                   periode.gemiddeld_bewoners_aantal
+                )}
+              </td>
+
+              <td className="p-4">
+                {getal(
+                  periode.dagstroom.totaal,
+                  "kWh"
+                )}
+              </td>
+
+              <td className="p-4 font-semibold text-emerald-800">
+                {getal(
+                  periode.dagstroom
+                    .per_bewoner_per_week,
+                  "kWh"
+                )}
+              </td>
+
+              <td className="p-4">
+                {getal(
+                  periode.nachtstroom.totaal,
+                  "kWh"
+                )}
+              </td>
+
+              <td className="p-4 font-semibold text-emerald-800">
+                {getal(
+                  periode.nachtstroom
+                    .per_bewoner_per_week,
+                  "kWh"
                 )}
               </td>
 
