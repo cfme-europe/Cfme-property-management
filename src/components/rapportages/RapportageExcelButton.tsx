@@ -6,6 +6,11 @@ import {
   startRapportexport,
   voltooiRapportexport,
 } from "@/services/rapportexports-client";
+import {
+  objectenNaarMatrix,
+  uniekeWerkbladNaam,
+  type ExcelObject,
+} from "@/lib/rapportages/excel";
 import type {
   JsonWaarde,
   Maandrapportage,
@@ -16,11 +21,9 @@ type Props = {
   adres: string;
 };
 
-type JsonObject = Record<string, JsonWaarde>;
-
 function alsObject(
   waarde: JsonWaarde | undefined
-): JsonObject | null {
+): ExcelObject | null {
   if (
     waarde === null ||
     Array.isArray(waarde) ||
@@ -34,7 +37,7 @@ function alsObject(
 
 function alsObjecten(
   waarde: JsonWaarde | undefined
-): JsonObject[] {
+): ExcelObject[] {
   if (!Array.isArray(waarde)) {
     return [];
   }
@@ -42,12 +45,14 @@ function alsObjecten(
   return waarde
     .map(alsObject)
     .filter(
-      (waarde): waarde is JsonObject =>
+      (waarde): waarde is ExcelObject =>
         waarde !== null
     );
 }
 
-function veiligeBestandsnaam(waarde: string): string {
+function veiligeBestandsnaam(
+  waarde: string
+): string {
   return waarde
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -56,7 +61,7 @@ function veiligeBestandsnaam(waarde: string): string {
 
 function werkbladRijen(
   waarde: JsonWaarde | undefined
-): JsonObject[] {
+): ExcelObject[] {
   const objecten = alsObjecten(waarde);
 
   if (objecten.length > 0) {
@@ -68,12 +73,65 @@ function werkbladRijen(
   return object ? [object] : [];
 }
 
+function voegMatrixToe(
+  werkblad: {
+    addRows:
+      (
+        rijen: (
+          string |
+          number |
+          boolean
+        )[][]
+      ) => void;
+    getRow:
+      (nummer: number) => {
+        font: {
+          bold?: boolean;
+        };
+      };
+    columns:
+      Array<{
+        width?: number;
+      }>;
+  },
+  matrix: (
+    string |
+    number |
+    boolean
+  )[][]
+): void {
+  werkblad.addRows(matrix);
+
+  if (matrix.length > 0) {
+    werkblad.getRow(1).font = {
+      bold: true,
+    };
+  }
+
+  const kolomaantal = Math.max(
+    ...matrix.map((rij) => rij.length),
+    1
+  );
+
+  werkblad.columns =
+    Array.from(
+      {
+        length: kolomaantal,
+      },
+      () => ({
+        width: 24,
+      })
+    );
+}
+
 export default function RapportageExcelButton({
   rapportage,
   adres,
 }: Props) {
-  const [bezig, setBezig] = useState(false);
-  const [fout, setFout] = useState("");
+  const [bezig, setBezig] =
+    useState(false);
+  const [fout, setFout] =
+    useState("");
 
   async function excelMaken() {
     setBezig(true);
@@ -82,24 +140,29 @@ export default function RapportageExcelButton({
     let exportId: number | null = null;
 
     try {
-      if (!rapportage.rapport_data.gegenereerd_op) {
+      if (
+        !rapportage.rapport_data
+          .gegenereerd_op
+      ) {
         throw new Error(
           "Stel eerst de rapportgegevens samen."
         );
       }
 
-      const bestandsnaam = [
-        "cfme-maandrapportage",
-        veiligeBestandsnaam(adres),
-        rapportage.rapportjaar,
-        String(
-          rapportage.rapportmaand
-        ).padStart(2, "0"),
-      ].join("-") + ".xlsx";
+      const bestandsnaam =
+        [
+          "cfme-maandrapportage",
+          veiligeBestandsnaam(adres),
+          rapportage.rapportjaar,
+          String(
+            rapportage.rapportmaand
+          ).padStart(2, "0"),
+        ].join("-") + ".xlsx";
 
       const exportRegistratie =
         await startRapportexport({
-          maandrapportage_id: rapportage.id,
+          maandrapportage_id:
+            rapportage.id,
           templateversie_id:
             rapportage.templateversie_id,
           exportformaat: "xlsx",
@@ -107,7 +170,8 @@ export default function RapportageExcelButton({
           mime_type:
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           metadata: {
-            rapportjaar: rapportage.rapportjaar,
+            rapportjaar:
+              rapportage.rapportjaar,
             rapportmaand:
               rapportage.rapportmaand,
           },
@@ -115,65 +179,93 @@ export default function RapportageExcelButton({
 
       exportId = exportRegistratie.id;
 
-      const XLSX = await import("xlsx");
-      const werkmap = XLSX.utils.book_new();
-      const data = rapportage.rapport_data;
+      const { Workbook } =
+        await import("exceljs");
 
-      const overzicht = [
-        {
-          veld: "Rapporttitel",
-          waarde: rapportage.titel,
-        },
-        {
-          veld: "Rapportjaar",
-          waarde: rapportage.rapportjaar,
-        },
-        {
-          veld: "Rapportmaand",
-          waarde: rapportage.rapportmaand,
-        },
-        {
-          veld: "Status",
-          waarde: rapportage.status,
-        },
-        {
-          veld: "Templateversie",
-          waarde: rapportage.templateversie_id,
-        },
-        {
-          veld: "Gegenereerd op",
-          waarde:
-            typeof data.gegenereerd_op === "string"
-              ? data.gegenereerd_op
+      const werkmap = new Workbook();
+      werkmap.creator = "CFME Control";
+      werkmap.created = new Date();
+
+      const gebruikteNamen =
+        new Set<string>();
+
+      const overzichtWerkblad =
+        werkmap.addWorksheet(
+          uniekeWerkbladNaam(
+            "Overzicht",
+            gebruikteNamen
+          )
+        );
+
+      voegMatrixToe(
+        overzichtWerkblad,
+        [
+          ["Veld", "Waarde"],
+          [
+            "Rapporttitel",
+            rapportage.titel,
+          ],
+          [
+            "Rapportjaar",
+            rapportage.rapportjaar,
+          ],
+          [
+            "Rapportmaand",
+            rapportage.rapportmaand,
+          ],
+          [
+            "Status",
+            rapportage.status,
+          ],
+          [
+            "Templateversie",
+            rapportage.templateversie_id ??
+              "",
+          ],
+          [
+            "Gegenereerd op",
+            typeof rapportage
+              .rapport_data
+              .gegenereerd_op ===
+              "string"
+              ? rapportage
+                  .rapport_data
+                  .gegenereerd_op
               : "",
-        },
-      ];
-
-      XLSX.utils.book_append_sheet(
-        werkmap,
-        XLSX.utils.json_to_sheet(overzicht),
-        "Overzicht"
+          ],
+        ]
       );
 
-      const template = alsObject(data.template);
-      const blokken = Array.isArray(template?.blokken)
-        ? template.blokken
-        : [];
+      const data =
+        rapportage.rapport_data;
+      const template =
+        alsObject(data.template);
+      const blokken =
+        Array.isArray(
+          template?.blokken
+        )
+          ? template.blokken
+          : [];
 
-      for (const blokWaarde of blokken) {
-        const blok = alsObject(blokWaarde);
+      for (
+        const blokWaarde of blokken
+      ) {
+        const blok =
+          alsObject(blokWaarde);
 
         if (!blok) {
           continue;
         }
 
         const bloktype =
-          typeof blok.bloktype === "string"
+          typeof blok.bloktype ===
+          "string"
             ? blok.bloktype
             : "";
 
         const titel =
-          typeof blok.titel === "string"
+          typeof blok.titel ===
+          "string"
             ? blok.titel
             : bloktype;
 
@@ -182,33 +274,64 @@ export default function RapportageExcelButton({
             ? [
                 {
                   opmerkingen:
-                    typeof data.opmerkingen ===
+                    typeof data
+                      .opmerkingen ===
                     "string"
                       ? data.opmerkingen
-                      : rapportage.opmerkingen ?? "",
+                      : rapportage
+                          .opmerkingen ??
+                        "",
                 },
               ]
-            : werkbladRijen(data[bloktype]);
+            : werkbladRijen(
+                data[bloktype]
+              );
 
         const werkblad =
-          rijen.length > 0
-            ? XLSX.utils.json_to_sheet(rijen)
-            : XLSX.utils.aoa_to_sheet([
-                ["Geen gegevens beschikbaar"],
-              ]);
+          werkmap.addWorksheet(
+            uniekeWerkbladNaam(
+              titel || "Rapportblok",
+              gebruikteNamen
+            )
+          );
 
-        XLSX.utils.book_append_sheet(
-          werkmap,
+        voegMatrixToe(
           werkblad,
-          titel
-            .replace(/[\\/?*[\]:]/g, " ")
-            .slice(0, 31) || "Rapportblok"
+          objectenNaarMatrix(rijen)
         );
       }
 
-      await voltooiRapportexport(exportId);
+      const buffer =
+        await werkmap.xlsx.writeBuffer();
 
-      XLSX.writeFile(werkmap, bestandsnaam);
+      const blob = new Blob(
+        [new Uint8Array(buffer)],
+        {
+          type:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }
+      );
+
+      const downloadUrl =
+        URL.createObjectURL(blob);
+      const link =
+        document.createElement("a");
+
+      link.href = downloadUrl;
+      link.download = bestandsnaam;
+      link.style.display = "none";
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      URL.revokeObjectURL(
+        downloadUrl
+      );
+
+      await voltooiRapportexport(
+        exportId
+      );
     } catch (error) {
       const melding =
         error instanceof Error
