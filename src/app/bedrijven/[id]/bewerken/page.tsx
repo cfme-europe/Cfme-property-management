@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BedrijfEditForm from "@/components/bedrijven/BedrijfEditForm";
-import { getBedrijfById } from "@/services/bedrijven";
+import { getBedrijfById } from "@/services/bedrijven-server";
 
 export const dynamic = "force-dynamic";
 

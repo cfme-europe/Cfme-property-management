@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BedrijfStatusButton from "@/components/bedrijven/BedrijfStatusButton";
-import { getBedrijfById } from "@/services/bedrijven";
-import { getVerhuurperiodesVoorBedrijf } from "@/services/verhuurperiodes";
+import { getBedrijfById } from "@/services/bedrijven-server";
+import { getVerhuurperiodesVoorBedrijf } from "@/services/verhuurperiodes-server";
 
 export const dynamic = "force-dynamic";
 

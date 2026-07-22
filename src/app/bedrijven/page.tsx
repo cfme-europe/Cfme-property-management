@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getBedrijven } from "@/services/bedrijven";
+import { getBedrijven } from "@/services/bedrijven-server";
 import type { Bedrijf } from "@/types/bedrijf";
 
 export const dynamic = "force-dynamic";
