@@ -44,3 +44,5 @@ cfme-report.txt
 
 # Lokale back-ups bevatten vertrouwelijke productiegegevens
 /backups/
+
+tsconfig.tsbuildinfo
