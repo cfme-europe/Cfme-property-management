@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import MeterstandForm from "@/components/meterstanden/MeterstandForm";
-import { getMeterstandById } from "@/services/meterstanden";
+import { getMeterstandById } from "@/services/meterstanden-server";
 import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";

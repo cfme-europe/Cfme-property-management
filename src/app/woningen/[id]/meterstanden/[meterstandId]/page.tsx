@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import MeterstandVerwijderenButton from "@/components/meterstanden/MeterstandVerwijderenButton";
-import { getMeterstandById } from "@/services/meterstanden";
+import { getMeterstandById } from "@/services/meterstanden-server";
 import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";
@@ -155,12 +154,6 @@ export default async function MeterstandDetailPage({
             </p>
           </section>
 
-          <div className="mt-8 border-t border-slate-200 pt-6">
-            <MeterstandVerwijderenButton
-              woningId={woning.id}
-              meterstandId={meterstand.id}
-            />
-          </div>
         </div>
       </div>
     </main>

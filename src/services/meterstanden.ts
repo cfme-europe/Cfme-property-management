@@ -1,8 +1,10 @@
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import type {
   Meterstand,
   MeterstandInvoer,
 } from "@/types/meterstand";
+
+const supabase = createClient();
 
 function schoon(
   waarde: string | null | undefined
@@ -88,87 +90,6 @@ function valideer(
   };
 }
 
-export async function getMeterstandenVoorWoning(
-  woningId: number
-): Promise<Meterstand[]> {
-  if (
-    !Number.isInteger(woningId) ||
-    woningId <= 0
-  ) {
-    throw new Error("Ongeldige woning.");
-  }
-
-  const { data, error } = await supabase
-    .from("meterstanden")
-    .select("*")
-    .eq("woning_id", woningId)
-    .order("opnamedatum", {
-      ascending: false,
-    });
-
-  if (error) {
-    throw new Error(
-      `Meterstanden ophalen mislukt: ${error.message}`
-    );
-  }
-
-  return (data ?? []) as Meterstand[];
-}
-
-export async function getMeterstandById(
-  meterstandId: number
-): Promise<Meterstand | null> {
-  if (
-    !Number.isInteger(meterstandId) ||
-    meterstandId <= 0
-  ) {
-    throw new Error("Ongeldige meterstand.");
-  }
-
-  const { data, error } = await supabase
-    .from("meterstanden")
-    .select("*")
-    .eq("id", meterstandId)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(
-      `Meterstand ophalen mislukt: ${error.message}`
-    );
-  }
-
-  return data as Meterstand | null;
-}
-
-export async function getLaatsteMeterstandVoorWoning(
-  woningId: number
-): Promise<Meterstand | null> {
-  if (
-    !Number.isInteger(woningId) ||
-    woningId <= 0
-  ) {
-    throw new Error("Ongeldige woning.");
-  }
-
-  const { data, error } = await supabase
-    .from("meterstanden")
-    .select("*")
-    .eq("woning_id", woningId)
-    .order("opnamedatum", {
-      ascending: false,
-    })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(
-      `Laatste meterstand ophalen mislukt: ${error.message}`
-    );
-  }
-
-  return data as Meterstand | null;
-}
-
 export async function createMeterstand(
   invoer: MeterstandInvoer
 ): Promise<Meterstand> {
@@ -233,28 +154,4 @@ export async function updateMeterstand(
   }
 
   return data as Meterstand;
-}
-
-export async function deleteMeterstand(
-  meterstandId: number,
-  woningId: number
-): Promise<void> {
-  if (
-    !Number.isInteger(meterstandId) ||
-    meterstandId <= 0
-  ) {
-    throw new Error("Ongeldige meterstand.");
-  }
-
-  const { error } = await supabase
-    .from("meterstanden")
-    .delete()
-    .eq("id", meterstandId)
-    .eq("woning_id", woningId);
-
-  if (error) {
-    throw new Error(
-      `Meterstand verwijderen mislukt: ${error.message}`
-    );
-  }
 }
