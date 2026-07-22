@@ -11,6 +11,8 @@ export type Verbruiksperiode = {
   aantal_dagen: number;
   aantal_weken: number;
   gemiddeld_bewoners_aantal: number;
+  dagstroom: Verbruikswaarde;
+  nachtstroom: Verbruikswaarde;
   elektriciteit: Verbruikswaarde;
   gas: Verbruikswaarde;
   water: Verbruikswaarde;
@@ -37,6 +39,17 @@ function verschil(
   }
 
   return eindstand - beginstand;
+}
+
+function som(
+  eerste: number | null,
+  tweede: number | null
+): number | null {
+  if (eerste === null && tweede === null) {
+    return null;
+  }
+
+  return (eerste ?? 0) + (tweede ?? 0);
 }
 
 function verbruikswaarde(
@@ -103,9 +116,17 @@ export function berekenVerbruiksperiodes(
       ) /
       2;
 
-    const elektriciteitTotaal = verschil(
-      vorige.elektriciteit_kwh,
-      huidige.elektriciteit_kwh
+    const dagstroomTotaal = verschil(
+      vorige.dagstroom_kwh,
+      huidige.dagstroom_kwh
+    );
+    const nachtstroomTotaal = verschil(
+      vorige.nachtstroom_kwh,
+      huidige.nachtstroom_kwh
+    );
+    const elektriciteitTotaal = som(
+      dagstroomTotaal,
+      nachtstroomTotaal
     );
     const gasTotaal = verschil(
       vorige.gas_m3,
@@ -131,6 +152,16 @@ export function berekenVerbruiksperiodes(
       aantal_weken: aantalWeken,
       gemiddeld_bewoners_aantal:
         gemiddeldBewonersAantal,
+      dagstroom: verbruikswaarde(
+        dagstroomTotaal,
+        aantalWeken,
+        gemiddeldBewonersAantal
+      ),
+      nachtstroom: verbruikswaarde(
+        nachtstroomTotaal,
+        aantalWeken,
+        gemiddeldBewonersAantal
+      ),
       elektriciteit: verbruikswaarde(
         elektriciteitTotaal,
         aantalWeken,

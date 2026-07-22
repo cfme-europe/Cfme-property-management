@@ -44,10 +44,16 @@ export default function MeterstandForm({
         standaardBewonersAantal
     )
   );
-  const [elektriciteit, setElektriciteit] = useState(
-    meterstand?.elektriciteit_kwh !== null &&
-      meterstand?.elektriciteit_kwh !== undefined
-      ? String(meterstand.elektriciteit_kwh)
+  const [dagstroom, setDagstroom] = useState(
+    meterstand?.dagstroom_kwh !== null &&
+      meterstand?.dagstroom_kwh !== undefined
+      ? String(meterstand.dagstroom_kwh)
+      : ""
+  );
+  const [nachtstroom, setNachtstroom] = useState(
+    meterstand?.nachtstroom_kwh !== null &&
+      meterstand?.nachtstroom_kwh !== undefined
+      ? String(meterstand.nachtstroom_kwh)
       : ""
   );
   const [gas, setGas] = useState(
@@ -85,7 +91,8 @@ export default function MeterstandForm({
       woning_id: woningId,
       opnamedatum,
       bewoners_aantal: Number(bewonersAantal),
-      elektriciteit_kwh: nummerOfNull(elektriciteit),
+      dagstroom_kwh: nummerOfNull(dagstroom),
+      nachtstroom_kwh: nummerOfNull(nachtstroom),
       gas_m3: nummerOfNull(gas),
       water_m3: nummerOfNull(water),
       opgenomen_door: opgenomenDoor,
@@ -181,10 +188,10 @@ export default function MeterstandForm({
           totaalstand van de meter.
         </p>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
+        <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <label>
             <span className="mb-1 block text-sm font-medium">
-              Elektriciteit (kWh)
+              Dagstroom (kWh)
             </span>
 
             <input
@@ -192,9 +199,28 @@ export default function MeterstandForm({
               type="number"
               min="0"
               step="0.001"
-              value={elektriciteit}
+              value={dagstroom}
               onChange={(event) =>
-                setElektriciteit(event.target.value)
+                setDagstroom(event.target.value)
+              }
+              className={invoerClass}
+              placeholder="0,000"
+            />
+          </label>
+
+          <label>
+            <span className="mb-1 block text-sm font-medium">
+              Nachtstroom (kWh)
+            </span>
+
+            <input
+              inputMode="decimal"
+              type="number"
+              min="0"
+              step="0.001"
+              value={nachtstroom}
+              onChange={(event) =>
+                setNachtstroom(event.target.value)
               }
               className={invoerClass}
               placeholder="0,000"

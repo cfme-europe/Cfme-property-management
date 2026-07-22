@@ -53,9 +53,13 @@ function valideer(
     );
   }
 
-  const elektriciteit = valideerGetal(
-    invoer.elektriciteit_kwh,
-    "Elektriciteitsstand"
+  const dagstroom = valideerGetal(
+    invoer.dagstroom_kwh,
+    "Dagstroomstand"
+  );
+  const nachtstroom = valideerGetal(
+    invoer.nachtstroom_kwh,
+    "Nachtstroomstand"
   );
   const gas = valideerGetal(
     invoer.gas_m3,
@@ -67,7 +71,8 @@ function valideer(
   );
 
   if (
-    elektriciteit === null &&
+    dagstroom === null &&
+    nachtstroom === null &&
     gas === null &&
     water === null
   ) {
@@ -80,7 +85,8 @@ function valideer(
     woning_id: invoer.woning_id,
     opnamedatum: invoer.opnamedatum,
     bewoners_aantal: invoer.bewoners_aantal,
-    elektriciteit_kwh: elektriciteit,
+    dagstroom_kwh: dagstroom,
+    nachtstroom_kwh: nachtstroom,
     gas_m3: gas,
     water_m3: water,
     opgenomen_door: schoon(

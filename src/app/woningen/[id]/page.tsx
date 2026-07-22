@@ -685,7 +685,10 @@ export default async function WoningDossierPage({
                       Bewoners
                     </th>
                     <th className="p-4 text-left">
-                      Elektriciteit
+                      Dagstroom
+                    </th>
+                    <th className="p-4 text-left">
+                      Nachtstroom
                     </th>
                     <th className="p-4 text-left">
                       Gas
@@ -719,8 +722,7 @@ export default async function WoningDossierPage({
                       </td>
 
                       <td className="p-4">
-                        {meterstand.elektriciteit_kwh ===
-                        null
+                        {meterstand.dagstroom_kwh === null
                           ? "—"
                           : `${new Intl.NumberFormat(
                               "nl-NL",
@@ -728,7 +730,20 @@ export default async function WoningDossierPage({
                                 maximumFractionDigits: 3,
                               }
                             ).format(
-                              meterstand.elektriciteit_kwh
+                              meterstand.dagstroom_kwh
+                            )} kWh`}
+                      </td>
+
+                      <td className="p-4">
+                        {meterstand.nachtstroom_kwh === null
+                          ? "—"
+                          : `${new Intl.NumberFormat(
+                              "nl-NL",
+                              {
+                                maximumFractionDigits: 3,
+                              }
+                            ).format(
+                              meterstand.nachtstroom_kwh
                             )} kWh`}
                       </td>
 

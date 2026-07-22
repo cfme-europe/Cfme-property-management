@@ -5,6 +5,8 @@ export type Meterstand = {
   woning_id: number;
   opnamedatum: string;
   bewoners_aantal: number;
+  dagstroom_kwh: number | null;
+  nachtstroom_kwh: number | null;
   elektriciteit_kwh: number | null;
   gas_m3: number | null;
   water_m3: number | null;
@@ -16,7 +18,8 @@ export type MeterstandInvoer = {
   woning_id: number;
   opnamedatum: string;
   bewoners_aantal: number;
-  elektriciteit_kwh: number | null;
+  dagstroom_kwh: number | null;
+  nachtstroom_kwh: number | null;
   gas_m3: number | null;
   water_m3: number | null;
   opgenomen_door: string | null;

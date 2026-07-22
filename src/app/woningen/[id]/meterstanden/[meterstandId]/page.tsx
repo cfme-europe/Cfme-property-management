@@ -105,11 +105,23 @@ export default async function MeterstandDetailPage({
 
             <div>
               <dt className="text-sm text-slate-500">
-                Elektriciteit
+                Dagstroom
               </dt>
               <dd className="mt-1 font-semibold">
                 {stand(
-                  meterstand.elektriciteit_kwh,
+                  meterstand.dagstroom_kwh,
+                  "kWh"
+                )}
+              </dd>
+            </div>
+
+            <div>
+              <dt className="text-sm text-slate-500">
+                Nachtstroom
+              </dt>
+              <dd className="mt-1 font-semibold">
+                {stand(
+                  meterstand.nachtstroom_kwh,
                   "kWh"
                 )}
               </dd>

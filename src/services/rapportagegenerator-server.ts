@@ -401,6 +401,10 @@ export async function genereerMaandrapportageData(
         opnamedatum: meterstand.opnamedatum,
         bewoners_aantal:
           meterstand.bewoners_aantal,
+        dagstroom_kwh:
+          meterstand.dagstroom_kwh,
+        nachtstroom_kwh:
+          meterstand.nachtstroom_kwh,
         elektriciteit_kwh:
           meterstand.elektriciteit_kwh,
         gas_m3: meterstand.gas_m3,
@@ -425,6 +429,16 @@ export async function genereerMaandrapportageData(
         gemiddeld_bewoners_aantal:
           verbruiksperiode
             .gemiddeld_bewoners_aantal,
+        dagstroom_totaal:
+          verbruiksperiode.dagstroom.totaal,
+        dagstroom_per_bewoner_per_week:
+          verbruiksperiode.dagstroom
+            .per_bewoner_per_week,
+        nachtstroom_totaal:
+          verbruiksperiode.nachtstroom.totaal,
+        nachtstroom_per_bewoner_per_week:
+          verbruiksperiode.nachtstroom
+            .per_bewoner_per_week,
         elektriciteit_totaal:
           verbruiksperiode.elektriciteit
             .totaal,
