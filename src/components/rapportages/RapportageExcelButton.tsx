@@ -304,6 +304,10 @@ export default function RapportageExcelButton({
       const buffer =
         await werkmap.xlsx.writeBuffer();
 
+      await voltooiRapportexport(
+        exportId
+      );
+
       const blob = new Blob(
         [new Uint8Array(buffer)],
         {
@@ -325,12 +329,9 @@ export default function RapportageExcelButton({
       link.click();
       link.remove();
 
-      URL.revokeObjectURL(
-        downloadUrl
-      );
-
-      await voltooiRapportexport(
-        exportId
+      window.setTimeout(
+        () => URL.revokeObjectURL(downloadUrl),
+        1000
       );
     } catch (error) {
       const melding =
