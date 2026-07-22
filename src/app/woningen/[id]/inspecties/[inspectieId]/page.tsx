@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import InspectieFotoUpload from "@/components/inspecties/InspectieFotoUpload";
 import InspectieVerwijderenButton from "@/components/inspecties/InspectieVerwijderenButton";
-import { getInspectieFotos } from "@/services/inspectiefotos";
-import { getInspectieById } from "@/services/inspecties";
+import { getInspectieFotos } from "@/services/inspectiefotos-server";
+import { getInspectieById } from "@/services/inspecties-server";
 import { getWoningById } from "@/services/woningen-server";
 import type {
   AlgemeneToestand,

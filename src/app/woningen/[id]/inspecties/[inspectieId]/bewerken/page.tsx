@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import InspectieForm from "@/components/inspecties/InspectieForm";
-import { getInspectieById } from "@/services/inspecties";
+import { getInspectieById } from "@/services/inspecties-server";
 import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";
