@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Kamerbeheer from "@/components/kamers/Kamerbeheer";
-import { getKamersVoorWoning } from "@/services/kamers";
+import { getKamersVoorWoning } from "@/services/kamers-server";
 import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";

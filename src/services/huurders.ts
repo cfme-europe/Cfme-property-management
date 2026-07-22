@@ -1,4 +1,6 @@
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
+
+const supabase = createClient();
 import type { Huurder, HuurderInvoer } from "@/types/huurder";
 
 function schoon(waarde: string | null | undefined): string | null {

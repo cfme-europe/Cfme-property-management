@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import MeterstandForm from "@/components/meterstanden/MeterstandForm";
-import { getBewonersVoorVerhuurperiode } from "@/services/bewoners";
+import { getBewonersVoorVerhuurperiode } from "@/services/bewoners-server";
 import { getActieveVerhuurperiodeVoorWoning } from "@/services/verhuurperiodes-server";
 import { getWoningById } from "@/services/woningen-server";
 

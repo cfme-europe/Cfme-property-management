@@ -5,8 +5,8 @@ import BewonerVerhuizenButton from "@/components/bewoners/BewonerVerhuizenButton
 import {
   getBewonerById,
   getBewonerKamerHistorie,
-} from "@/services/bewoners";
-import { getKamersVoorWoning } from "@/services/kamers";
+} from "@/services/bewoners-server";
+import { getKamersVoorWoning } from "@/services/kamers-server";
 import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import HuurderForm from "@/components/huurders/HuurderForm";
-import { getHuurderById } from "@/services/huurders";
+import { getHuurderById } from "@/services/huurders-server";
 import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";

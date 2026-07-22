@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import BewonerForm from "@/components/bewoners/BewonerForm";
-import { getBewonerById } from "@/services/bewoners";
-import { getHuurdersVoorVerhuurperiode } from "@/services/huurders";
-import { getKamersVoorWoning } from "@/services/kamers";
+import { getBewonerById } from "@/services/bewoners-server";
+import { getHuurdersVoorVerhuurperiode } from "@/services/huurders-server";
+import { getKamersVoorWoning } from "@/services/kamers-server";
 import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";

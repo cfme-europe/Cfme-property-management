@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import BewonerForm from "@/components/bewoners/BewonerForm";
-import { getHuurdersVoorVerhuurperiode } from "@/services/huurders";
-import { getKamersVoorWoning } from "@/services/kamers";
+import { getHuurdersVoorVerhuurperiode } from "@/services/huurders-server";
+import { getKamersVoorWoning } from "@/services/kamers-server";
 import { getActieveVerhuurperiodeVoorWoning } from "@/services/verhuurperiodes-server";
 import { getWoningById } from "@/services/woningen-server";
 
