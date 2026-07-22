@@ -2,14 +2,18 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getWoningById } from "@/services/woningen-server";
 import {
+  getHuurdersVoorVerhuurperiode,
+  getKamersVoorWoning,
+  getBewonersVoorVerhuurperiode,
+  getInspectiesVoorWoning,
+  getMeldingenVoorWoning,
+  getMeterstandenVoorWoning,
+  getLaatsteWoningDnaVoorWoning,
+} from "@/services/woningdossier-server";
+import {
   getActieveVerhuurperiodeVoorWoning,
   getVerhuurhistorieVoorWoning,
 } from "@/services/verhuurperiodes-server";
-import { getHuurdersVoorVerhuurperiode } from "@/services/huurders";
-import { getKamersVoorWoning } from "@/services/kamers";
-import { getBewonersVoorVerhuurperiode } from "@/services/bewoners";
-import { getInspectiesVoorWoning } from "@/services/inspecties";
-import { getMeldingenVoorWoning } from "@/services/meldingen";
 import { getTakenVoorWoning } from "@/services/taken";
 import { getDocumentenVoorWoning } from "@/services/documenten";
 import type {
@@ -18,14 +22,12 @@ import type {
 } from "@/types/taak";
 import EnergieVerbruikGrafieken from "@/components/energie/EnergieVerbruikGrafieken";
 import EnergieVerbruikOverzicht from "@/components/energie/EnergieVerbruikOverzicht";
-import { getMeterstandenVoorWoning } from "@/services/meterstanden";
 import { getCertificeringenVoorWoning } from "@/services/certificeringen";
 import type {
   CertificeringStatus,
   CertificeringType,
 } from "@/types/certificering";
 import { getMaandrapportagesVoorWoning } from "@/services/maandrapportages-server";
-import { getLaatsteWoningDnaVoorWoning } from "@/services/intelligence";
 import { getActieveControlebriefingVoorWoning } from "@/services/intelligence-server";
 import WoningDnaOverzicht from "@/components/intelligence/WoningDnaOverzicht";
 import ControlebriefingOverzicht from "@/components/intelligence/ControlebriefingOverzicht";
