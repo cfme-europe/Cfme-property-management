@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import BewonerForm from "@/components/bewoners/BewonerForm";
 import { getHuurdersVoorVerhuurperiode } from "@/services/huurders";
 import { getKamersVoorWoning } from "@/services/kamers";
-import { getActieveVerhuurperiodeVoorWoning } from "@/services/verhuurperiodes";
+import { getActieveVerhuurperiodeVoorWoning } from "@/services/verhuurperiodes-server";
 import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";

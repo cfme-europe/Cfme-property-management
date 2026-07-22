@@ -4,7 +4,7 @@ import { getWoningById } from "@/services/woningen-server";
 import {
   getActieveVerhuurperiodeVoorWoning,
   getVerhuurhistorieVoorWoning,
-} from "@/services/verhuurperiodes";
+} from "@/services/verhuurperiodes-server";
 import { getHuurdersVoorVerhuurperiode } from "@/services/huurders";
 import { getKamersVoorWoning } from "@/services/kamers";
 import { getBewonersVoorVerhuurperiode } from "@/services/bewoners";

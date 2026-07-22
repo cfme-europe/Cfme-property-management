@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import MeterstandForm from "@/components/meterstanden/MeterstandForm";
 import { getBewonersVoorVerhuurperiode } from "@/services/bewoners";
-import { getActieveVerhuurperiodeVoorWoning } from "@/services/verhuurperiodes";
+import { getActieveVerhuurperiodeVoorWoning } from "@/services/verhuurperiodes-server";
 import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";

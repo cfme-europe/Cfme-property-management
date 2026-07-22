@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import MaandrapportageForm from "@/components/rapportages/MaandrapportageForm";
-import { getActieveVerhuurperiodeVoorWoning } from "@/services/verhuurperiodes";
+import { getActieveVerhuurperiodeVoorWoning } from "@/services/verhuurperiodes-server";
 import { getActieveRapporttemplates } from "@/services/rapportagebibliotheek";
 import { getWoningById } from "@/services/woningen-server";
 
