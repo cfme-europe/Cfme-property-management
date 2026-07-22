@@ -126,12 +126,53 @@ type SupabaseFout = {
 function foutDetails(
   fout: SupabaseFout
 ): string {
+  const objectFout =
+    typeof fout === "object" &&
+    fout !== null
+      ? fout
+      : null;
+
+  const eigenVelden = objectFout
+    ? Object.fromEntries(
+        Reflect.ownKeys(objectFout)
+          .filter(
+            (sleutel): sleutel is string =>
+              typeof sleutel === "string"
+          )
+          .map((sleutel) => {
+            try {
+              return [
+                sleutel,
+                String(
+                  (
+                    objectFout as Record<
+                      string,
+                      unknown
+                    >
+                  )[sleutel]
+                ),
+              ];
+            } catch {
+              return [
+                sleutel,
+                "[niet uitleesbaar]",
+              ];
+            }
+          })
+      )
+    : {};
+
   return JSON.stringify({
-    message: fout.message || null,
-    code: fout.code || null,
-    details: fout.details || null,
-    hint: fout.hint || null,
-    status: fout.status || null,
+    type:
+      objectFout?.constructor?.name ??
+      typeof fout,
+    tekst: String(fout),
+    message: fout.message ?? null,
+    code: fout.code ?? null,
+    details: fout.details ?? null,
+    hint: fout.hint ?? null,
+    status: fout.status ?? null,
+    eigenVelden,
   });
 }
 
