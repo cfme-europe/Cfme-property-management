@@ -1188,7 +1188,7 @@ export default async function WoningDossierPage({
 
                           <td className="p-4">
                             <Link
-                              href={`/woningen/${woning.id}/meldingen/${melding.id}`}
+                              href={`/woningen/${woning.id}/meldingen/${melding.id}${volledigeSectie === "meldingen" ? "?terug=meldingen" : ""}`}
                               className="font-semibold text-amber-800 hover:underline"
                             >
                               {melding.titel}

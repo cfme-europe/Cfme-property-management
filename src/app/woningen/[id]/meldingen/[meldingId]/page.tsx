@@ -77,13 +77,20 @@ function factuurLabel(
 
 export default async function MeldingDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{
     id: string;
     meldingId: string;
   }>;
+  searchParams: Promise<{
+    terug?: string | string[];
+  }>;
 }) {
   const { id, meldingId } = await params;
+  const zoekParameters = await searchParams;
+  const terugNaarMeldingen =
+    zoekParameters.terug === "meldingen";
   const woningId = Number(id);
   const meldingNummer = Number(meldingId);
 
@@ -113,7 +120,11 @@ export default async function MeldingDetailPage({
     <main className="min-h-screen bg-slate-100 px-6 py-10 text-slate-900">
       <div className="mx-auto max-w-5xl">
         <Link
-          href={`/woningen/${woning.id}`}
+          href={
+            terugNaarMeldingen
+              ? `/woningen/${woning.id}?alles=meldingen#meldingen`
+              : `/woningen/${woning.id}`
+          }
           className="mb-6 inline-block font-medium text-emerald-700 hover:underline"
         >
           ← Terug naar woning
