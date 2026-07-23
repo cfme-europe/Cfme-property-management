@@ -62,7 +62,7 @@ export async function GET(
     }>;
   }
 ) {
-  void request;
+  const preview = new URL(request.url).searchParams.get("preview") === "1";
 
   const { id, rapportageId } =
     await context.params;
@@ -160,38 +160,44 @@ export async function GET(
     ).padStart(2, "0"),
   ].join("-") + ".pdf";
 
-  const { data: exportRegistratie, error: startFout } =
-    await supabase
-      .from("rapportexports")
-      .insert({
-        maandrapportage_id: rapportage.id,
-        templateversie_id:
-          rapportage.templateversie_id,
-        exportformaat: "pdf",
-        status: "aangemaakt",
-        bestandsnaam,
-        mime_type: "application/pdf",
-        gegenereerd_door: user.id,
-        metadata: {
-          rapportjaar: rapportage.rapportjaar,
-          rapportmaand:
-            rapportage.rapportmaand,
-        },
-      })
-      .select("id")
-      .single();
+  let exportRegistratie: { id: number } | null = null;
 
-  if (startFout || !exportRegistratie) {
-    return NextResponse.json(
-      {
-        fout:
-          `Exportregistratie starten mislukt: ${
-            startFout?.message ??
-            "onbekende fout"
-          }`,
-      },
-      { status: 500 }
-    );
+  if (!preview) {
+    const { data, error: startFout } =
+      await supabase
+        .from("rapportexports")
+        .insert({
+          maandrapportage_id: rapportage.id,
+          templateversie_id:
+            rapportage.templateversie_id,
+          exportformaat: "pdf",
+          status: "aangemaakt",
+          bestandsnaam,
+          mime_type: "application/pdf",
+          gegenereerd_door: user.id,
+          metadata: {
+            rapportjaar: rapportage.rapportjaar,
+            rapportmaand:
+              rapportage.rapportmaand,
+          },
+        })
+        .select("id")
+        .single();
+
+    if (startFout || !data) {
+      return NextResponse.json(
+        {
+          fout:
+            `Exportregistratie starten mislukt: ${
+              startFout?.message ??
+              "onbekende fout"
+            }`,
+        },
+        { status: 500 }
+      );
+    }
+
+    exportRegistratie = data as { id: number };
   }
 
   try {
@@ -490,35 +496,36 @@ export async function GET(
     const pdf =
       document.output("arraybuffer");
 
-    const afgerondOp =
-      new Date().toISOString();
+    if (exportRegistratie) {
+      const afgerondOp =
+        new Date().toISOString();
 
-    const { error: afrondFout } =
-      await supabase
-        .from("rapportexports")
-        .update({
-          status: "gereed",
-          gegenereerd_at: afgerondOp,
-          foutmelding: null,
-        })
-        .eq(
-          "id",
-          exportRegistratie.id
+      const { error: afrondFout } =
+        await supabase
+          .from("rapportexports")
+          .update({
+            status: "gereed",
+            gegenereerd_at: afgerondOp,
+            foutmelding: null,
+          })
+          .eq(
+            "id",
+            exportRegistratie.id
+          );
+
+      if (afrondFout) {
+        throw new Error(
+          `Exportregistratie afronden mislukt: ${afrondFout.message}`
         );
-
-    if (afrondFout) {
-      throw new Error(
-        `Exportregistratie afronden mislukt: ${afrondFout.message}`
-      );
+      }
     }
 
     return new NextResponse(pdf, {
       status: 200,
       headers: {
-        "Content-Type":
-          "application/octet-stream",
+        "Content-Type": "application/pdf",
         "Content-Disposition":
-          `attachment; filename="${bestandsnaam}"`,
+          `${preview ? "inline" : "attachment"}; filename="${bestandsnaam}"`,
         "Cache-Control":
           "no-store, private",
       },
@@ -529,17 +536,19 @@ export async function GET(
         ? error.message
         : "PDF genereren mislukt.";
 
-    await supabase
-      .from("rapportexports")
-      .update({
-        status: "mislukt",
-        foutmelding: melding,
-        gegenereerd_at: null,
-      })
-      .eq(
-        "id",
-        exportRegistratie.id
-      );
+    if (exportRegistratie) {
+      await supabase
+        .from("rapportexports")
+        .update({
+          status: "mislukt",
+          foutmelding: melding,
+          gegenereerd_at: null,
+        })
+        .eq(
+          "id",
+          exportRegistratie.id
+        );
+    }
 
     return NextResponse.json(
       { fout: melding },

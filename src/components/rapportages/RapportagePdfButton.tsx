@@ -88,16 +88,27 @@ export default function RapportagePdfButton({
         </p>
       )}
 
-      <button
-        type="button"
-        disabled={bezig}
-        onClick={downloaden}
+      <div className="flex flex-wrap gap-3">
+        <a
+          href={`/woningen/${rapportage.woning_id}/rapportages/${rapportage.id}/pdf?preview=1`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-xl border border-slate-900 px-5 py-3 font-medium text-slate-900"
+        >
+          PDF bekijken
+        </a>
+
+        <button
+          type="button"
+          disabled={bezig}
+          onClick={downloaden}
         className="rounded-xl bg-slate-900 px-5 py-3 font-medium text-white disabled:opacity-50"
       >
         {bezig
           ? "PDF downloaden..."
           : "PDF downloaden"}
-      </button>
+        </button>
+      </div>
     </div>
   );
 }
