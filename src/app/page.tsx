@@ -250,6 +250,7 @@ export default async function Home() {
             titel="Open meldingen"
             waarde={dashboard.kpis.open_meldingen}
             toelichting="Nog niet opgelost"
+            href="#open-meldingen"
             accent={
               dashboard.kpis.open_meldingen > 0
                 ? "amber"
@@ -261,6 +262,7 @@ export default async function Home() {
             titel="Open inspecties"
             waarde={dashboard.kpis.open_inspecties}
             toelichting="Nog af te ronden"
+            href="#recente-inspecties"
             accent={
               dashboard.kpis.open_inspecties > 0
                 ? "amber"
@@ -274,6 +276,7 @@ export default async function Home() {
             titel="Open taken"
             waarde={dashboard.kpis.open_taken}
             toelichting={`${dashboard.kpis.taken_over_deadline} over deadline`}
+            href="#open-taken"
             accent={
               dashboard.kpis.taken_over_deadline > 0
                 ? "rood"
@@ -287,6 +290,7 @@ export default async function Home() {
             titel="Compliance"
             waarde={dashboard.kpis.compliance_aandacht}
             toelichting="Verlopen of verloopt binnenkort"
+            href="#compliance"
             accent={
               dashboard.kpis.compliance_aandacht > 0
                 ? "rood"
@@ -298,6 +302,7 @@ export default async function Home() {
             titel="Woningrisico"
             waarde={dashboard.kpis.hoge_kritieke_woningen}
             toelichting="Hoog of kritiek"
+            href="#woningrisico"
             accent={
               dashboard.kpis.hoge_kritieke_woningen > 0
                 ? "rood"
@@ -309,6 +314,7 @@ export default async function Home() {
             titel="Zonder planning"
             waarde={dashboard.kpis.woningen_zonder_planning}
             toelichting="Geen actieve rayonplanning"
+            href="/planning/rayons"
             accent={
               dashboard.kpis.woningen_zonder_planning > 0
                 ? "amber"
@@ -337,6 +343,7 @@ export default async function Home() {
             titel="Energie-afwijkingen"
             waarde={dashboard.energieAfwijkingen.length}
             toelichting="Afwijking van minimaal 20%"
+            href="#energie-afwijkingen"
             accent={
               dashboard.energieAfwijkingen.length > 0
                 ? "rood"
@@ -348,6 +355,7 @@ export default async function Home() {
             titel="Conceptrapportages"
             waarde={dashboard.kpis.concept_rapportages}
             toelichting="Nog niet definitief"
+            href="/woningen"
             accent={
               dashboard.kpis.concept_rapportages > 0
                 ? "amber"
@@ -413,7 +421,7 @@ export default async function Home() {
         </section>
 
         <div className="mt-7 grid gap-7 xl:grid-cols-2">
-          <section className="rounded-2xl bg-white p-5 shadow-sm md:p-6">
+          <section id="open-meldingen" className="scroll-mt-6 rounded-2xl bg-white p-5 shadow-sm md:p-6">
             <div>
               <h2 className="text-xl font-bold">
                 Open meldingen
@@ -489,7 +497,7 @@ export default async function Home() {
             )}
           </section>
 
-          <section className="rounded-2xl bg-white p-5 shadow-sm md:p-6">
+          <section id="recente-inspecties" className="scroll-mt-6 rounded-2xl bg-white p-5 shadow-sm md:p-6">
             <h2 className="text-xl font-bold">
               Recente inspecties
             </h2>
@@ -568,7 +576,7 @@ export default async function Home() {
         </div>
 
         <div className="mt-7 grid gap-7 xl:grid-cols-3">
-          <section className="rounded-2xl bg-white p-5 shadow-sm md:p-6">
+          <section id="open-taken" className="scroll-mt-6 rounded-2xl bg-white p-5 shadow-sm md:p-6">
             <h2 className="text-xl font-bold">Open taken</h2>
             <p className="mt-1 text-sm text-slate-600">
               Eerstvolgende deadlines en achterstanden.
@@ -612,7 +620,7 @@ export default async function Home() {
             )}
           </section>
 
-          <section className="rounded-2xl bg-white p-5 shadow-sm md:p-6">
+          <section id="compliance" className="scroll-mt-6 rounded-2xl bg-white p-5 shadow-sm md:p-6">
             <h2 className="text-xl font-bold">Compliance</h2>
             <p className="mt-1 text-sm text-slate-600">
               Certificeringen die actie vereisen.
@@ -643,7 +651,7 @@ export default async function Home() {
             )}
           </section>
 
-          <section className="rounded-2xl bg-white p-5 shadow-sm md:p-6">
+          <section id="woningrisico" className="scroll-mt-6 rounded-2xl bg-white p-5 shadow-sm md:p-6">
             <h2 className="text-xl font-bold">Woningrisico</h2>
             <p className="mt-1 text-sm text-slate-600">
               Laatste hoge en kritieke Woning-DNA-scores.
@@ -682,7 +690,7 @@ export default async function Home() {
           </section>
         </div>
 
-        <section className="mt-7 rounded-2xl bg-white p-5 shadow-sm md:p-6">
+        <section id="energie-afwijkingen" className="scroll-mt-6 mt-7 rounded-2xl bg-white p-5 shadow-sm md:p-6">
           <h2 className="text-xl font-bold">
             Energie-afwijkingen
           </h2>
