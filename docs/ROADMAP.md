@@ -302,9 +302,16 @@ Commits:
 
 - `fba33b9` BACKUP-001 Voeg back-up- en herstelvoorzieningen toe
 
-## 0.8E
+## 0.8E — Gereed
 
 Productierelease
+
+- formele productversie 1.0.0 vastgelegd
+- professionele README toegevoegd
+- productierelease en restrisico gedocumenteerd
+- Node.js 22 als runtime vastgelegd
+- tests, lint, build en productieacceptatie geslaagd
+
 
 ---
 
