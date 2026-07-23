@@ -4,7 +4,7 @@ import type { Woning } from "@/types/woning";
 export async function getWoningen(): Promise<Woning[]> {
   const { data, error } = await supabase
     .from("woningen")
-    .select("id, created_at, adres, postcode, plaats")
+    .select("id, created_at, dossiernummer, adres, postcode, plaats")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -17,7 +17,7 @@ export async function getWoningen(): Promise<Woning[]> {
 export async function getWoningById(id: number): Promise<Woning | null> {
   const { data, error } = await supabase
     .from("woningen")
-    .select("id, created_at, adres, postcode, plaats")
+    .select("id, created_at, dossiernummer, adres, postcode, plaats")
     .eq("id", id)
     .maybeSingle();
 

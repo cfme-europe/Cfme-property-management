@@ -170,7 +170,7 @@ export default async function WoningDossierPage({
             Woningdossier
           </p>
 
-          <h1 className="mt-2 text-3xl font-bold">{woning.adres}</h1>
+          <h1 className="mt-2 text-3xl font-bold">{woning.dossiernummer} · {woning.adres}</h1>
 
           <p className="mt-2 text-slate-600">
             {woning.postcode} {woning.plaats}

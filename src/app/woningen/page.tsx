@@ -315,7 +315,7 @@ export default async function WoningenPage({
                       href={`/woningen/${woning.id}`}
                       className="font-semibold text-emerald-700 hover:underline"
                     >
-                      {woning.adres}
+                      {woning.dossiernummer} · {woning.adres}
                     </Link>
                   </td>
 

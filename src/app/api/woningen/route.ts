@@ -8,7 +8,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("woningen")
     .select(
-      "id, created_at, adres, postcode, plaats"
+      "id, created_at, dossiernummer, adres, postcode, plaats"
     )
     .order("created_at", {
       ascending: false,
@@ -63,7 +63,7 @@ export async function POST(
         .from("woningen")
         .insert(invoer)
         .select(
-          "id, created_at, adres, postcode, plaats"
+          "id, created_at, dossiernummer, adres, postcode, plaats"
         )
         .single();
 

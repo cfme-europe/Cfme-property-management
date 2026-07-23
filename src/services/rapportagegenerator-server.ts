@@ -76,7 +76,7 @@ export async function genereerMaandrapportageData(
   ] = await Promise.all([
     supabase
       .from("woningen")
-      .select("id, created_at, adres, postcode, plaats")
+      .select("id, created_at, dossiernummer, adres, postcode, plaats")
       .eq("id", rapportage.woning_id)
       .maybeSingle(),
 
