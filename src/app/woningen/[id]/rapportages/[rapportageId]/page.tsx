@@ -190,11 +190,15 @@ export default async function RapportageDetailPage({
 
             <div>
               <dt className="text-sm text-slate-500">
-                Gegenereerd
+                Laatst samengesteld
               </dt>
               <dd className="mt-1 font-semibold">
                 {datumTijd(
-                  rapportage.gegenereerd_at
+                  typeof rapportage.rapport_data
+                    .gegenereerd_op === "string"
+                    ? rapportage.rapport_data
+                        .gegenereerd_op
+                    : null
                 )}
               </dd>
             </div>
