@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import ControleStartButton from "@/components/controleur/ControleStartButton";
 import { getControleurWerkplek, type ControleurWoning } from "@/services/controleurwerkplek-server";
 
@@ -36,7 +37,20 @@ function locatieLabel(waarde: ControleurWoning["locatie_status"]): string {
 }
 
 export default async function ControleurPage() {
-  const werkplek = await getControleurWerkplek();
+  let werkplek;
+
+  try {
+    werkplek = await getControleurWerkplek();
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "Geen geldige gebruikerssessie."
+    ) {
+      redirect("/login?volgende=/controleur");
+    }
+
+    throw error;
+  }
   const naam = werkplek.profiel.volledige_naam ?? werkplek.profiel.email ?? "Controleur";
   const vandaag = new Date(); vandaag.setHours(0, 0, 0, 0);
   const grens = new Date(vandaag); grens.setDate(grens.getDate() + 7);
