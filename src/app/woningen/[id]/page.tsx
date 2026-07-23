@@ -313,7 +313,7 @@ export default async function WoningDossierPage({
           )}
         </section>
 
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow" id="rapportages">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">
@@ -321,7 +321,11 @@ export default async function WoningDossierPage({
               </h2>
               {maandrapportages.length > 10 && volledigeSectie !== "rapportages" && (
                 <Link
-                  href={`/woningen/${woning.id}?alles=rapportages#rapportages`}
+                  href={{
+                    pathname: `/woningen/${woning.id}`,
+                    query: { alles: "rapportages" },
+                    hash: "rapportages",
+                  }}
                   className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
                 >
                   Alles bekijken ({maandrapportages.length})
@@ -439,7 +443,7 @@ export default async function WoningDossierPage({
           )}
         </section>
 
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow" id="documenten">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">
@@ -447,7 +451,11 @@ export default async function WoningDossierPage({
               </h2>
               {documenten.length > 10 && volledigeSectie !== "documenten" && (
                 <Link
-                  href={`/woningen/${woning.id}?alles=documenten#documenten`}
+                  href={{
+                    pathname: `/woningen/${woning.id}`,
+                    query: { alles: "documenten" },
+                    hash: "documenten",
+                  }}
                   className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
                 >
                   Alles bekijken ({documenten.length})
@@ -545,7 +553,7 @@ export default async function WoningDossierPage({
           )}
         </section>
 
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow" id="certificeringen">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">
@@ -553,7 +561,11 @@ export default async function WoningDossierPage({
               </h2>
               {certificeringen.length > 10 && volledigeSectie !== "certificeringen" && (
                 <Link
-                  href={`/woningen/${woning.id}?alles=certificeringen#certificeringen`}
+                  href={{
+                    pathname: `/woningen/${woning.id}`,
+                    query: { alles: "certificeringen" },
+                    hash: "certificeringen",
+                  }}
                   className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
                 >
                   Alles bekijken ({certificeringen.length})
@@ -697,7 +709,7 @@ export default async function WoningDossierPage({
           )}
         </section>
 
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow" id="meterstanden">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">
@@ -705,7 +717,11 @@ export default async function WoningDossierPage({
               </h2>
               {meterstanden.length > 10 && volledigeSectie !== "meterstanden" && (
                 <Link
-                  href={`/woningen/${woning.id}?alles=meterstanden#meterstanden`}
+                  href={{
+                    pathname: `/woningen/${woning.id}`,
+                    query: { alles: "meterstanden" },
+                    hash: "meterstanden",
+                  }}
                   className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
                 >
                   Alles bekijken ({meterstanden.length})
@@ -873,13 +889,17 @@ export default async function WoningDossierPage({
           </div>
         </section>
 
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow" id="taken">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Taken</h2>
               {taken.length > 10 && volledigeSectie !== "taken" && (
                 <Link
-                  href={`/woningen/${woning.id}?alles=taken#taken`}
+                  href={{
+                    pathname: `/woningen/${woning.id}`,
+                    query: { alles: "taken" },
+                    hash: "taken",
+                  }}
                   className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
                 >
                   Alles bekijken ({taken.length})
@@ -1053,13 +1073,17 @@ export default async function WoningDossierPage({
           )}
         </section>
 
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow" id="meldingen">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Meldingen</h2>
               {meldingen.length > 10 && volledigeSectie !== "meldingen" && (
                 <Link
-                  href={`/woningen/${woning.id}?alles=meldingen#meldingen`}
+                  href={{
+                    pathname: `/woningen/${woning.id}`,
+                    query: { alles: "meldingen" },
+                    hash: "meldingen",
+                  }}
                   className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
                 >
                   Alles bekijken ({meldingen.length})
@@ -1245,13 +1269,17 @@ export default async function WoningDossierPage({
           )}
         </section>
 
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow" id="inspecties">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Inspecties</h2>
               {inspecties.length > 10 && volledigeSectie !== "inspecties" && (
                 <Link
-                  href={`/woningen/${woning.id}?alles=inspecties#inspecties`}
+                  href={{
+                    pathname: `/woningen/${woning.id}`,
+                    query: { alles: "inspecties" },
+                    hash: "inspecties",
+                  }}
                   className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
                 >
                   Alles bekijken ({inspecties.length})
@@ -1432,13 +1460,17 @@ export default async function WoningDossierPage({
           )}
         </section>
 
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow" id="kamers">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Kamers</h2>
               {kamers.length > 10 && volledigeSectie !== "kamers" && (
                 <Link
-                  href={`/woningen/${woning.id}?alles=kamers#kamers`}
+                  href={{
+                    pathname: `/woningen/${woning.id}`,
+                    query: { alles: "kamers" },
+                    hash: "kamers",
+                  }}
                   className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
                 >
                   Alles bekijken ({kamers.length})
@@ -1532,13 +1564,17 @@ export default async function WoningDossierPage({
           )}
         </section>
 
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow" id="bewoners">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Bewoners</h2>
               {bewoners.length > 10 && volledigeSectie !== "bewoners" && (
                 <Link
-                  href={`/woningen/${woning.id}?alles=bewoners#bewoners`}
+                  href={{
+                    pathname: `/woningen/${woning.id}`,
+                    query: { alles: "bewoners" },
+                    hash: "bewoners",
+                  }}
                   className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
                 >
                   Alles bekijken ({bewoners.length})
@@ -1636,13 +1672,17 @@ export default async function WoningDossierPage({
           )}
         </section>
 
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow" id="huurders">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Huurders</h2>
               {huurders.length > 10 && volledigeSectie !== "huurders" && (
                 <Link
-                  href={`/woningen/${woning.id}?alles=huurders#huurders`}
+                  href={{
+                    pathname: `/woningen/${woning.id}`,
+                    query: { alles: "huurders" },
+                    hash: "huurders",
+                  }}
                   className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
                 >
                   Alles bekijken ({huurders.length})
@@ -1702,12 +1742,16 @@ export default async function WoningDossierPage({
           )}
         </section>
 
-        <section className="rounded-2xl bg-white p-6 shadow">
+        <section className="rounded-2xl bg-white p-6 shadow" id="verhuurhistorie">
           <div className="mb-5">
             <h2 className="text-xl font-bold">Verhuurhistorie</h2>
               {verhuurhistorie.length > 10 && volledigeSectie !== "verhuurhistorie" && (
                 <Link
-                  href={`/woningen/${woning.id}?alles=verhuurhistorie#verhuurhistorie`}
+                  href={{
+                    pathname: `/woningen/${woning.id}`,
+                    query: { alles: "verhuurhistorie" },
+                    hash: "verhuurhistorie",
+                  }}
                   className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
                 >
                   Alles bekijken ({verhuurhistorie.length})
