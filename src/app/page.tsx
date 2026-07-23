@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import KpiKaart from "@/components/dashboard/KpiKaart";
 import { getDashboardData } from "@/services/dashboard";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +38,20 @@ function woningNaam(
 }
 
 export default async function Home() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (user) {
+    const { data: profiel } = await supabase
+      .from("profiles")
+      .select("rol, actief")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profiel?.actief && profiel.rol === "controleur") {
+      redirect("/controleur");
+    }
+  }
   let dashboard;
 
   try {

@@ -43,7 +43,7 @@ export async function login(
 
   const supabase = await createClient();
 
-  const { error } =
+  const { data, error } =
     await supabase.auth.signInWithPassword({
       email,
       password: wachtwoord,
@@ -62,6 +62,18 @@ export async function login(
       fout:
         "Inloggen mislukt. Controleer het e-mailadres en wachtwoord.",
     };
+  }
+
+  if (volgende === "/" && data.user) {
+    const { data: profiel } = await supabase
+      .from("profiles")
+      .select("rol, actief")
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    if (profiel?.actief && profiel.rol === "controleur") {
+      redirect("/controleur");
+    }
   }
 
   redirect(volgende);
