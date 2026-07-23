@@ -6,7 +6,7 @@ export default function UitloggenLink() {
     >
       <button
         type="submit"
-        className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100"
+        className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-md hover:bg-slate-100"
       >
         Uitloggen
       </button>

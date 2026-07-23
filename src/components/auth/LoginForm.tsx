@@ -42,7 +42,7 @@ export default function LoginForm({
           autoComplete="email"
           required
           autoFocus
-          className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 caret-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
         />
       </label>
 
@@ -56,7 +56,7 @@ export default function LoginForm({
           name="wachtwoord"
           autoComplete="current-password"
           required
-          className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 caret-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
         />
       </label>
 
