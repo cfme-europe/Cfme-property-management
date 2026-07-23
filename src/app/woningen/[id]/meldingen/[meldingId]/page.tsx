@@ -122,7 +122,11 @@ export default async function MeldingDetailPage({
         <Link
           href={
             terugNaarMeldingen
-              ? `/woningen/${woning.id}?alles=meldingen#meldingen`
+              ? {
+                  pathname: `/woningen/${woning.id}`,
+                  query: { alles: "meldingen" },
+                  hash: "meldingen",
+                }
               : `/woningen/${woning.id}`
           }
           className="mb-6 inline-block font-medium text-emerald-700 hover:underline"
