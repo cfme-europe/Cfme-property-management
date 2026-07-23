@@ -313,6 +313,23 @@ Productierelease
 - tests, lint, build en productieacceptatie geslaagd
 
 
+## Post-release UX-verbeteringen — Gereed
+
+- woningdossier toont standaard maximaal 10 records per sectie
+- volledige secties blijven bereikbaar via **Alles bekijken**
+- terugkeer vanuit een melding behoudt de volledige meldingenlijst
+- dubbele en fout gecodeerde URL-fragmenten hersteld
+- alle dossiersecties hebben vaste HTML-ankers
+- alle overzichtslinks gebruiken gestructureerde Next.js-navigatie
+- productiecontrole op iPad en Safari geslaagd
+
+Commits:
+
+- `7d7af8b` UX-001 Beperk woningdossierlijsten tot tien records
+- `d0308df` UX-002 Behoud volledige meldingenlijst bij terugkeer
+- `c4e5d4a` UX-003 Herstel meldingenanker bij terugkeer
+- `dabcd8c` UX-004 Herstel alle dossierankers en overzichtslinks
+
 ---
 
 # Releasevoorwaarden
