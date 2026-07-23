@@ -58,10 +58,19 @@ function bedrag(waarde: number | null): string {
 
 export default async function WoningDossierPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{
+    alles?: string | string[];
+  }>;
 }) {
   const { id } = await params;
+  const zoekParameters = await searchParams;
+  const volledigeSectie =
+    typeof zoekParameters.alles === "string"
+      ? zoekParameters.alles
+      : "";
   const woningId = Number(id);
 
   if (!Number.isInteger(woningId) || woningId <= 0) {
@@ -167,6 +176,20 @@ export default async function WoningDossierPage({
             {woning.postcode} {woning.plaats}
           </p>
         </header>
+
+        {volledigeSectie && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+            <p className="font-medium text-emerald-900">
+              Volledige sectie wordt getoond.
+            </p>
+            <Link
+              href={`/woningen/${woning.id}`}
+              className="rounded-xl border border-emerald-700 px-4 py-2 font-medium text-emerald-800"
+            >
+              Terug naar compact dossier
+            </Link>
+          </div>
+        )}
 
         <WoningPlanningOverzicht
           woningId={woning.id}
@@ -296,6 +319,14 @@ export default async function WoningDossierPage({
               <h2 className="text-xl font-bold">
                 Maandrapportages
               </h2>
+              {maandrapportages.length > 10 && volledigeSectie !== "rapportages" && (
+                <Link
+                  href={`/woningen/${woning.id}?alles=rapportages#rapportages`}
+                  className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
+                >
+                  Alles bekijken ({maandrapportages.length})
+                </Link>
+              )}
               <p className="mt-1 text-slate-600">
                 Rapportages voor inspecties, meldingen,
                 bewoners en energieverbruik.
@@ -335,7 +366,7 @@ export default async function WoningDossierPage({
                 </thead>
 
                 <tbody>
-                  {maandrapportages.map(
+                  {(volledigeSectie === "rapportages" ? maandrapportages : maandrapportages.slice(0, 10)).map(
                     (rapportage) => {
                       const maandNaam =
                         new Intl.DateTimeFormat(
@@ -414,6 +445,14 @@ export default async function WoningDossierPage({
               <h2 className="text-xl font-bold">
                 Documenten
               </h2>
+              {documenten.length > 10 && volledigeSectie !== "documenten" && (
+                <Link
+                  href={`/woningen/${woning.id}?alles=documenten#documenten`}
+                  className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
+                >
+                  Alles bekijken ({documenten.length})
+                </Link>
+              )}
               <p className="mt-1 text-slate-600">
                 Private bestanden met volledige versiehistorie.
               </p>
@@ -453,7 +492,7 @@ export default async function WoningDossierPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {documenten.map((document) => (
+                  {(volledigeSectie === "documenten" ? documenten : documenten.slice(0, 10)).map((document) => (
                     <tr
                       key={document.id}
                       className="border-b last:border-0"
@@ -512,6 +551,14 @@ export default async function WoningDossierPage({
               <h2 className="text-xl font-bold">
                 Certificeringen
               </h2>
+              {certificeringen.length > 10 && volledigeSectie !== "certificeringen" && (
+                <Link
+                  href={`/woningen/${woning.id}?alles=certificeringen#certificeringen`}
+                  className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
+                >
+                  Alles bekijken ({certificeringen.length})
+                </Link>
+              )}
               <p className="mt-1 text-slate-600">
                 Geldigheid, waarschuwingen en volledige keuringshistorie.
               </p>
@@ -543,7 +590,7 @@ export default async function WoningDossierPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {certificeringen.map((certificering) => {
+                  {(volledigeSectie === "certificeringen" ? certificeringen : certificeringen.slice(0, 10)).map((certificering) => {
                     const typeLabels: Record<
                       CertificeringType,
                       string
@@ -656,6 +703,14 @@ export default async function WoningDossierPage({
               <h2 className="text-xl font-bold">
                 Meterstanden
               </h2>
+              {meterstanden.length > 10 && volledigeSectie !== "meterstanden" && (
+                <Link
+                  href={`/woningen/${woning.id}?alles=meterstanden#meterstanden`}
+                  className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
+                >
+                  Alles bekijken ({meterstanden.length})
+                </Link>
+              )}
               <p className="mt-1 text-slate-600">
                 Historie van elektriciteit, gas en water.
               </p>
@@ -703,7 +758,7 @@ export default async function WoningDossierPage({
                 </thead>
 
                 <tbody>
-                  {meterstanden.map((meterstand) => (
+                  {(volledigeSectie === "meterstanden" ? meterstanden : meterstanden.slice(0, 10)).map((meterstand) => (
                     <tr
                       key={meterstand.id}
                       className="border-b border-slate-200 last:border-0"
@@ -822,6 +877,14 @@ export default async function WoningDossierPage({
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Taken</h2>
+              {taken.length > 10 && volledigeSectie !== "taken" && (
+                <Link
+                  href={`/woningen/${woning.id}?alles=taken#taken`}
+                  className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
+                >
+                  Alles bekijken ({taken.length})
+                </Link>
+              )}
               <p className="mt-1 text-slate-600">
                 Openstaande acties, deadlines en afgeronde opvolging.
               </p>
@@ -905,7 +968,7 @@ export default async function WoningDossierPage({
                     </tr>
                   </thead>
                   <tbody>
-                    {taken.map((taak) => {
+                    {(volledigeSectie === "taken" ? taken : taken.slice(0, 10)).map((taak) => {
                       const statusLabels: Record<
                         TaakStatus,
                         string
@@ -994,6 +1057,14 @@ export default async function WoningDossierPage({
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Meldingen</h2>
+              {meldingen.length > 10 && volledigeSectie !== "meldingen" && (
+                <Link
+                  href={`/woningen/${woning.id}?alles=meldingen#meldingen`}
+                  className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
+                >
+                  Alles bekijken ({meldingen.length})
+                </Link>
+              )}
               <p className="mt-1 text-slate-600">
                 Schades, onderhoud en overige opvolgpunten.
               </p>
@@ -1082,7 +1153,7 @@ export default async function WoningDossierPage({
                   </thead>
 
                   <tbody>
-                    {meldingen.map((melding) => {
+                    {(volledigeSectie === "meldingen" ? meldingen : meldingen.slice(0, 10)).map((melding) => {
                       const categorieLabels = {
                         schade: "Schade",
                         onderhoud: "Onderhoud",
@@ -1178,6 +1249,14 @@ export default async function WoningDossierPage({
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Inspecties</h2>
+              {inspecties.length > 10 && volledigeSectie !== "inspecties" && (
+                <Link
+                  href={`/woningen/${woning.id}?alles=inspecties#inspecties`}
+                  className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
+                >
+                  Alles bekijken ({inspecties.length})
+                </Link>
+              )}
               <p className="mt-1 text-slate-600">
                 Inspectiehistorie en openstaande controles.
               </p>
@@ -1262,7 +1341,7 @@ export default async function WoningDossierPage({
                   </thead>
 
                   <tbody>
-                    {inspecties.map((inspectie) => {
+                    {(volledigeSectie === "inspecties" ? inspecties : inspecties.slice(0, 10)).map((inspectie) => {
                       const typeLabels = {
                         begininspectie:
                           "Begininspectie",
@@ -1357,6 +1436,14 @@ export default async function WoningDossierPage({
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Kamers</h2>
+              {kamers.length > 10 && volledigeSectie !== "kamers" && (
+                <Link
+                  href={`/woningen/${woning.id}?alles=kamers#kamers`}
+                  className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
+                >
+                  Alles bekijken ({kamers.length})
+                </Link>
+              )}
               <p className="mt-1 text-slate-600">
                 Kamerindeling en geregistreerde capaciteit.
               </p>
@@ -1412,7 +1499,7 @@ export default async function WoningDossierPage({
               </div>
 
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {kamers.map((kamer) => (
+                {(volledigeSectie === "kamers" ? kamers : kamers.slice(0, 10)).map((kamer) => (
                   <div
                     key={kamer.id}
                     className="rounded-xl border border-slate-200 p-5"
@@ -1449,6 +1536,14 @@ export default async function WoningDossierPage({
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Bewoners</h2>
+              {bewoners.length > 10 && volledigeSectie !== "bewoners" && (
+                <Link
+                  href={`/woningen/${woning.id}?alles=bewoners#bewoners`}
+                  className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
+                >
+                  Alles bekijken ({bewoners.length})
+                </Link>
+              )}
               <p className="mt-1 text-slate-600">
                 Bewoners en kamerbezetting binnen de actieve verhuurperiode.
               </p>
@@ -1486,7 +1581,7 @@ export default async function WoningDossierPage({
                 </thead>
 
                 <tbody>
-                  {bewoners.map((bewoner) => {
+                  {(volledigeSectie === "bewoners" ? bewoners : bewoners.slice(0, 10)).map((bewoner) => {
                     const bewonersnaam = [
                       bewoner.voornaam,
                       bewoner.tussenvoegsel,
@@ -1545,6 +1640,14 @@ export default async function WoningDossierPage({
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Huurders</h2>
+              {huurders.length > 10 && volledigeSectie !== "huurders" && (
+                <Link
+                  href={`/woningen/${woning.id}?alles=huurders#huurders`}
+                  className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
+                >
+                  Alles bekijken ({huurders.length})
+                </Link>
+              )}
               <p className="mt-1 text-slate-600">
                 Bewoners binnen de actieve verhuurperiode.
               </p>
@@ -1570,7 +1673,7 @@ export default async function WoningDossierPage({
             </p>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
-              {huurders.map((huurder) => {
+              {(volledigeSectie === "huurders" ? huurders : huurders.slice(0, 10)).map((huurder) => {
                 const volledigeNaam = [
                   huurder.voornaam,
                   huurder.tussenvoegsel,
@@ -1602,6 +1705,14 @@ export default async function WoningDossierPage({
         <section className="rounded-2xl bg-white p-6 shadow">
           <div className="mb-5">
             <h2 className="text-xl font-bold">Verhuurhistorie</h2>
+              {verhuurhistorie.length > 10 && volledigeSectie !== "verhuurhistorie" && (
+                <Link
+                  href={`/woningen/${woning.id}?alles=verhuurhistorie#verhuurhistorie`}
+                  className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
+                >
+                  Alles bekijken ({verhuurhistorie.length})
+                </Link>
+              )}
             <p className="mt-1 text-slate-600">
               Alle verhuurperiodes van deze woning.
             </p>
@@ -1628,7 +1739,7 @@ export default async function WoningDossierPage({
                 </thead>
 
                 <tbody>
-                  {verhuurhistorie.map((periode) => (
+                  {(volledigeSectie === "verhuurhistorie" ? verhuurhistorie : verhuurhistorie.slice(0, 10)).map((periode) => (
                     <tr
                       key={periode.id}
                       className="border-b border-slate-200 last:border-0"
