@@ -2,28 +2,12 @@ import { NextResponse } from "next/server";
 import { jsPDF } from "jspdf";
 import { createClient } from "@/lib/supabase/server";
 import type {
-  JsonWaarde,
   Maandrapportage,
 } from "@/types/maandrapportage";
 import type { Woning } from "@/types/woning";
+import { bouwZakelijkeRapportageModel } from "@/lib/rapportages/zakelijke-rapportage";
 
 export const dynamic = "force-dynamic";
-
-type JsonObject = Record<string, JsonWaarde>;
-
-function alsObject(
-  waarde: JsonWaarde | undefined
-): JsonObject | null {
-  if (
-    waarde === null ||
-    Array.isArray(waarde) ||
-    typeof waarde !== "object"
-  ) {
-    return null;
-  }
-
-  return waarde;
-}
 
 function veiligeBestandsnaam(waarde: string): string {
   return waarde
@@ -33,7 +17,7 @@ function veiligeBestandsnaam(waarde: string): string {
 }
 
 function leesbareWaarde(
-  waarde: JsonWaarde
+  waarde: unknown
 ): string {
   if (waarde === null) {
     return "—";
@@ -373,124 +357,223 @@ export async function GET(
       `Status: ${rapportage.status}`
     );
 
-    const data =
-      rapportage.rapport_data;
-    const template =
-      alsObject(data.template);
+    const model =
+      bouwZakelijkeRapportageModel(
+        rapportage.rapport_data,
+      );
 
-    const blokken =
-      Array.isArray(template?.blokken)
-        ? template.blokken
-        : [];
+    function euro(waarde: number): string {
+      return new Intl.NumberFormat("nl-NL", {
+        style: "currency",
+        currency: "EUR",
+      }).format(waarde);
+    }
 
-    for (const blokWaarde of blokken) {
-      const blok =
-        alsObject(blokWaarde);
+    function getalTekst(
+      waarde: number | null,
+      decimalen = 1,
+    ): string {
+      if (waarde === null) return "—";
 
-      if (!blok) {
-        continue;
-      }
+      return new Intl.NumberFormat("nl-NL", {
+        maximumFractionDigits: decimalen,
+      }).format(waarde);
+    }
 
-      const titel =
-        typeof blok.titel === "string"
-          ? blok.titel
-          : "Rapportonderdeel";
+    sectie("Managementsamenvatting");
+    schrijf(
+      `Risicoscore: ${getalTekst(
+        model.risico.score,
+      )} (${model.risico.classificatie})`,
+      { vet: true, grootte: 12 },
+    );
+    schrijf(
+      `Rapportperiode: ${model.huidige_periode.vanaf} tot en met ${model.huidige_periode.tot_en_met}.`,
+    );
+    schrijf(
+      `Totale kostenindicatie: ${euro(
+        model.kosten.totaal_indicatie,
+      )}.`,
+    );
 
-      const bloktype =
-        typeof blok.bloktype === "string"
-          ? blok.bloktype
-          : "";
+    if (model.risico.factoren.length > 0) {
+      schrijf("Belangrijkste risicofactoren:", {
+        vet: true,
+      });
 
-      sectie(titel);
+      model.risico.factoren.forEach(
+        (factor) => schrijf(`• ${factor}`, {
+          inspringen: 4,
+          grootte: 9,
+        }),
+      );
+    }
 
-      const inhoud = data[bloktype];
+    sectie("Vorige periode versus nu");
 
-      if (Array.isArray(inhoud)) {
-        if (inhoud.length === 0) {
+    model.vergelijking.forEach((item) => {
+      schrijf(
+        `${item.label}: vorig ${item.vorig}, nu ${item.huidig}, verschil ${
+          item.absoluut >= 0 ? "+" : ""
+        }${item.absoluut}${
+          item.procentueel === null
+            ? ""
+            : ` (${item.procentueel >= 0 ? "+" : ""}${getalTekst(
+                item.procentueel,
+              )}%)`
+        }.`,
+        { grootte: 9 },
+      );
+    });
+
+    sectie("Energie en verbruik");
+
+    model.energie.forEach((item) => {
+      schrijf(
+        `${item.label}: ${getalTekst(
+          item.per_persoon_per_week,
+          2,
+        )} ${item.eenheid} per persoon per week; vorig ${getalTekst(
+          item.vorige_per_persoon_per_week,
+          2,
+        )} ${item.eenheid}; afwijking ${
+          item.afwijking_percentage === null
+            ? "niet berekenbaar"
+            : `${item.afwijking_percentage >= 0 ? "+" : ""}${getalTekst(
+                item.afwijking_percentage,
+              )}%`
+        }; signalering ${item.signalering}.`,
+        { grootte: 9 },
+      );
+    });
+
+    sectie("Woningconditie en inspecties");
+
+    if (model.inspecties.length === 0) {
+      schrijf("Geen inspecties in deze rapportperiode.");
+    } else {
+      model.inspecties.forEach(
+        (inspectie, index) => {
           schrijf(
-            "Geen gegevens beschikbaar."
+            `${index + 1}. Inspectie ${
+              typeof inspectie.inspectiedatum === "string"
+                ? inspectie.inspectiedatum
+                : "zonder datum"
+            }`,
+            { vet: true },
           );
-          continue;
-        }
+          schrijf(
+            `Algemene toestand: ${leesbareWaarde(
+              inspectie.algemene_toestand ?? null,
+            )}; orde en netheid: ${leesbareWaarde(
+              inspectie.orde_netheid_score ?? null,
+            )}; schade aanwezig: ${leesbareWaarde(
+              inspectie.schade_aanwezig ?? false,
+            )}.`,
+            { inspringen: 4, grootte: 9 },
+          );
+        },
+      );
+    }
 
-        inhoud.forEach(
-          (item, index) => {
-            const object =
-              alsObject(item);
+    sectie("Meldingen, schade en herstel");
 
-            schrijf(
-              `${index + 1}.`,
-              { vet: true }
-            );
+    if (model.meldingen.length === 0) {
+      schrijf("Geen meldingen in deze rapportperiode.");
+    } else {
+      model.meldingen.forEach(
+        (melding, index) => {
+          schrijf(
+            `${index + 1}. ${
+              typeof melding.titel === "string"
+                ? melding.titel
+                : "Melding"
+            }`,
+            { vet: true },
+          );
+          schrijf(
+            `Status: ${leesbareWaarde(
+              melding.status ?? null,
+            )}; prioriteit: ${leesbareWaarde(
+              melding.prioriteit ?? null,
+            )}; factuur: ${leesbareWaarde(
+              melding.factuur_naar ?? null,
+            )}.`,
+            { inspringen: 4, grootte: 9 },
+          );
 
-            if (!object) {
-              schrijf(
-                leesbareWaarde(item),
-                { inspringen: 4 }
-              );
-              return;
-            }
-
-            Object.entries(object)
-              .filter(
-                ([, waarde]) =>
-                  waarde !== null &&
-                  typeof waarde !== "object"
-              )
-              .forEach(
-                ([sleutel, waarde]) => {
-                  schrijf(
-                    `${sleutel.replaceAll(
-                      "_",
-                      " "
-                    )}: ${leesbareWaarde(
-                      waarde
-                    )}`,
-                    {
-                      inspringen: 4,
-                      grootte: 9,
-                    }
-                  );
-                }
-              );
+          if (
+            typeof melding.omschrijving === "string"
+          ) {
+            schrijf(melding.omschrijving, {
+              inspringen: 4,
+              grootte: 9,
+            });
           }
-        );
+        },
+      );
+    }
 
-        continue;
-      }
+    sectie("Financieel overzicht");
+    schrijf(
+      `Werkelijke kosten: ${euro(
+        model.kosten.werkelijk,
+      )}.`,
+    );
+    schrijf(
+      `Geschatte kosten: ${euro(
+        model.kosten.geschat,
+      )}.`,
+    );
+    schrijf(
+      `Totale indicatie: ${euro(
+        model.kosten.totaal_indicatie,
+      )}.`,
+      { vet: true },
+    );
 
-      const object =
-        alsObject(inhoud);
+    Object.entries(
+      model.kosten.per_factuurontvanger,
+    ).forEach(([ontvanger, waarde]) => {
+      schrijf(
+        `${ontvanger.replaceAll("_", " ")}: ${euro(
+          waarde,
+        )}.`,
+        { inspringen: 4, grootte: 9 },
+      );
+    });
 
-      if (object) {
-        Object.entries(object)
-          .forEach(
-            ([sleutel, waarde]) => {
-              schrijf(
-                `${sleutel.replaceAll(
-                  "_",
-                  " "
-                )}: ${leesbareWaarde(
-                  waarde
-                )}`,
-                { grootte: 9 }
-              );
-            }
-          );
+    sectie("Acties en besluiten");
 
-        continue;
-      }
+    model.acties.forEach((actie, index) => {
+      schrijf(`${index + 1}. ${actie}`, {
+        grootte: 9,
+      });
+    });
 
-      if (
-        typeof inhoud === "string" &&
-        inhoud
-      ) {
-        schrijf(inhoud);
-      } else {
-        schrijf(
-          "Geen gegevens beschikbaar."
-        );
-      }
+    if (model.opmerkingen) {
+      sectie("Aanvullende opmerkingen");
+      schrijf(model.opmerkingen);
+    }
+
+    const paginaAantal =
+      document.getNumberOfPages();
+
+    for (
+      let pagina = 1;
+      pagina <= paginaAantal;
+      pagina += 1
+    ) {
+      document.setPage(pagina);
+      document.setFont("helvetica", "normal");
+      document.setFontSize(8);
+      document.setTextColor(100, 116, 139);
+      document.text(
+        `CFME Control · Vertrouwelijk · Pagina ${pagina} van ${paginaAantal}`,
+        breedte / 2,
+        hoogte - 8,
+        { align: "center" },
+      );
     }
 
     const pdf =

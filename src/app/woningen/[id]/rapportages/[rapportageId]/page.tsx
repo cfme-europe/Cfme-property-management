@@ -93,8 +93,8 @@ export default async function RapportageDetailPage({
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 px-6 py-10 text-slate-900">
-      <div className="mx-auto max-w-5xl">
+    <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-900 sm:px-6">
+      <div className="mx-auto max-w-7xl">
         <Link
           href={`/woningen/${woning.id}`}
           className="mb-6 inline-block font-medium text-emerald-700 hover:underline"

@@ -2,56 +2,23 @@
 
 import { useState } from "react";
 import {
+  bouwZakelijkeRapportageModel,
+  type JsonObject,
+} from "@/lib/rapportages/zakelijke-rapportage";
+import {
   markeerRapportexportMislukt,
   startRapportexport,
   voltooiRapportexport,
 } from "@/services/rapportexports-client";
-import {
-  objectenNaarMatrix,
-  uniekeWerkbladNaam,
-  type ExcelObject,
-} from "@/lib/rapportages/excel";
-import type {
-  JsonWaarde,
-  Maandrapportage,
-} from "@/types/maandrapportage";
+import type { Maandrapportage } from "@/types/maandrapportage";
 
 type Props = {
   rapportage: Maandrapportage;
   adres: string;
 };
 
-function alsObject(
-  waarde: JsonWaarde | undefined
-): ExcelObject | null {
-  if (
-    waarde === null ||
-    Array.isArray(waarde) ||
-    typeof waarde !== "object"
-  ) {
-    return null;
-  }
-
-  return waarde;
-}
-
-function alsObjecten(
-  waarde: JsonWaarde | undefined
-): ExcelObject[] {
-  if (!Array.isArray(waarde)) {
-    return [];
-  }
-
-  return waarde
-    .map(alsObject)
-    .filter(
-      (waarde): waarde is ExcelObject =>
-        waarde !== null
-    );
-}
-
 function veiligeBestandsnaam(
-  waarde: string
+  waarde: string,
 ): string {
   return waarde
     .toLowerCase()
@@ -59,79 +26,49 @@ function veiligeBestandsnaam(
     .replace(/^-+|-+$/g, "");
 }
 
-function werkbladRijen(
-  waarde: JsonWaarde | undefined
-): ExcelObject[] {
-  const objecten = alsObjecten(waarde);
-
-  if (objecten.length > 0) {
-    return objecten;
+function objectRijen(
+  objecten: JsonObject[],
+): Array<Array<string | number | boolean>> {
+  if (objecten.length === 0) {
+    return [["Geen gegevens beschikbaar"]];
   }
 
-  const object = alsObject(waarde);
-
-  return object ? [object] : [];
-}
-
-function voegMatrixToe(
-  werkblad: {
-    addRows:
-      (
-        rijen: (
-          string |
-          number |
-          boolean
-        )[][]
-      ) => void;
-    getRow:
-      (nummer: number) => {
-        font: {
-          bold?: boolean;
-        };
-      };
-    columns:
-      Array<{
-        width?: number;
-      }>;
-  },
-  matrix: (
-    string |
-    number |
-    boolean
-  )[][]
-): void {
-  werkblad.addRows(matrix);
-
-  if (matrix.length > 0) {
-    werkblad.getRow(1).font = {
-      bold: true,
-    };
-  }
-
-  const kolomaantal = Math.max(
-    ...matrix.map((rij) => rij.length),
-    1
+  const kolommen = Array.from(
+    new Set(
+      objecten.flatMap((object) =>
+        Object.keys(object),
+      ),
+    ),
   );
 
-  werkblad.columns =
-    Array.from(
-      {
-        length: kolomaantal,
-      },
-      () => ({
-        width: 24,
-      })
-    );
+  return [
+    kolommen,
+    ...objecten.map((object) =>
+      kolommen.map((kolom) => {
+        const waarde = object[kolom];
+
+        if (
+          typeof waarde === "string" ||
+          typeof waarde === "number" ||
+          typeof waarde === "boolean"
+        ) {
+          return waarde;
+        }
+
+        return waarde === null
+          ? ""
+          : JSON.stringify(waarde);
+      }),
+    ),
+  ];
 }
 
 export default function RapportageExcelButton({
   rapportage,
   adres,
 }: Props) {
-  const [bezig, setBezig] =
-    useState(false);
-  const [fout, setFout] =
-    useState("");
+  const [bezig, setBezig] = useState(false);
+  const [fout, setFout] = useState("");
 
   async function excelMaken() {
     setBezig(true);
@@ -140,12 +77,9 @@ export default function RapportageExcelButton({
     let exportId: number | null = null;
 
     try {
-      if (
-        !rapportage.rapport_data
-          .gegenereerd_op
-      ) {
+      if (!rapportage.rapport_data.gegenereerd_op) {
         throw new Error(
-          "Stel eerst de rapportgegevens samen."
+          "Stel eerst de rapportgegevens samen.",
         );
       }
 
@@ -155,14 +89,13 @@ export default function RapportageExcelButton({
           veiligeBestandsnaam(adres),
           rapportage.rapportjaar,
           String(
-            rapportage.rapportmaand
+            rapportage.rapportmaand,
           ).padStart(2, "0"),
         ].join("-") + ".xlsx";
 
-      const exportRegistratie =
+      const registratie =
         await startRapportexport({
-          maandrapportage_id:
-            rapportage.id,
+          maandrapportage_id: rapportage.id,
           templateversie_id:
             rapportage.templateversie_id,
           exportformaat: "xlsx",
@@ -174,10 +107,12 @@ export default function RapportageExcelButton({
               rapportage.rapportjaar,
             rapportmaand:
               rapportage.rapportmaand,
+            rapportdataversie:
+              rapportage.rapport_data.versie ?? null,
           },
         });
 
-      exportId = exportRegistratie.id;
+      exportId = registratie.id;
 
       const { Workbook } =
         await import("exceljs");
@@ -186,152 +121,170 @@ export default function RapportageExcelButton({
       werkmap.creator = "CFME Control";
       werkmap.created = new Date();
 
-      const gebruikteNamen =
-        new Set<string>();
-
-      const overzichtWerkblad =
-        werkmap.addWorksheet(
-          uniekeWerkbladNaam(
-            "Overzicht",
-            gebruikteNamen
-          )
-        );
-
-      voegMatrixToe(
-        overzichtWerkblad,
-        [
-          ["Veld", "Waarde"],
-          [
-            "Rapporttitel",
-            rapportage.titel,
-          ],
-          [
-            "Rapportjaar",
-            rapportage.rapportjaar,
-          ],
-          [
-            "Rapportmaand",
-            rapportage.rapportmaand,
-          ],
-          [
-            "Status",
-            rapportage.status,
-          ],
-          [
-            "Templateversie",
-            rapportage.templateversie_id ??
-              "",
-          ],
-          [
-            "Gegenereerd op",
-            typeof rapportage
-              .rapport_data
-              .gegenereerd_op ===
-              "string"
-              ? rapportage
-                  .rapport_data
-                  .gegenereerd_op
-              : "",
-          ],
-        ]
+      const model = bouwZakelijkeRapportageModel(
+        rapportage.rapport_data,
       );
 
-      const data =
-        rapportage.rapport_data;
-      const template =
-        alsObject(data.template);
-      const blokken =
-        Array.isArray(
-          template?.blokken
-        )
-          ? template.blokken
-          : [];
-
-      for (
-        const blokWaarde of blokken
+      function werkblad(
+        naam: string,
+        rijen: Array<
+          Array<string | number | boolean>
+        >,
       ) {
-        const blok =
-          alsObject(blokWaarde);
+        const blad = werkmap.addWorksheet(naam);
+        blad.addRows(rijen);
 
-        if (!blok) {
-          continue;
+        if (rijen.length > 0) {
+          blad.getRow(1).font = {
+            bold: true,
+          };
+          blad.views = [
+            {
+              state: "frozen",
+              ySplit: 1,
+            },
+          ];
         }
 
-        const bloktype =
-          typeof blok.bloktype ===
-          "string"
-            ? blok.bloktype
-            : "";
-
-        const titel =
-          typeof blok.titel ===
-          "string"
-            ? blok.titel
-            : bloktype;
-
-        const rijen =
-          bloktype === "opmerkingen"
-            ? [
-                {
-                  opmerkingen:
-                    typeof data
-                      .opmerkingen ===
-                    "string"
-                      ? data.opmerkingen
-                      : rapportage
-                          .opmerkingen ??
-                        "",
-                },
-              ]
-            : werkbladRijen(
-                data[bloktype]
-              );
-
-        const werkblad =
-          werkmap.addWorksheet(
-            uniekeWerkbladNaam(
-              titel || "Rapportblok",
-              gebruikteNamen
-            )
-          );
-
-        voegMatrixToe(
-          werkblad,
-          objectenNaarMatrix(rijen)
+        const breedte = Math.max(
+          ...rijen.map((rij) => rij.length),
+          1,
         );
+
+        blad.columns = Array.from(
+          { length: breedte },
+          () => ({ width: 26 }),
+        );
+
+        return blad;
       }
+
+      werkblad("Management", [
+        ["Veld", "Waarde"],
+        ["Rapporttitel", rapportage.titel],
+        ["Adres", adres],
+        [
+          "Periode",
+          `${model.huidige_periode.vanaf} t/m ${model.huidige_periode.tot_en_met}`,
+        ],
+        ["Risicoscore", model.risico.score],
+        [
+          "Risicoclassificatie",
+          model.risico.classificatie,
+        ],
+        [
+          "Werkelijke kosten",
+          model.kosten.werkelijk,
+        ],
+        [
+          "Geschatte kosten",
+          model.kosten.geschat,
+        ],
+        [
+          "Totale indicatie",
+          model.kosten.totaal_indicatie,
+        ],
+        [
+          "Kosten definitief",
+          model.kosten.definitief,
+        ],
+      ]);
+
+      werkblad("Vergelijking", [
+        [
+          "Onderdeel",
+          "Vorige periode",
+          "Huidige periode",
+          "Verschil",
+          "Verschil %",
+        ],
+        ...model.vergelijking.map((item) => [
+          item.label,
+          item.vorig,
+          item.huidig,
+          item.absoluut,
+          item.procentueel ?? "",
+        ]),
+      ]);
+
+      werkblad("Energie", [
+        [
+          "Soort",
+          "Eenheid",
+          "Totaal",
+          "Persoonsweken",
+          "Nu p.p./week",
+          "Vorig p.p./week",
+          "Afwijking %",
+          "Signalering",
+        ],
+        ...model.energie.map((item) => [
+          item.label,
+          item.eenheid,
+          item.totaal ?? "",
+          item.persoonsweken,
+          item.per_persoon_per_week ?? "",
+          item.vorige_per_persoon_per_week ?? "",
+          item.afwijking_percentage ?? "",
+          item.signalering,
+        ]),
+      ]);
+
+      werkblad("Kosten", [
+        ["Factuurontvanger", "Bedrag"],
+        ...Object.entries(
+          model.kosten.per_factuurontvanger,
+        ).map(([ontvanger, waarde]) => [
+          ontvanger,
+          waarde,
+        ]),
+      ]);
+
+      werkblad("Acties", [
+        ["Nummer", "Actie"],
+        ...model.acties.map((actie, index) => [
+          index + 1,
+          actie,
+        ]),
+      ]);
+
+      werkblad(
+        "Inspecties",
+        objectRijen(model.inspecties),
+      );
+      werkblad(
+        "Meldingen",
+        objectRijen(model.meldingen),
+      );
+      werkblad(
+        "Meterstanden",
+        objectRijen(model.meterstanden),
+      );
 
       const buffer =
         await werkmap.xlsx.writeBuffer();
 
-      await voltooiRapportexport(
-        exportId
-      );
+      await voltooiRapportexport(exportId);
 
       const blob = new Blob(
         [new Uint8Array(buffer)],
         {
           type:
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        }
+        },
       );
 
-      const downloadUrl =
-        URL.createObjectURL(blob);
-      const link =
-        document.createElement("a");
-
-      link.href = downloadUrl;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
       link.download = bestandsnaam;
-      link.style.display = "none";
-
       document.body.appendChild(link);
       link.click();
       link.remove();
 
       window.setTimeout(
-        () => URL.revokeObjectURL(downloadUrl),
-        1000
+        () => URL.revokeObjectURL(url),
+        1000,
       );
     } catch (error) {
       const melding =
@@ -343,10 +296,10 @@ export default function RapportageExcelButton({
         try {
           await markeerRapportexportMislukt(
             exportId,
-            melding
+            melding,
           );
         } catch {
-          // De oorspronkelijke exportfout blijft leidend.
+          // De oorspronkelijke fout blijft leidend.
         }
       }
 
