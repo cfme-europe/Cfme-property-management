@@ -154,6 +154,13 @@ export default async function WoningDossierPage({
               Woningconfiguratie
             </Link>
 
+            <Link
+              href={`/woningen/${woning.id}/afwijkingen`}
+              className="rounded-xl border border-red-700 px-5 py-3 font-medium text-red-800"
+            >
+              Controleafwijkingen
+            </Link>
+
           {actieveVerhuur ? (
             <Link
               href={`/woningen/${woning.id}/verhuur/beeindigen`}
