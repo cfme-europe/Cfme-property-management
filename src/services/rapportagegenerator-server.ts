@@ -2,6 +2,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { berekenVerbruiksperiodes } from "@/services/energieverbruik";
+import { bouwRapportagemotor } from "@/services/rapportagemotor";
 import type { Bewoner } from "@/types/bewoner";
 import type { Inspectie } from "@/types/inspectie";
 import type { Melding } from "@/types/melding";
@@ -72,6 +73,8 @@ export async function genereerMaandrapportageData(
     meldingenResultaat,
     meterstandenResultaat,
     bewonersResultaat,
+    afwijkingenResultaat,
+    takenResultaat,
     templateResultaat,
   ] = await Promise.all([
     supabase
@@ -118,6 +121,24 @@ export async function genereerMaandrapportageData(
         }),
 
     supabase
+      .from("controle_afwijkingen")
+      .select(`
+        created_at,
+        status,
+        urgentie,
+        gebrek_type,
+        geschatte_kosten,
+        werkelijke_kosten,
+        factuur_naar
+      `)
+      .eq("woning_id", rapportage.woning_id),
+
+    supabase
+      .from("taken")
+      .select("created_at, status, deadline")
+      .eq("woning_id", rapportage.woning_id),
+
+    supabase
       .from("rapporttemplateversies")
       .select(`
         *,
@@ -161,6 +182,18 @@ export async function genereerMaandrapportageData(
     );
   }
 
+  if (afwijkingenResultaat.error) {
+    throw new Error(
+      `Controleafwijkingen ophalen mislukt: ${afwijkingenResultaat.error.message}`
+    );
+  }
+
+  if (takenResultaat.error) {
+    throw new Error(
+      `Taken ophalen mislukt: ${takenResultaat.error.message}`
+    );
+  }
+
   if (templateResultaat.error) {
     throw new Error(
       `Gekoppelde templateversie ophalen mislukt: ${templateResultaat.error.message}`
@@ -191,6 +224,42 @@ export async function genereerMaandrapportageData(
 
   const bewoners =
     (bewonersResultaat.data ?? []) as Bewoner[];
+
+  const afwijkingen =
+    afwijkingenResultaat.data ?? [];
+
+  const taken =
+    takenResultaat.data ?? [];
+
+  const vorigeMaandDatum = new Date(
+    Date.UTC(
+      rapportage.rapportjaar,
+      rapportage.rapportmaand - 2,
+      1,
+    ),
+  );
+
+  const vorigeGrenzen = periodeGrenzen(
+    vorigeMaandDatum.getUTCFullYear(),
+    vorigeMaandDatum.getUTCMonth() + 1,
+  );
+
+  const rapportagemotor = bouwRapportagemotor({
+    periode: {
+      vanaf,
+      tot_en_met: totEnMet,
+    },
+    vorige_periode: {
+      vanaf: vorigeGrenzen.vanaf,
+      tot_en_met: vorigeGrenzen.totEnMet,
+    },
+    inspecties,
+    meldingen,
+    meterstanden,
+    bewoners,
+    afwijkingen,
+    taken,
+  });
 
   const ongesorteerdeTemplate =
     templateResultaat.data as RapporttemplateversieMetBlokken;
@@ -281,8 +350,9 @@ export async function genereerMaandrapportageData(
   );
 
   return {
-    versie: 2,
+    versie: 3,
     gegenereerd_op: new Date().toISOString(),
+    rapportagemotor,
 
     template: {
       templateversie_id: templateversie.id,
