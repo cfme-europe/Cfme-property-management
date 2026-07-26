@@ -492,3 +492,19 @@ test("zakelijke exports vertalen interne codes", () => {
     /zakelijkVeldlabel/,
   );
 });
+
+test("rapportage bewerken toont de gekoppelde templateversie", () => {
+  const bewerkpagina = lees(
+    "src/app/woningen/[id]/rapportages/[rapportageId]/bewerken/page.tsx",
+  );
+
+  assert.match(
+    bewerkpagina,
+    /getActieveRapporttemplates/,
+  );
+
+  assert.match(
+    bewerkpagina,
+    /actieveTemplates=\{/,
+  );
+});

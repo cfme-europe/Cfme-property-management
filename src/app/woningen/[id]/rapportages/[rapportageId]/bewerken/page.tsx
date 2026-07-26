@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import MaandrapportageForm from "@/components/rapportages/MaandrapportageForm";
 import { getMaandrapportageById } from "@/services/maandrapportages-server";
+import { getActieveRapporttemplates } from "@/services/rapportagebibliotheek";
 import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";
@@ -27,13 +28,17 @@ export default async function RapportageBewerkenPage({
     notFound();
   }
 
-  const [woning, rapportage] =
-    await Promise.all([
-      getWoningById(woningId),
-      getMaandrapportageById(
-        rapportageNummer
-      ),
-    ]);
+  const [
+    woning,
+    rapportage,
+    actieveTemplates,
+  ] = await Promise.all([
+    getWoningById(woningId),
+    getMaandrapportageById(
+      rapportageNummer
+    ),
+    getActieveRapporttemplates(),
+  ]);
 
   if (
     !woning ||
@@ -74,6 +79,9 @@ export default async function RapportageBewerkenPage({
                 rapportage.verhuurperiode_id
               }
               rapportage={rapportage}
+              actieveTemplates={
+                actieveTemplates
+              }
             />
           </div>
         </div>
