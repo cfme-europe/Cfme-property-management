@@ -115,6 +115,20 @@ export default function MaandrapportageForm({
     setBezig(true);
     setFout("");
 
+    const formulier = new FormData(
+      event.currentTarget,
+    );
+
+    const actueleOntvangerNaam =
+      String(
+        formulier.get("ontvanger_naam") ?? "",
+      );
+
+    const actueleOntvangerEmail =
+      String(
+        formulier.get("ontvanger_email") ?? "",
+      );
+
     const invoer: MaandrapportageInvoer = {
       woning_id: woningId,
       verhuurperiode_id: verhuurperiodeId,
@@ -123,8 +137,10 @@ export default function MaandrapportageForm({
       rapportmaand: Number(rapportmaand),
       titel,
       status,
-      ontvanger_naam: ontvangerNaam,
-      ontvanger_email: ontvangerEmail,
+      ontvanger_naam:
+        actueleOntvangerNaam,
+      ontvanger_email:
+        actueleOntvangerEmail,
       opmerkingen,
       rapport_data: rapportage?.rapport_data ?? {},
     };
@@ -291,6 +307,7 @@ export default function MaandrapportageForm({
           </span>
 
           <input
+            name="ontvanger_naam"
             value={ontvangerNaam}
             onChange={(event) =>
               setOntvangerNaam(event.target.value)
@@ -306,6 +323,7 @@ export default function MaandrapportageForm({
           </span>
 
           <input
+            name="ontvanger_email"
             type="email"
             value={ontvangerEmail}
             onChange={(event) =>

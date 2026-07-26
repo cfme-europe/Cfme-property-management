@@ -148,3 +148,37 @@ test("risicoscore is uitlegbaar en begrensd", () => {
   assert.ok(uitkomst.risico.score <= 10);
   assert.ok(uitkomst.risico.factoren.length > 0);
 });
+
+test("open afwijking met hoge urgentie krijgt minimaal middel risico", () => {
+  const invoer = {
+    ...basis,
+    afwijkingen: [
+      {
+        created_at:
+          "2026-07-10T10:00:00Z",
+        status: "open",
+        urgentie: "hoog",
+        gebrek_type: "defect",
+        geschatte_kosten: 75,
+        werkelijke_kosten: null,
+        factuur_naar: "cfme",
+      },
+    ],
+    taken: [],
+  };
+
+  const uitkomst =
+    bouwRapportagemotor(invoer);
+
+  assert.ok(uitkomst.risico.score >= 2.5);
+  assert.notEqual(
+    uitkomst.risico.classificatie,
+    "laag",
+  );
+  assert.ok(
+    uitkomst.risico.factoren.some(
+      (factor) =>
+        factor.includes("hoge urgentie"),
+    ),
+  );
+});

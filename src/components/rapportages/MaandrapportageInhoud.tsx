@@ -3,6 +3,7 @@ import {
   getal,
   tekst,
   type JsonObject,
+  zakelijkLabel,
 } from "@/lib/rapportages/zakelijke-rapportage";
 import type { Maandrapportage } from "@/types/maandrapportage";
 
@@ -389,9 +390,8 @@ export default function MaandrapportageInhoud({
                     item.signalering,
                   )}`}
                 >
-                  {item.signalering.replaceAll(
-                    "_",
-                    " ",
+                  {zakelijkLabel(
+                    item.signalering,
                   )}
                 </span>
               </div>
@@ -616,7 +616,9 @@ export default function MaandrapportageInhoud({
                     className="border-b last:border-0"
                   >
                     <td className="p-4 capitalize">
-                      {ontvanger.replaceAll("_", " ")}
+                      {zakelijkLabel(
+                        ontvanger,
+                      )}
                     </td>
                     <td className="p-4 text-right font-semibold">
                       {bedrag(waarde)}

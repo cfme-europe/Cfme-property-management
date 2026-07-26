@@ -18,6 +18,10 @@ const opvolgingMigratie = lees(
   "supabase/migrations/20260726190000_8_1d_automatische_opvolging.sql",
 );
 
+const workflowHardeningMigratie = lees(
+  "supabase/migrations/20260726210000_8_1h_workflow_verwerkt_at_hardening.sql",
+);
+
 const woningconfiguratieService = lees(
   "src/services/woningconfiguratie.ts",
 );
@@ -185,6 +189,23 @@ test("afwijking maakt idempotent melding en taak aan", () => {
   assert.match(
     afwijkingenService,
     /kosten|werkelijke_kosten|geschatte_kosten/i,
+  );
+});
+
+test("verwerkte workflowgebeurtenis krijgt altijd een verwerkingstijd", () => {
+  assert.match(
+    workflowHardeningMigratie,
+    /new\.status = 'verwerkt'/,
+  );
+
+  assert.match(
+    workflowHardeningMigratie,
+    /new\.verwerkt_at := now\(\)/,
+  );
+
+  assert.match(
+    workflowHardeningMigratie,
+    /before insert or update of status, verwerkt_at/i,
   );
 });
 
@@ -438,5 +459,36 @@ test("exportketen behoudt registratie en foutafhandeling", () => {
   assert.match(
     excelExport,
     /markeerRapportexportMislukt/,
+  );
+});
+
+test("zakelijke exports vertalen interne codes", () => {
+  const zakelijkeRapportage = lees(
+    "src/lib/rapportages/zakelijke-rapportage.ts",
+  );
+
+  assert.match(
+    zakelijkeRapportage,
+    /onvoldoende_data: "Onvoldoende gegevens"/,
+  );
+
+  assert.match(
+    zakelijkeRapportage,
+    /cfme: "CFME"/,
+  );
+
+  assert.match(
+    rapportageScherm,
+    /zakelijkLabel/,
+  );
+
+  assert.match(
+    pdfRoute,
+    /zakelijkLabel/,
+  );
+
+  assert.match(
+    excelExport,
+    /zakelijkVeldlabel/,
   );
 });

@@ -61,6 +61,107 @@ export type ZakelijkeRapportageModel = {
   opmerkingen: string | null;
 };
 
+export function zakelijkLabel(
+  waarde: string,
+): string {
+  const labels: Record<string, string> = {
+    onvoldoende_data: "Onvoldoende gegevens",
+    normaal: "Normaal",
+    waarschuwing: "Waarschuwing",
+    kritiek: "Kritiek",
+    laag: "Laag",
+    middel: "Middel",
+    hoog: "Hoog",
+    spoed: "Spoed",
+    open: "Open",
+    in_behandeling: "In behandeling",
+    opgelost: "Opgelost",
+    niet_relevant: "Niet relevant",
+    concept: "Concept",
+    definitief: "Definitief",
+    verzonden: "Verzonden",
+    cfme: "CFME",
+    hurend_bedrijf: "Hurend bedrijf",
+    eigenaar: "Eigenaar",
+    nog_te_bepalen: "Nog te bepalen",
+    periodiek: "Periodieke inspectie",
+    onderhoud: "Onderhoud",
+    schade: "Schade",
+    veiligheid: "Veiligheid",
+    inspectie: "Inspectie",
+    overig: "Overig",
+  };
+
+  return (
+    labels[waarde] ??
+    waarde
+      .replaceAll("_", " ")
+      .replace(/^./, (letter) =>
+        letter.toUpperCase(),
+      )
+  );
+}
+
+export function zakelijkVeldlabel(
+  waarde: string,
+): string {
+  const labels: Record<string, string> = {
+    id: "Nummer",
+    type: "Type",
+    titel: "Titel",
+    status: "Status",
+    categorie: "Categorie",
+    opmerkingen: "Opmerkingen",
+    inspectiedatum: "Inspectiedatum",
+    melddatum: "Melddatum",
+    oplosdatum: "Opgelost op",
+    oplossing: "Oplossing",
+    schade_aanwezig: "Schade aanwezig",
+    schade_omschrijving: "Schadeomschrijving",
+    uitgevoerd_door: "Uitgevoerd door",
+    algemene_toestand: "Algemene toestand",
+    orde_netheid_score: "Orde en netheid",
+    prioriteit: "Prioriteit",
+    factuur_naar: "Factuurontvanger",
+    omschrijving: "Omschrijving",
+    verantwoordelijke: "Verantwoordelijke",
+    extern_referentienummer:
+      "Externe referentie",
+    opnamedatum: "Opnamedatum",
+    bewoners_aantal: "Aantal bewoners",
+    dagstroom_kwh: "Dagstroom (kWh)",
+    nachtstroom_kwh: "Nachtstroom (kWh)",
+    elektriciteit_kwh:
+      "Elektriciteit totaal (kWh)",
+    gas_m3: "Gas (m³)",
+    water_m3: "Water (m³)",
+    opgenomen_door: "Opgenomen door",
+  };
+
+  return labels[waarde] ?? zakelijkLabel(waarde);
+}
+
+export function zakelijkeCelWaarde(
+  waarde: JsonWaarde | undefined,
+): string | number | boolean {
+  if (waarde === null || waarde === undefined) {
+    return "";
+  }
+
+  if (typeof waarde === "string") {
+    return zakelijkLabel(waarde);
+  }
+
+  if (
+    typeof waarde === "number" ||
+    typeof waarde === "boolean"
+  ) {
+    return waarde;
+  }
+
+  return JSON.stringify(waarde);
+}
+
 export function alsObject(
   waarde: JsonWaarde | undefined,
 ): JsonObject | null {

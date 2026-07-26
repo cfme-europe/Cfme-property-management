@@ -5,7 +5,10 @@ import type {
   Maandrapportage,
 } from "@/types/maandrapportage";
 import type { Woning } from "@/types/woning";
-import { bouwZakelijkeRapportageModel } from "@/lib/rapportages/zakelijke-rapportage";
+import {
+  bouwZakelijkeRapportageModel,
+  zakelijkLabel,
+} from "@/lib/rapportages/zakelijke-rapportage";
 
 export const dynamic = "force-dynamic";
 
@@ -384,7 +387,9 @@ export async function GET(
     schrijf(
       `Risicoscore: ${getalTekst(
         model.risico.score,
-      )} (${model.risico.classificatie})`,
+      )} (${zakelijkLabel(
+        model.risico.classificatie,
+      )})`,
       { vet: true, grootte: 12 },
     );
     schrijf(
@@ -442,7 +447,9 @@ export async function GET(
             : `${item.afwijking_percentage >= 0 ? "+" : ""}${getalTekst(
                 item.afwijking_percentage,
               )}%`
-        }; signalering ${item.signalering}.`,
+        }; signalering ${zakelijkLabel(
+          item.signalering,
+        )}.`,
         { grootte: 9 },
       );
     });
@@ -492,12 +499,19 @@ export async function GET(
             { vet: true },
           );
           schrijf(
-            `Status: ${leesbareWaarde(
-              melding.status ?? null,
-            )}; prioriteit: ${leesbareWaarde(
-              melding.prioriteit ?? null,
-            )}; factuur: ${leesbareWaarde(
-              melding.factuur_naar ?? null,
+            `Status: ${zakelijkLabel(
+              String(
+                melding.status ?? "onbekend",
+              ),
+            )}; prioriteit: ${zakelijkLabel(
+              String(
+                melding.prioriteit ?? "onbekend",
+              ),
+            )}; factuur: ${zakelijkLabel(
+              String(
+                melding.factuur_naar ??
+                  "nog_te_bepalen",
+              ),
             )}.`,
             { inspringen: 4, grootte: 9 },
           );
@@ -536,7 +550,7 @@ export async function GET(
       model.kosten.per_factuurontvanger,
     ).forEach(([ontvanger, waarde]) => {
       schrijf(
-        `${ontvanger.replaceAll("_", " ")}: ${euro(
+        `${zakelijkLabel(ontvanger)}: ${euro(
           waarde,
         )}.`,
         { inspringen: 4, grootte: 9 },

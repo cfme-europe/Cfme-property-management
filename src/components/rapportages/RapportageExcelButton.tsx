@@ -4,6 +4,9 @@ import { useState } from "react";
 import {
   bouwZakelijkeRapportageModel,
   type JsonObject,
+  zakelijkLabel,
+  zakelijkVeldlabel,
+  zakelijkeCelWaarde,
 } from "@/lib/rapportages/zakelijke-rapportage";
 import {
   markeerRapportexportMislukt,
@@ -42,23 +45,13 @@ function objectRijen(
   );
 
   return [
-    kolommen,
+    kolommen.map(zakelijkVeldlabel),
     ...objecten.map((object) =>
-      kolommen.map((kolom) => {
-        const waarde = object[kolom];
-
-        if (
-          typeof waarde === "string" ||
-          typeof waarde === "number" ||
-          typeof waarde === "boolean"
-        ) {
-          return waarde;
-        }
-
-        return waarde === null
-          ? ""
-          : JSON.stringify(waarde);
-      }),
+      kolommen.map((kolom) =>
+        zakelijkeCelWaarde(
+          object[kolom],
+        ),
+      ),
     ),
   ];
 }
@@ -164,13 +157,25 @@ export default function RapportageExcelButton({
         ["Rapporttitel", rapportage.titel],
         ["Adres", adres],
         [
+          "Ontvanger",
+          rapportage.ontvanger_naam ??
+            "Niet vastgelegd",
+        ],
+        [
+          "E-mailadres ontvanger",
+          rapportage.ontvanger_email ??
+            "Niet vastgelegd",
+        ],
+        [
           "Periode",
           `${model.huidige_periode.vanaf} t/m ${model.huidige_periode.tot_en_met}`,
         ],
         ["Risicoscore", model.risico.score],
         [
           "Risicoclassificatie",
-          model.risico.classificatie,
+          zakelijkLabel(
+            model.risico.classificatie,
+          ),
         ],
         [
           "Werkelijke kosten",
@@ -226,7 +231,9 @@ export default function RapportageExcelButton({
           item.per_persoon_per_week ?? "",
           item.vorige_per_persoon_per_week ?? "",
           item.afwijking_percentage ?? "",
-          item.signalering,
+          zakelijkLabel(
+            item.signalering,
+          ),
         ]),
       ]);
 
@@ -235,7 +242,7 @@ export default function RapportageExcelButton({
         ...Object.entries(
           model.kosten.per_factuurontvanger,
         ).map(([ontvanger, waarde]) => [
-          ontvanger,
+          zakelijkLabel(ontvanger),
           waarde,
         ]),
       ]);

@@ -322,11 +322,18 @@ export function bouwRapportagemotor(
   const openAfwijkingen = invoer.afwijkingen.filter(
     (item) => openAfwijking(item.status),
   );
+  const urgenteAfwijkingen =
+    openAfwijkingen.filter((item) =>
+      ["hoog", "spoed"].includes(
+        item.urgentie,
+      ),
+    );
+
   const urgenteVeiligheidsafwijkingen =
-    openAfwijkingen.filter(
+    urgenteAfwijkingen.filter(
       (item) =>
-        item.gebrek_type === "veiligheidsrisico" &&
-        ["hoog", "spoed"].includes(item.urgentie),
+        item.gebrek_type ===
+        "veiligheidsrisico",
     );
 
   const kritiekeEnergieSignalen = Object.values(
@@ -336,11 +343,24 @@ export function bouwRapportagemotor(
   const risicofactoren: string[] = [];
   let risicoscore = 0;
 
+  if (urgenteAfwijkingen.length > 0) {
+    const punten = Math.min(
+      5,
+      urgenteAfwijkingen.length * 2.5,
+    );
+
+    risicoscore += punten;
+    risicofactoren.push(
+      `${urgenteAfwijkingen.length} open afwijking(en) met hoge urgentie`,
+    );
+  }
+
   if (urgenteVeiligheidsafwijkingen.length > 0) {
     const punten = Math.min(
-      4,
-      urgenteVeiligheidsafwijkingen.length * 2,
+      3,
+      urgenteVeiligheidsafwijkingen.length * 1.5,
     );
+
     risicoscore += punten;
     risicofactoren.push(
       `${urgenteVeiligheidsafwijkingen.length} urgente veiligheidsafwijking(en)`,
@@ -393,9 +413,15 @@ export function bouwRapportagemotor(
 
   const acties: string[] = [];
 
+  if (urgenteAfwijkingen.length > 0) {
+    acties.push(
+      "Behandel open afwijkingen met hoge urgentie met voorrang en leg de opvolging vast.",
+    );
+  }
+
   if (urgenteVeiligheidsafwijkingen.length > 0) {
     acties.push(
-      "Behandel urgente veiligheidsafwijkingen met voorrang en leg herstelbewijs vast.",
+      "Leg voor veiligheidsafwijkingen aantoonbaar herstelbewijs en een hercontrole vast.",
     );
   }
 
