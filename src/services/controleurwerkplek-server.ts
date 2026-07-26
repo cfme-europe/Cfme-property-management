@@ -39,6 +39,7 @@ export type ControleurWoning = {
   verhuurperiode_id: number | null;
   laatste_inspectiedatum: string | null;
   open_inspectie_id: number | null;
+  controlesessie_id: number | null;
   controlesessie_status: "gepland" | "bezig" | null;
   gestart_at: string | null;
   locatie_status: "niet_geprobeerd" | "beschikbaar" | "niet_beschikbaar" | "toestemming_geweigerd" | "fout" | null;
@@ -135,6 +136,7 @@ export async function getControleurWerkplek(): Promise<ControleurWerkplek> {
       verhuurperiode_id: verhuurperiodes.find((periode) => periode.woning_id === woning.id)?.id ?? null,
       laatste_inspectiedatum: woningInspecties[0]?.inspectiedatum ?? null,
       open_inspectie_id: openInspectie?.id ?? null,
+      controlesessie_id: sessie?.id ?? null,
       controlesessie_status: sessie?.status === "gepland" || sessie?.status === "bezig" ? sessie.status : null,
       gestart_at: sessie?.gestart_at ?? null,
       locatie_status: sessie?.locatie_status ?? null,

@@ -66,7 +66,7 @@ export default function ControleStartButton({ woningId, verhuurperiodeId, contro
       });
 
       await startControlesessie(sessie.id, await bepaalLocatie());
-      router.push(`/woningen/${woningId}/inspecties/${inspectieId}`);
+      router.push(`/controleur/controle/${sessie.id}`);
       router.refresh();
     } catch (error) {
       setFout(error instanceof Error ? error.message : "Controle starten mislukt.");
