@@ -14,6 +14,10 @@ import {
   uploadControleFoto,
 } from "@/services/controleurflow";
 import {
+  slaRouteMeterstandOp,
+  type RouteMeterType,
+} from "@/services/meterstanden";
+import {
   AFWIJKING_URGENTIES,
   CONTROLE_RESULTATEN,
   GEBREK_TYPEN,
@@ -30,6 +34,7 @@ type Props = {
 
 type InvoerPerPunt = {
   resultaat: ControleResultaatWaarde | "";
+  numeriekeWaarde: string;
   gebrekType: GebrekType;
   toelichting: string;
   urgentie: AfwijkingUrgentie;
@@ -47,6 +52,71 @@ function label(waarde: string): string {
   return waarde
     .replaceAll("_", " ")
     .replace(/^./, (letter) => letter.toUpperCase());
+}
+
+const METER_TYPE_PER_OBJECT: Record<
+  string,
+  RouteMeterType
+> = {
+  elektriciteitsmeter_dag:
+    "dagstroom_kwh",
+  elektriciteitsmeter_nacht:
+    "nachtstroom_kwh",
+  gasmeter: "gas_m3",
+  watermeter: "water_m3",
+};
+
+function isMeterpunt(
+  punt: ControleurRoutepunt,
+): boolean {
+  return Boolean(
+    punt.object_type &&
+      METER_TYPE_PER_OBJECT[
+        punt.object_type
+      ],
+  );
+}
+
+function isInternetpunt(
+  punt: ControleurRoutepunt,
+): boolean {
+  return (
+    punt.object_type ===
+    "internetvoorziening"
+  );
+}
+
+function meterEenheid(
+  metertype: RouteMeterType,
+): string {
+  return metertype === "gas_m3" ||
+    metertype === "water_m3"
+    ? "m³"
+    : "kWh";
+}
+
+function vorigeMeterstand(
+  punt: ControleurRoutepunt,
+  gegevens: ControleurFlowGegevens,
+): number | null {
+  if (!punt.object_type) {
+    return null;
+  }
+
+  const metertype =
+    METER_TYPE_PER_OBJECT[
+      punt.object_type
+    ];
+
+  if (!metertype) {
+    return null;
+  }
+
+  return (
+    gegevens.laatste_meterstand?.[
+      metertype
+    ] ?? null
+  );
 }
 
 function maakBeginInvoer(
@@ -69,6 +139,10 @@ function maakBeginInvoer(
 
   return {
     resultaat: resultaat?.resultaat ?? "",
+    numeriekeWaarde:
+      resultaat?.numerieke_waarde != null
+        ? String(resultaat.numerieke_waarde)
+        : "",
     gebrekType: afwijking?.gebrek_type ?? "overig",
     toelichting: afwijking?.toelichting ?? "",
     urgentie:
@@ -186,17 +260,77 @@ export default function ControleurFlow({
 
   async function slaPuntOp(
     punt: ControleurRoutepunt,
+    directResultaat?: ControleResultaatWaarde,
   ) {
-    const puntInvoer =
+    const basisInvoer =
       invoer[punt.woning_controlepunt_id];
 
-    if (!puntInvoer?.resultaat) {
-      setFout("Kies eerst een beoordeling.");
+    const puntInvoer = {
+      ...basisInvoer,
+      resultaat:
+        directResultaat ??
+        basisInvoer?.resultaat ??
+        "",
+    };
+
+    const meterpunt = isMeterpunt(punt);
+
+    if (
+      meterpunt &&
+      !puntInvoer?.numeriekeWaarde.trim()
+    ) {
+      setFout(
+        "Vul eerst de actuele meterstand in.",
+      );
       return;
     }
 
+    if (
+      !meterpunt &&
+      !puntInvoer?.resultaat
+    ) {
+      setFout(
+        "Kies eerst een beoordeling.",
+      );
+      return;
+    }
+
+    const numeriekeWaarde = meterpunt
+      ? Number(
+          puntInvoer.numeriekeWaarde.replace(
+            ",",
+            ".",
+          ),
+        )
+      : null;
+
+    if (
+      meterpunt &&
+      (
+        numeriekeWaarde === null ||
+        !Number.isFinite(
+          numeriekeWaarde,
+        ) ||
+        numeriekeWaarde < 0
+      )
+    ) {
+      setFout(
+        "De meterstand moet nul of hoger zijn.",
+      );
+      return;
+    }
+
+    const resultaatWaarde =
+      meterpunt
+        ? "goed"
+        : puntInvoer.resultaat;
+
     const heeftAfwijking =
-      afwijkendeResultaten.has(puntInvoer.resultaat);
+      resultaatWaarde
+        ? afwijkendeResultaten.has(
+            resultaatWaarde,
+          )
+        : false;
 
     if (
       heeftAfwijking &&
@@ -220,6 +354,29 @@ export default function ControleurFlow({
     setFout("");
 
     try {
+
+      if (
+        meterpunt &&
+        punt.object_type
+      ) {
+        const metertype =
+          METER_TYPE_PER_OBJECT[
+            punt.object_type
+          ];
+
+        await slaRouteMeterstandOp({
+          woning_id:
+            gegevens.woning.id,
+          controlesessie_id:
+            gegevens.sessie.id,
+          metertype,
+          waarde:
+            numeriekeWaarde as number,
+          bewoners_aantal:
+            gegevens.bewoners_aantal,
+        });
+      }
+
       const resultaat = await slaControleResultaatOp({
         controlesessie_id: gegevens.sessie.id,
         inspectie_id: gegevens.sessie.inspectie_id,
@@ -228,7 +385,10 @@ export default function ControleurFlow({
         object_id: punt.object_id,
         woning_controlepunt_id:
           punt.woning_controlepunt_id,
-        resultaat: puntInvoer.resultaat,
+        resultaat:
+          resultaatWaarde || "goed",
+        numerieke_waarde:
+          numeriekeWaarde,
         ruimte_naam_snapshot: punt.ruimte_naam,
         object_naam_snapshot: punt.object_naam,
         controlepunt_naam_snapshot:
@@ -268,15 +428,50 @@ export default function ControleurFlow({
         await markeerAfwijkingNietRelevant(resultaat.id);
       }
 
-      setOpgeslagen((huidig) => {
-        const volgend = new Set(huidig);
-        volgend.add(punt.woning_controlepunt_id);
-        return volgend;
-      });
+      const nieuwOpgeslagen = new Set(
+        opgeslagen,
+      );
 
-      wijzigPunt(punt.woning_controlepunt_id, {
-        foto: null,
-      });
+      nieuwOpgeslagen.add(
+        punt.woning_controlepunt_id,
+      );
+
+      setOpgeslagen(nieuwOpgeslagen);
+
+      wijzigPunt(
+        punt.woning_controlepunt_id,
+        {
+          resultaat:
+            resultaatWaarde || "goed",
+          foto: null,
+        },
+      );
+
+      const huidigeRuimteAfgerond =
+        huidigeRuimte?.punten.every(
+          (ruimtePunt) =>
+            nieuwOpgeslagen.has(
+              ruimtePunt.woning_controlepunt_id,
+            ),
+        ) ?? false;
+
+      if (
+        huidigeRuimteAfgerond &&
+        ruimteIndex < ruimten.length - 1
+      ) {
+        setRuimteIndex(
+          (huidig) =>
+            Math.min(
+              ruimten.length - 1,
+              huidig + 1,
+            ),
+        );
+
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
+      }
     } catch (error) {
       setFout(
         error instanceof Error
@@ -395,6 +590,25 @@ export default function ControleurFlow({
           {huidigeRuimte.punten.map((punt) => {
             const puntInvoer =
               invoer[punt.woning_controlepunt_id];
+            const meterpunt =
+              isMeterpunt(punt);
+
+            const internetpunt =
+              isInternetpunt(punt);
+
+            const metertype =
+              punt.object_type
+                ? METER_TYPE_PER_OBJECT[
+                    punt.object_type
+                  ]
+                : undefined;
+
+            const vorigeStand =
+              vorigeMeterstand(
+                punt,
+                gegevens,
+              );
+
             const heeftAfwijking =
               puntInvoer?.resultaat &&
               afwijkendeResultaten.has(
@@ -432,30 +646,155 @@ export default function ControleurFlow({
                   )}
                 </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {CONTROLE_RESULTATEN.map(
-                    (resultaat) => (
-                      <button
-                        key={resultaat}
-                        type="button"
-                        onClick={() =>
-                          wijzigPunt(
-                            punt.woning_controlepunt_id,
-                            { resultaat },
-                          )
-                        }
-                        className={`min-h-12 rounded-xl border px-3 py-3 text-sm font-semibold ${
-                          puntInvoer?.resultaat ===
-                          resultaat
-                            ? "border-emerald-700 bg-emerald-700 text-white"
-                            : "border-slate-300 bg-white text-slate-800"
-                        }`}
-                      >
-                        {label(resultaat)}
-                      </button>
-                    ),
-                  )}
-                </div>
+                {meterpunt && metertype ? (
+                  <div className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-5">
+                    <label className="block">
+                      <span className="block text-lg font-bold text-slate-950">
+                        Actuele meterstand
+                      </span>
+
+                      {vorigeStand !== null && (
+                        <span className="mt-1 block text-sm text-slate-600">
+                          Vorige stand:{" "}
+                          {vorigeStand.toLocaleString(
+                            "nl-NL",
+                            {
+                              maximumFractionDigits: 3,
+                            },
+                          )}{" "}
+                          {meterEenheid(metertype)}
+                        </span>
+                      )}
+
+                      <div className="mt-4 flex items-center gap-3">
+                        <input
+                          autoFocus
+                          inputMode="decimal"
+                          type="number"
+                          min="0"
+                          step="0.001"
+                          value={
+                            puntInvoer?.numeriekeWaarde ??
+                            ""
+                          }
+                          onChange={(event) =>
+                            wijzigPunt(
+                              punt.woning_controlepunt_id,
+                              {
+                                numeriekeWaarde:
+                                  event.target.value,
+                              },
+                            )
+                          }
+                          className="min-w-0 flex-1 rounded-xl border border-blue-300 bg-white px-4 py-4 text-2xl font-bold"
+                          placeholder="0,000"
+                        />
+
+                        <span className="shrink-0 text-lg font-bold text-slate-700">
+                          {meterEenheid(metertype)}
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                ) : internetpunt ? (
+                  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {[
+                      {
+                        resultaat:
+                          "goed" as const,
+                        tekst: "Werkt",
+                        stijl:
+                          "border-emerald-700 bg-emerald-700 text-white",
+                        directOpslaan: true,
+                      },
+                      {
+                        resultaat:
+                          "onvoldoende" as const,
+                        tekst: "Storing",
+                        stijl:
+                          "border-red-700 bg-red-700 text-white",
+                        directOpslaan: false,
+                      },
+                      {
+                        resultaat:
+                          "niet_aanwezig" as const,
+                        tekst: "Niet aanwezig",
+                        stijl:
+                          "border-slate-700 bg-slate-700 text-white",
+                        directOpslaan: false,
+                      },
+                    ].map((keuze) => {
+                      const geselecteerd =
+                        puntInvoer?.resultaat ===
+                        keuze.resultaat;
+
+                      return (
+                        <button
+                          key={keuze.resultaat}
+                          type="button"
+                          disabled={
+                            bezigPunt ===
+                            punt.woning_controlepunt_id
+                          }
+                          onClick={() => {
+                            if (
+                              keuze.directOpslaan
+                            ) {
+                              void slaPuntOp(
+                                punt,
+                                keuze.resultaat,
+                              );
+                              return;
+                            }
+
+                            wijzigPunt(
+                              punt.woning_controlepunt_id,
+                              {
+                                resultaat:
+                                  keuze.resultaat,
+                              },
+                            );
+                          }}
+                          className={`min-h-16 rounded-xl border px-4 py-4 text-lg font-bold disabled:opacity-50 ${
+                            geselecteerd
+                              ? keuze.stijl
+                              : "border-slate-300 bg-white text-slate-900"
+                          }`}
+                        >
+                          {bezigPunt ===
+                          punt.woning_controlepunt_id
+                            ? "Opslaan..."
+                            : keuze.tekst}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {CONTROLE_RESULTATEN.map(
+                      (resultaat) => (
+                        <button
+                          key={resultaat}
+                          type="button"
+                          onClick={() =>
+                            wijzigPunt(
+                              punt.woning_controlepunt_id,
+                              { resultaat },
+                            )
+                          }
+                          className={`min-h-12 rounded-xl border px-3 py-3 text-sm font-semibold ${
+                            puntInvoer?.resultaat ===
+                            resultaat
+                              ? "border-emerald-700 bg-emerald-700 text-white"
+                              : "border-slate-300 bg-white text-slate-800"
+                          }`}
+                        >
+                          {label(resultaat)}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                )}
 
                 {heeftAfwijking && (
                   <div className="mt-5 space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
@@ -542,20 +881,31 @@ export default function ControleurFlow({
                   </div>
                 )}
 
-                <button
-                  type="button"
-                  disabled={
-                    bezigPunt ===
+                {(
+                  !internetpunt ||
+                  Boolean(heeftAfwijking)
+                ) && (
+                  <button
+                    type="button"
+                    disabled={
+                      bezigPunt ===
+                      punt.woning_controlepunt_id
+                    }
+                    onClick={() =>
+                      void slaPuntOp(punt)
+                    }
+                    className="mt-5 w-full rounded-xl bg-emerald-700 px-5 py-4 font-bold text-white disabled:opacity-50"
+                  >
+                    {bezigPunt ===
                     punt.woning_controlepunt_id
-                  }
-                  onClick={() => slaPuntOp(punt)}
-                  className="mt-5 w-full rounded-xl bg-emerald-700 px-5 py-4 font-bold text-white disabled:opacity-50"
-                >
-                  {bezigPunt ===
-                  punt.woning_controlepunt_id
-                    ? "Opslaan..."
-                    : "Controlepunt opslaan"}
-                </button>
+                      ? "Opslaan..."
+                      : meterpunt
+                        ? "Meterstand opslaan en verder"
+                        : internetpunt
+                          ? "Afwijking opslaan en verder"
+                          : "Controlepunt opslaan"}
+                  </button>
+                )}
               </article>
             );
           })}

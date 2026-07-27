@@ -83,6 +83,7 @@ function valideer(
 
   return {
     woning_id: invoer.woning_id,
+    controlesessie_id: invoer.controlesessie_id ?? null,
     opnamedatum: invoer.opnamedatum,
     bewoners_aantal: invoer.bewoners_aantal,
     dagstroom_kwh: dagstroom,
@@ -160,4 +161,86 @@ export async function updateMeterstand(
   }
 
   return data as Meterstand;
+}
+
+export type RouteMeterType =
+  | "dagstroom_kwh"
+  | "nachtstroom_kwh"
+  | "gas_m3"
+  | "water_m3";
+
+export async function slaRouteMeterstandOp(invoer: {
+  woning_id: number;
+  controlesessie_id: number;
+  metertype: RouteMeterType;
+  waarde: number;
+  bewoners_aantal: number;
+}): Promise<Meterstand> {
+  if (
+    !Number.isFinite(invoer.waarde) ||
+    invoer.waarde < 0
+  ) {
+    throw new Error(
+      "De meterstand moet nul of hoger zijn."
+    );
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error(
+      "Geen geldige gebruikerssessie."
+    );
+  }
+
+  const opnamedatum =
+    new Date().toISOString().slice(0, 10);
+
+  const { data: bestaand, error: zoekFout } =
+    await supabase
+      .from("meterstanden")
+      .select("*")
+      .eq("woning_id", invoer.woning_id)
+      .eq("opnamedatum", opnamedatum)
+      .maybeSingle();
+
+  if (zoekFout) {
+    throw new Error(
+      `Meteropname zoeken mislukt: ${zoekFout.message}`
+    );
+  }
+
+  const basis = {
+    woning_id: invoer.woning_id,
+    controlesessie_id:
+      invoer.controlesessie_id,
+    opnamedatum,
+    bewoners_aantal:
+      invoer.bewoners_aantal,
+    dagstroom_kwh:
+      bestaand?.dagstroom_kwh ?? null,
+    nachtstroom_kwh:
+      bestaand?.nachtstroom_kwh ?? null,
+    gas_m3:
+      bestaand?.gas_m3 ?? null,
+    water_m3:
+      bestaand?.water_m3 ?? null,
+    opgenomen_door: user.id,
+    opmerkingen:
+      "Opgenomen tijdens woningcontrole",
+  };
+
+  const volledig = {
+    ...basis,
+    [invoer.metertype]: invoer.waarde,
+  };
+
+  return bestaand
+    ? updateMeterstand(
+        bestaand.id,
+        volledig,
+      )
+    : createMeterstand(volledig);
 }

@@ -564,3 +564,42 @@ test("woningconfiguratie gebruikt een begeleide routewizard met buitenruimten", 
   assert.match(pagina, /WoningrouteWizard/);
   assert.match(pagina, /Geavanceerd technisch beheer/);
 });
+
+test("woningroute ondersteunt meters en internetvoorzieningen op hun exacte locatie", () => {
+  const wizard = lees(
+    "src/components/woningconfiguratie/WoningrouteWizard.tsx",
+  );
+
+  assert.match(wizard, /Elektriciteitsmeter dag/);
+  assert.match(wizard, /Elektriciteitsmeter nacht/);
+  assert.match(wizard, /Gasmeter/);
+  assert.match(wizard, /Watermeter/);
+  assert.ok(wizard.includes("Router / modem"));
+  assert.match(wizard, /Wifi-punt/);
+  assert.match(wizard, /Netwerkswitch/);
+  assert.ok(wizard.includes("Glasvezelkastje / ONT"));
+});
+
+test("controleur neemt meters en internet met minimale handelingen op", () => {
+  const flow = lees(
+    "src/components/controleur/ControleurFlow.tsx",
+  );
+  const meterService = lees(
+    "src/services/meterstanden.ts",
+  );
+  const migratie = lees(
+    "supabase/migrations/20260727143000_8_1k_route_meters_internet.sql",
+  );
+
+  assert.match(flow, /Actuele meterstand/);
+  assert.match(flow, /Vorige stand/);
+  assert.match(flow, /Meterstand opslaan en verder/);
+  assert.match(flow, /tekst: "Werkt"/);
+  assert.match(flow, /tekst: "Storing"/);
+  assert.match(flow, /tekst: "Niet aanwezig"/);
+  assert.match(flow, /huidigeRuimteAfgerond/);
+  assert.match(meterService, /slaRouteMeterstandOp/);
+  assert.match(migratie, /mag_controles_uitvoeren/);
+  assert.match(migratie, /METER_DAGSTROOM/);
+  assert.match(migratie, /INTERNET_WERKING/);
+});

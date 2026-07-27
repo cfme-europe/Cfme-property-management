@@ -30,6 +30,9 @@ export async function slaControleResultaatOp(invoer: {
   ruimte_naam_snapshot: string;
   object_naam_snapshot: string | null;
   controlepunt_naam_snapshot: string;
+  numerieke_waarde?: number | null;
+  tekstwaarde?: string | null;
+  datumwaarde?: string | null;
   opmerkingen?: string | null;
 }): Promise<ControleResultaat> {
   const {

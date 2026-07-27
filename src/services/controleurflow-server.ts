@@ -83,6 +83,7 @@ export async function getControleurFlow(
           id,
           naam,
           object_type,
+          objectnummer,
           loopvolgorde,
           actief
         ),
@@ -157,6 +158,7 @@ export async function getControleurFlow(
       object_naam: object?.naam ?? null,
       object_type: object?.object_type ?? null,
       object_volgorde: object?.loopvolgorde ?? null,
+      objectnummer: object?.objectnummer ?? null,
       controlepunt_naam:
         rij.naam_override || definitie.naam,
       controlepunt_omschrijving:
@@ -180,6 +182,36 @@ export async function getControleurFlow(
     a.controlepunt_volgorde - b.controlepunt_volgorde
   );
 
+  const [bewonersResultaat, meterstandResultaat] =
+    await Promise.all([
+      supabase
+        .from("bewoners")
+        .select("id", { count: "exact", head: true })
+        .eq("woning_id", sessie.woning_id)
+        .is("uitcheckdatum", null),
+      supabase
+        .from("meterstanden")
+        .select(
+          "dagstroom_kwh,nachtstroom_kwh,gas_m3,water_m3",
+        )
+        .eq("woning_id", sessie.woning_id)
+        .order("opnamedatum", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+  if (bewonersResultaat.error) {
+    throw new Error(
+      `Bewonersaantal ophalen mislukt: ${bewonersResultaat.error.message}`,
+    );
+  }
+
+  if (meterstandResultaat.error) {
+    throw new Error(
+      `Laatste meterstand ophalen mislukt: ${meterstandResultaat.error.message}`,
+    );
+  }
+
   return {
     sessie,
     woning: woningResultaat.data,
@@ -188,5 +220,7 @@ export async function getControleurFlow(
       (resultatenResultaat.data ?? []) as ControleResultaat[],
     afwijkingen:
       (afwijkingenResultaat.data ?? []) as ControleAfwijking[],
+    bewoners_aantal: bewonersResultaat.count ?? 0,
+    laatste_meterstand: meterstandResultaat.data ?? null,
   };
 }

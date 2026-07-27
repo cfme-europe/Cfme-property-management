@@ -3,6 +3,7 @@ export type Meterstand = {
   created_at: string;
   updated_at: string;
   woning_id: number;
+  controlesessie_id?: number | null;
   opnamedatum: string;
   bewoners_aantal: number;
   dagstroom_kwh: number | null;
@@ -16,6 +17,7 @@ export type Meterstand = {
 
 export type MeterstandInvoer = {
   woning_id: number;
+  controlesessie_id?: number | null;
   opnamedatum: string;
   bewoners_aantal: number;
   dagstroom_kwh: number | null;

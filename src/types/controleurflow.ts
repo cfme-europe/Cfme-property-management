@@ -50,6 +50,7 @@ export type ControleurRoutepunt = {
   object_naam: string | null;
   object_type: string | null;
   object_volgorde: number | null;
+  objectnummer: string | null;
   controlepunt_naam: string;
   controlepunt_omschrijving: string | null;
   controlepunt_volgorde: number;
@@ -116,4 +117,11 @@ export type ControleurFlowGegevens = {
   route: ControleurRoutepunt[];
   resultaten: ControleResultaat[];
   afwijkingen: ControleAfwijking[];
+  bewoners_aantal: number;
+  laatste_meterstand: {
+    dagstroom_kwh: number | null;
+    nachtstroom_kwh: number | null;
+    gas_m3: number | null;
+    water_m3: number | null;
+  } | null;
 };

@@ -135,6 +135,56 @@ const OBJECTEN: Record<string, ObjectSjabloon> = {
     naam: "Buitenverlichting",
     objectType: "buitenverlichting",
   },
+  elektriciteitsmeter_dag: {
+    code: "elektriciteitsmeter_dag",
+    naam: "Elektriciteitsmeter dag",
+    objectType: "elektriciteitsmeter_dag",
+  },
+  elektriciteitsmeter_nacht: {
+    code: "elektriciteitsmeter_nacht",
+    naam: "Elektriciteitsmeter nacht",
+    objectType: "elektriciteitsmeter_nacht",
+  },
+  gasmeter: {
+    code: "gasmeter",
+    naam: "Gasmeter",
+    objectType: "gasmeter",
+  },
+  watermeter: {
+    code: "watermeter",
+    naam: "Watermeter",
+    objectType: "watermeter",
+  },
+  router: {
+    code: "router",
+    naam: "Router / modem",
+    objectType: "internetvoorziening",
+  },
+  wifi_punt: {
+    code: "wifi_punt",
+    naam: "Wifi-punt",
+    objectType: "internetvoorziening",
+  },
+  netwerkswitch: {
+    code: "netwerkswitch",
+    naam: "Netwerkswitch",
+    objectType: "internetvoorziening",
+  },
+  glasvezelkastje: {
+    code: "glasvezelkastje",
+    naam: "Glasvezelkastje / ONT",
+    objectType: "internetvoorziening",
+  },
+  internetbekabeling: {
+    code: "internetbekabeling",
+    naam: "Internetbekabeling",
+    objectType: "internetvoorziening",
+  },
+  overige_internetvoorziening: {
+    code: "overige_internetvoorziening",
+    naam: "Overige internetvoorziening",
+    objectType: "internetvoorziening",
+  },
 };
 
 const ALGEMENE_CONTROLES = [
