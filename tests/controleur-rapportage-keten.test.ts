@@ -827,3 +827,51 @@ test("9.0E toont doorlooptijd, herhaling en herstelbewijs", () => {
     /controle_afwijking_id:\s*controleAfwijkingId/,
   );
 });
+
+test("9.0G verlopen controles sturen waarschuwingen zonder toegangsblokkade", () => {
+  const migration = lees(
+    "supabase/migrations/20260728080000_9_0g_controletermijn_emailwaarschuwingen.sql",
+  );
+  const service = lees(
+    "src/services/controletermijn-email.ts",
+  );
+  const route = lees(
+    "src/app/api/cron/controletermijnen/route.ts",
+  );
+  const navigatie = lees(
+    "src/lib/auth/navigatie.ts",
+  );
+
+  assert.match(
+    migration,
+    /geef_verlopen_controletermijnen/,
+  );
+  assert.match(
+    migration,
+    /controletermijn_email_log_uniek/,
+  );
+  assert.match(
+    service,
+    /\.in\("rol", \["admin", "management"\]\)/,
+  );
+  assert.match(
+    service,
+    /controleur_email/,
+  );
+  assert.match(
+    service,
+    /RESEND_API_KEY/,
+  );
+  assert.match(
+    route,
+    /Bearer \$\{geheim\}/,
+  );
+  assert.match(
+    navigatie,
+    /\/api\/cron\/controletermijnen/,
+  );
+  assert.doesNotMatch(
+    migration,
+    /blokkeer|toegang.*weigeren|actief\s*=\s*false/i,
+  );
+});

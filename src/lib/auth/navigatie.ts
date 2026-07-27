@@ -1,4 +1,7 @@
-const PUBLIEKE_ROUTES = ["/login"] as const;
+const PUBLIEKE_ROUTES = [
+  "/login",
+  "/api/cron/controletermijnen",
+] as const;
 
 export function isPubliekeRoute(
   pathname: string
