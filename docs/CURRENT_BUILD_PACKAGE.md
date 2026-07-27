@@ -6,8 +6,8 @@
 **Repository:** cfme-europe/Cfme-property-management
 **Branch:** main
 **HEAD:** 50ab7a3
-**Laatste afgeronde bouwblok:** 9.0C Inspection Engine — ruimteakkoord
-**Eerstvolgende bouwblok:** 9.0D Occupancy Intelligence
+**Laatste afgeronde bouwblok:** 9.0D Occupancy Intelligence
+**Eerstvolgende bouwblok:** 9.0E Maintenance Intelligence
 
 ---
 
@@ -439,3 +439,36 @@ Eindcontrole:
 Volgend bouwblok:
 
 `9.0D Occupancy Intelligence`
+
+---
+
+## 14. BEWEZEN AFGEROND — BOUWBLOK 9.0D
+
+Gerealiseerd:
+
+- kamerbeschikbaarheid als formele databasebron;
+- actuele bezetting, capaciteit en vrije plaatsen per kamer;
+- alleen beschikbare kamers bij nieuwe bewonersplaatsing;
+- huidige kamer blijft zichtbaar bij bewerken;
+- alleen beschikbare andere kamers in de verhuisflow;
+- transactionele kamerwissel;
+- databasecontrole vlak vóór verhuizing;
+- blokkade op volle kamers en andere woningen;
+- bestaande kamerhistorie blijft automatisch behouden.
+
+Migratie:
+
+- `20260727220000_9_0d_occupancy_intelligence.sql`.
+
+Eindcontrole:
+
+- 36 van 36 tests geslaagd;
+- ESLint schoon;
+- TypeScript en productiebuild schoon;
+- database-lint schoon;
+- Supabase dry-run schoon;
+- remote database volledig bijgewerkt.
+
+Volgend bouwblok:
+
+`9.0E Maintenance Intelligence`

@@ -270,96 +270,56 @@ export async function uitcheckBewoner(
 export async function verhuisBewoner(
   bewonerId: number,
   verhuurperiodeId: number,
-  nieuweKamerId: number
+  nieuweKamerId: number,
 ): Promise<Bewoner> {
   if (!Number.isInteger(bewonerId) || bewonerId <= 0) {
-    throw new Error("Ongeldige bewoner.")
+    throw new Error("Ongeldige bewoner.");
   }
 
-  if (!Number.isInteger(verhuurperiodeId) || verhuurperiodeId <= 0) {
-    throw new Error("Ongeldige verhuurperiode.")
+  if (
+    !Number.isInteger(verhuurperiodeId) ||
+    verhuurperiodeId <= 0
+  ) {
+    throw new Error("Ongeldige verhuurperiode.");
   }
 
-  if (!Number.isInteger(nieuweKamerId) || nieuweKamerId <= 0) {
-    throw new Error("Ongeldige nieuwe kamer.")
+  if (
+    !Number.isInteger(nieuweKamerId) ||
+    nieuweKamerId <= 0
+  ) {
+    throw new Error("Ongeldige nieuwe kamer.");
   }
 
-  const bestaand = await getBewonerById(bewonerId)
+  const { data, error } = await supabase.rpc(
+    "verhuis_bewoner_atomair",
+    {
+      p_bewoner_id: bewonerId,
+      p_verhuurperiode_id: verhuurperiodeId,
+      p_nieuwe_kamer_id: nieuweKamerId,
+    },
+  );
 
-  if (!bestaand) {
-    throw new Error("Bewoner niet gevonden.")
+  if (error) {
+    throw new Error(
+      `Bewoner verhuizen mislukt: ${error.message}`,
+    );
   }
 
-  if (bestaand.verhuurperiode_id !== verhuurperiodeId) {
-    throw new Error("Bewoner behoort niet tot deze verhuurperiode.")
+  if (!data) {
+    throw new Error("Bewoner verhuizen gaf geen resultaat.");
   }
 
-  if (bestaand.uitcheckdatum || bestaand.status !== "actief") {
-    throw new Error("Alleen een actieve bewoner kan worden verhuisd.")
+  const bijgewerkt = await getBewonerById(bewonerId);
+
+  if (!bijgewerkt) {
+    throw new Error(
+      "De verhuisde bewoner kon niet opnieuw worden opgehaald.",
+    );
   }
 
-  if (!bestaand.kamer_id || !bestaand.kamer) {
-    throw new Error("De huidige kamer van de bewoner is niet vastgesteld.")
-  }
-
-  if (bestaand.kamer_id === nieuweKamerId) {
-    throw new Error("De bewoner verblijft al in deze kamer.")
-  }
-
-  const { data: nieuweKamer, error: kamerError } = await supabase
-    .from("kamers")
-    .select("*")
-    .eq("id", nieuweKamerId)
-    .maybeSingle()
-
-  if (kamerError) {
-    throw new Error(`Nieuwe kamer ophalen mislukt: ${kamerError.message}`)
-  }
-
-  if (!nieuweKamer) {
-    throw new Error("Nieuwe kamer niet gevonden.")
-  }
-
-  if (!nieuweKamer.actief) {
-    throw new Error("De geselecteerde kamer is niet actief.")
-  }
-
-  if (nieuweKamer.woning_id !== bestaand.kamer.woning_id) {
-    throw new Error("Verhuizen naar een kamer in een andere woning is niet toegestaan.")
-  }
-
-  const { count, error: bezettingError } = await supabase
-    .from("bewoners")
-    .select("id", { count: "exact", head: true })
-    .eq("verhuurperiode_id", verhuurperiodeId)
-    .eq("kamer_id", nieuweKamerId)
-    .eq("status", "actief")
-    .is("uitcheckdatum", null)
-    .neq("id", bewonerId)
-
-  if (bezettingError) {
-    throw new Error(`Kamerbezetting controleren mislukt: ${bezettingError.message}`)
-  }
-
-  if ((count ?? 0) >= nieuweKamer.capaciteit) {
-    throw new Error("De geselecteerde kamer heeft geen vrije plaats.")
-  }
-
-  const invoer: BewonerInvoer = {
-    verhuurperiode_id: bestaand.verhuurperiode_id,
-    huurder_id: bestaand.huurder_id,
-    kamer_id: nieuweKamerId,
-    voornaam: bestaand.voornaam,
-    tussenvoegsel: bestaand.tussenvoegsel,
-    achternaam: bestaand.achternaam,
-    incheckdatum: bestaand.incheckdatum,
-    uitcheckdatum: null,
-    status: "actief",
-    opmerkingen: bestaand.opmerkingen,
-  }
-
-  return updateBewoner(bewonerId, invoer)
+  return bijgewerkt;
 }
+
 export async function getBewonerKamerHistorie(bewonerId: number) {
   if (!Number.isInteger(bewonerId) || bewonerId <= 0) {
     throw new Error("Ongeldige bewoner.")

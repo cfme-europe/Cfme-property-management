@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import BewonerForm from "@/components/bewoners/BewonerForm";
 import { getHuurdersVoorVerhuurperiode } from "@/services/huurders-server";
-import { getKamersVoorWoning } from "@/services/kamers-server";
+import { getKamerbeschikbaarheid } from "@/services/kamers-server";
 import { getActieveVerhuurperiodeVoorWoning } from "@/services/verhuurperiodes-server";
 import { getWoningById } from "@/services/woningen-server";
 
@@ -23,11 +23,10 @@ export default async function NieuweBewonerPage({
     notFound();
   }
 
-  const [woning, actieveVerhuur, kamers] =
+  const [woning, actieveVerhuur] =
     await Promise.all([
       getWoningById(woningId),
       getActieveVerhuurperiodeVoorWoning(woningId),
-      getKamersVoorWoning(woningId),
     ]);
 
   if (!woning) {
@@ -38,10 +37,15 @@ export default async function NieuweBewonerPage({
     redirect(`/woningen/${woningId}`);
   }
 
-  const huurders =
-    await getHuurdersVoorVerhuurperiode(
-      actieveVerhuur.id
-    );
+  const [huurders, kamers] = await Promise.all([
+    getHuurdersVoorVerhuurperiode(
+      actieveVerhuur.id,
+    ),
+    getKamerbeschikbaarheid(
+      woningId,
+      actieveVerhuur.id,
+    ),
+  ]);
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-10 text-slate-900">

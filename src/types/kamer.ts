@@ -18,3 +18,15 @@ export type KamerInvoer = {
   actief: boolean;
   opmerkingen: string | null;
 };
+
+export type KamerBeschikbaarheid = {
+  kamer_id: number;
+  woning_id: number;
+  naam: string;
+  verdieping: string | null;
+  capaciteit: number;
+  actuele_bezetting: number;
+  vrije_plaatsen: number;
+  actief: boolean;
+  beschikbaar: boolean;
+};

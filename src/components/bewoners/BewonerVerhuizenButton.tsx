@@ -4,13 +4,13 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { verhuisBewoner } from "@/services/bewoners";
-import type { Kamer } from "@/types/kamer";
+import type { KamerBeschikbaarheid } from "@/types/kamer";
 
 type Props = {
   bewonerId: number;
   verhuurperiodeId: number;
   huidigeKamerId: number | null;
-  kamers: Kamer[];
+  kamers: KamerBeschikbaarheid[];
   naam: string;
 };
 
@@ -33,8 +33,8 @@ export default function BewonerVerhuizenButton({
       kamers
         .filter(
           (kamer) =>
-            kamer.actief &&
-            kamer.id !== huidigeKamerId
+            kamer.beschikbaar &&
+            kamer.kamer_id !== huidigeKamerId
         )
         .sort((a, b) => a.naam.localeCompare(b.naam)),
     [kamers, huidigeKamerId]
@@ -133,8 +133,13 @@ export default function BewonerVerhuizenButton({
               <option value="">Selecteer een kamer</option>
 
               {beschikbareKamers.map((kamer) => (
-                <option key={kamer.id} value={kamer.id}>
-                  {kamer.naam} — capaciteit {kamer.capaciteit}
+                <option
+                  key={kamer.kamer_id}
+                  value={kamer.kamer_id}
+                >
+                  {kamer.naam} — {kamer.actuele_bezetting}/
+                  {kamer.capaciteit} bezet —{" "}
+                  {kamer.vrije_plaatsen} vrij
                 </option>
               ))}
             </select>

@@ -268,26 +268,22 @@ Gerealiseerd:
 - databasefunctie gebruikt bestaande controlerechten en actieve sessievalidatie;
 - database-lint, tests, lint, build en Supabase dry-run zijn schoon.
 
-### 9.0D Occupancy Intelligence — ⬜ Gepland
+### 9.0D Occupancy Intelligence — ✅ Gereed
 
-Doel:
+Gerealiseerd:
 
-Bewonersplaatsing en capaciteit zonder dubbele selectie of zoekwerk.
-
-Scope:
-
-- woning kiezen;
-- alleen beschikbare kamers tonen;
-- capaciteit en actuele bezetting zichtbaar;
-- waarschuwing bij overbezetting;
-- snelle kamerwissel;
-- bewonershistorie automatisch;
-- fysieke slaapkamernaam overal gelijk;
-- leegstaande en volle kamers inzichtelijk.
-
-Afhankelijkheden:
-
-- 9.0B.
+- één formele bron voor kamerbeschikbaarheid;
+- per kamer actuele bezetting, capaciteit en vrije plaatsen;
+- nieuwe bewoners zien uitsluitend beschikbare actieve kamers;
+- bij bewerken blijft de huidige kamer zichtbaar;
+- verhuisflow toont uitsluitend andere beschikbare kamers;
+- kamerwissel wordt transactioneel uitgevoerd;
+- capaciteit wordt vlak vóór opslag opnieuw databasebreed gecontroleerd;
+- verhuizen naar een andere woning of volle kamer wordt geblokkeerd;
+- bestaande kamerhistorie blijft automatisch en volledig behouden;
+- fysieke slaapkamer- en bewonerskamernaam blijven gekoppeld;
+- gebruikers zien direct bezetting, capaciteit en vrije plaatsen;
+- database-lint, tests, lint, build en Supabase dry-run zijn schoon.
 
 ### 9.0E Maintenance Intelligence — ⬜ Gepland
 

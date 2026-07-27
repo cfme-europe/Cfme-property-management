@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import BewonerForm from "@/components/bewoners/BewonerForm";
 import { getBewonerById } from "@/services/bewoners-server";
 import { getHuurdersVoorVerhuurperiode } from "@/services/huurders-server";
-import { getKamersVoorWoning } from "@/services/kamers-server";
+import { getKamerbeschikbaarheid } from "@/services/kamers-server";
 import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";
@@ -29,21 +29,25 @@ export default async function BewonerBewerkenPage({
     notFound();
   }
 
-  const [woning, bewoner, kamers] =
+  const [woning, bewoner] =
     await Promise.all([
       getWoningById(woningId),
       getBewonerById(bewonerNummer),
-      getKamersVoorWoning(woningId),
     ]);
 
   if (!woning || !bewoner) {
     notFound();
   }
 
-  const huurders =
-    await getHuurdersVoorVerhuurperiode(
-      bewoner.verhuurperiode_id
-    );
+  const [huurders, kamers] = await Promise.all([
+    getHuurdersVoorVerhuurperiode(
+      bewoner.verhuurperiode_id,
+    ),
+    getKamerbeschikbaarheid(
+      woningId,
+      bewoner.verhuurperiode_id,
+    ),
+  ]);
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-10 text-slate-900">

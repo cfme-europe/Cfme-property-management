@@ -12,13 +12,13 @@ import type {
   BewonerStatus,
 } from "@/types/bewoner";
 import type { Huurder } from "@/types/huurder";
-import type { Kamer } from "@/types/kamer";
+import type { KamerBeschikbaarheid } from "@/types/kamer";
 
 type Props = {
   woningId: number;
   verhuurperiodeId: number;
   huurders: Huurder[];
-  kamers: Kamer[];
+  kamers: KamerBeschikbaarheid[];
   bewoner?: Bewoner;
 };
 
@@ -180,11 +180,17 @@ export default function BewonerForm({
             {kamers
               .filter(
                 (kamer) =>
-                  kamer.actief || kamer.id === bewoner?.kamer_id
+                  kamer.beschikbaar ||
+                  kamer.kamer_id === bewoner?.kamer_id,
               )
               .map((kamer) => (
-                <option key={kamer.id} value={kamer.id}>
-                  {kamer.naam} — capaciteit {kamer.capaciteit}
+                <option
+                  key={kamer.kamer_id}
+                  value={kamer.kamer_id}
+                >
+                  {kamer.naam} — {kamer.actuele_bezetting}/
+                  {kamer.capaciteit} bezet —{" "}
+                  {kamer.vrije_plaatsen} vrij
                 </option>
               ))}
           </select>

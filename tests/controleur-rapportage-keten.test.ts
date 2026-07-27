@@ -711,3 +711,60 @@ test("9.0C ruimteakkoord overschrijft geen gekozen afwijkingen of meters", () =>
     /to anon/i,
   );
 });
+
+
+test("9.0D bewonersplaatsing toont alleen beschikbare kamers", () => {
+  const formulier = lees(
+    "src/components/bewoners/BewonerForm.tsx",
+  );
+  const verhuisflow = lees(
+    "src/components/bewoners/BewonerVerhuizenButton.tsx",
+  );
+  const kamersServer = lees(
+    "src/services/kamers-server.ts",
+  );
+  const migratie = lees(
+    "supabase/migrations/20260727220000_9_0d_occupancy_intelligence.sql",
+  );
+
+  assert.match(formulier, /actuele_bezetting/);
+  assert.match(formulier, /vrije_plaatsen/);
+  assert.match(formulier, /kamer\.beschikbaar/);
+  assert.match(verhuisflow, /kamer\.beschikbaar/);
+  assert.match(verhuisflow, /actuele_bezetting/);
+  assert.match(kamersServer, /getKamerbeschikbaarheid/);
+  assert.match(kamersServer, /geef_kamerbeschikbaarheid/);
+  assert.match(
+    migratie,
+    /create or replace function public\.geef_kamerbeschikbaarheid/,
+  );
+});
+
+test("9.0D kamerwissel is transactioneel en bewaart historie", () => {
+  const bewonersService = lees(
+    "src/services/bewoners.ts",
+  );
+  const migratie = lees(
+    "supabase/migrations/20260727220000_9_0d_occupancy_intelligence.sql",
+  );
+  const historieMigratie = lees(
+    "supabase/migrations/20260715094000_0_4d_kamerhistorie.sql",
+  );
+
+  assert.match(bewonersService, /verhuis_bewoner_atomair/);
+  assert.match(
+    migratie,
+    /create or replace function public\.verhuis_bewoner_atomair/,
+  );
+  assert.match(migratie, /for update/);
+  assert.match(migratie, /vrije plaats/i);
+  assert.match(migratie, /mag_bewoners_beheren\(\)/);
+  assert.match(
+    historieMigratie,
+    /bewoners_kamerverhuizing_registreren/,
+  );
+  assert.doesNotMatch(
+    migratie,
+    /delete from public\.bewoner_kamerhistorie/i,
+  );
+});

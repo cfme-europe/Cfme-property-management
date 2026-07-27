@@ -6,7 +6,7 @@ import {
   getBewonerById,
   getBewonerKamerHistorie,
 } from "@/services/bewoners-server";
-import { getKamersVoorWoning } from "@/services/kamers-server";
+import { getKamerbeschikbaarheid } from "@/services/kamers-server";
 import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";
@@ -42,16 +42,21 @@ export default async function BewonerDetailPage({
     notFound();
   }
 
-  const [woning, bewoner, kamers, kamerHistorie] = await Promise.all([
-  getWoningById(woningId),
-  getBewonerById(bewonerNummer),
-  getKamersVoorWoning(woningId),
-  getBewonerKamerHistorie(bewonerNummer),
-]);
+  const [woning, bewoner, kamerHistorie] =
+    await Promise.all([
+      getWoningById(woningId),
+      getBewonerById(bewonerNummer),
+      getBewonerKamerHistorie(bewonerNummer),
+    ]);
 
   if (!woning || !bewoner) {
     notFound();
   }
+
+  const kamers = await getKamerbeschikbaarheid(
+    woningId,
+    bewoner.verhuurperiode_id,
+  );
 
   const naam = [
     bewoner.voornaam,
