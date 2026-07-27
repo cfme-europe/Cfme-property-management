@@ -52,12 +52,21 @@ export default async function WoningPlanningPage({
             ← Terug naar woningdossier
           </Link>
 
-          <Link
-            href="/planning/rayons"
-            className="rounded-xl border border-blue-700 px-5 py-3 font-medium text-blue-700 hover:bg-blue-50"
-          >
-            Rayons beheren
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/planning/intelligence"
+              className="rounded-xl border border-blue-700 px-5 py-3 font-medium text-blue-700 hover:bg-blue-50"
+            >
+              Planning Intelligence
+            </Link>
+
+            <Link
+              href="/planning/rayons"
+              className="rounded-xl border border-blue-700 px-5 py-3 font-medium text-blue-700 hover:bg-blue-50"
+            >
+              Rayons beheren
+            </Link>
+          </div>
         </div>
 
         <header className="my-6 rounded-2xl bg-white p-6 shadow">

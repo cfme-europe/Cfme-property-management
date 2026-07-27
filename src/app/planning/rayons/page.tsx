@@ -17,12 +17,21 @@ export default async function RayonbeheerPage() {
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-900 sm:px-6">
       <div className="mx-auto max-w-6xl">
-        <Link
-          href="/woningen"
-          className="font-medium text-blue-700 hover:underline"
-        >
-          ← Terug naar woningen
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <Link
+            href="/woningen"
+            className="font-medium text-blue-700 hover:underline"
+          >
+            ← Terug naar woningen
+          </Link>
+
+          <Link
+            href="/planning/intelligence"
+            className="rounded-xl border border-blue-700 px-5 py-3 font-medium text-blue-700 hover:bg-blue-50"
+          >
+            Planning Intelligence
+          </Link>
+        </div>
 
         <header className="my-6 rounded-2xl bg-white p-6 shadow">
           <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
