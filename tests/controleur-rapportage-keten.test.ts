@@ -508,3 +508,39 @@ test("rapportage bewerken toont de gekoppelde templateversie", () => {
     /actieveTemplates=\{/,
   );
 });
+
+test("bevoegde gebruikers kunnen verhuurperiodes veilig beheren", () => {
+  const migratie = lees(
+    "supabase/migrations/20260727103000_8_1j_verhuurperiodes_rls.sql",
+  );
+
+  assert.match(
+    migratie,
+    /Verhuurperiodes authenticated lezen/,
+  );
+
+  assert.match(
+    migratie,
+    /Verhuurperiodes bevoegd toevoegen/,
+  );
+
+  assert.match(
+    migratie,
+    /Verhuurperiodes bevoegd wijzigen/,
+  );
+
+  assert.match(
+    migratie,
+    /mag_administratie_beheren\(\)/,
+  );
+
+  assert.match(
+    migratie,
+    /revoke delete[\s\S]*from authenticated/i,
+  );
+
+  assert.doesNotMatch(
+    migratie,
+    /create policy[\s\S]*to anon/i,
+  );
+});
