@@ -14,9 +14,14 @@ import {
   uploadControleFoto,
 } from "@/services/controleurflow";
 import {
-  slaRouteMeterstandOp,
+  slaEnergieVerklaringOp,
+  slaRouteMeterstandenOp,
   type RouteMeterType,
+  type RouteMeterwaarden,
 } from "@/services/meterstanden";
+import type {
+  EnergieAnalyseResultaat,
+} from "@/services/energy-intelligence";
 import {
   AFWIJKING_URGENTIES,
   CONTROLE_RESULTATEN,
@@ -215,8 +220,34 @@ export default function ControleurFlow({
   const [afrondenBezig, setAfrondenBezig] =
     useState(false);
   const [fout, setFout] = useState("");
+  const [meterOpslaanBezig, setMeterOpslaanBezig] =
+    useState(false);
+  const [meterAnalyse, setMeterAnalyse] =
+    useState<EnergieAnalyseResultaat | null>(null);
+  const [meterstandAnalyseId, setMeterstandAnalyseId] =
+    useState<number | null>(null);
+  const [energieVerklaring, setEnergieVerklaring] =
+    useState("");
+  const [
+    energieVerklaringToelichting,
+    setEnergieVerklaringToelichting,
+  ] = useState("");
+  const [
+    energieVerklaringOpslaanBezig,
+    setEnergieVerklaringOpslaanBezig,
+  ] = useState(false);
+  const [
+    energieVerklaringOpgeslagen,
+    setEnergieVerklaringOpgeslagen,
+  ] = useState(false);
 
   const huidigeRuimte = ruimten[ruimteIndex] ?? null;
+
+  const huidigeMeterpunten =
+    huidigeRuimte?.punten.filter(isMeterpunt) ?? [];
+
+  const eersteMeterpuntId =
+    huidigeMeterpunten[0]?.woning_controlepunt_id ?? null;
 
   const verplichtePunten = gegevens.route.filter(
     (punt) => punt.verplicht,
@@ -256,6 +287,201 @@ export default function ControleurFlow({
     wijzigPunt(puntId, {
       foto: event.target.files?.[0] ?? null,
     });
+  }
+
+  async function slaMetersVanHuidigeRuimteOp() {
+    if (
+      !huidigeRuimte ||
+      huidigeMeterpunten.length === 0
+    ) {
+      return;
+    }
+
+    const waarden: RouteMeterwaarden = {};
+
+    for (const punt of huidigeMeterpunten) {
+      if (!punt.object_type) {
+        continue;
+      }
+
+      const metertype =
+        METER_TYPE_PER_OBJECT[punt.object_type];
+
+      const ruweWaarde =
+        invoer[
+          punt.woning_controlepunt_id
+        ]?.numeriekeWaarde.trim() ?? "";
+
+      if (!ruweWaarde) {
+        setFout(
+          `Vul de actuele stand in voor ${
+            punt.object_naam ??
+            punt.controlepunt_naam
+          }.`,
+        );
+        return;
+      }
+
+      const waarde = Number(
+        ruweWaarde.replace(",", "."),
+      );
+
+      if (
+        !Number.isFinite(waarde) ||
+        waarde < 0
+      ) {
+        setFout(
+          `De meterstand voor ${
+            punt.object_naam ??
+            punt.controlepunt_naam
+          } moet nul of hoger zijn.`,
+        );
+        return;
+      }
+
+      waarden[metertype] = waarde;
+    }
+
+    setMeterOpslaanBezig(true);
+    setFout("");
+    setMeterAnalyse(null);
+
+    try {
+      const opslag =
+        await slaRouteMeterstandenOp({
+          woning_id: gegevens.woning.id,
+          controlesessie_id:
+            gegevens.sessie.id,
+          waarden,
+          bewoners_aantal:
+            gegevens.bewoners_aantal,
+        });
+
+      const nieuwOpgeslagen =
+        new Set(opgeslagen);
+
+      for (const punt of huidigeMeterpunten) {
+        if (!punt.object_type) {
+          continue;
+        }
+
+        const metertype =
+          METER_TYPE_PER_OBJECT[
+            punt.object_type
+          ];
+
+        const numeriekeWaarde =
+          waarden[metertype];
+
+        if (numeriekeWaarde === undefined) {
+          continue;
+        }
+
+        const resultaat =
+          await slaControleResultaatOp({
+            controlesessie_id:
+              gegevens.sessie.id,
+            inspectie_id:
+              gegevens.sessie.inspectie_id,
+            woning_id:
+              gegevens.woning.id,
+            ruimte_id: punt.ruimte_id,
+            object_id: punt.object_id,
+            woning_controlepunt_id:
+              punt.woning_controlepunt_id,
+            resultaat: "goed",
+            numerieke_waarde:
+              numeriekeWaarde,
+            ruimte_naam_snapshot:
+              punt.ruimte_naam,
+            object_naam_snapshot:
+              punt.object_naam,
+            controlepunt_naam_snapshot:
+              punt.controlepunt_naam,
+            opmerkingen: null,
+          });
+
+        await markeerAfwijkingNietRelevant(
+          resultaat.id,
+        );
+
+        nieuwOpgeslagen.add(
+          punt.woning_controlepunt_id,
+        );
+      }
+
+      setOpgeslagen(nieuwOpgeslagen);
+      setMeterAnalyse(opslag.analyse);
+      setMeterstandAnalyseId(
+        opslag.meterstand.id,
+      );
+      setEnergieVerklaring("");
+      setEnergieVerklaringToelichting("");
+      setEnergieVerklaringOpgeslagen(false);
+
+      if (
+        !opslag.analyse.opvolging_nodig &&
+        ruimteIndex < ruimten.length - 1
+      ) {
+        setRuimteIndex((huidig) =>
+          Math.min(
+            ruimten.length - 1,
+            huidig + 1,
+          ),
+        );
+
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
+      }
+    } catch (error) {
+      setFout(
+        error instanceof Error
+          ? error.message
+          : "Meterstanden opslaan en analyseren mislukt.",
+      );
+    } finally {
+      setMeterOpslaanBezig(false);
+    }
+  }
+
+  async function slaAfwijkendeEnergieVerklaringOp() {
+    if (!meterstandAnalyseId) {
+      setFout(
+        "De meteropname is nog niet beschikbaar.",
+      );
+      return;
+    }
+
+    if (!energieVerklaring) {
+      setFout(
+        "Kies eerst een verklaring voor het afwijkende verbruik.",
+      );
+      return;
+    }
+
+    setEnergieVerklaringOpslaanBezig(true);
+    setFout("");
+
+    try {
+      await slaEnergieVerklaringOp({
+        meterstand_id: meterstandAnalyseId,
+        verklaring_code: energieVerklaring,
+        verklaring_toelichting:
+          energieVerklaringToelichting,
+      });
+
+      setEnergieVerklaringOpgeslagen(true);
+    } catch (error) {
+      setFout(
+        error instanceof Error
+          ? error.message
+          : "Energieverklaring opslaan mislukt.",
+      );
+    } finally {
+      setEnergieVerklaringOpslaanBezig(false);
+    }
   }
 
   async function slaPuntOp(
@@ -354,28 +580,6 @@ export default function ControleurFlow({
     setFout("");
 
     try {
-
-      if (
-        meterpunt &&
-        punt.object_type
-      ) {
-        const metertype =
-          METER_TYPE_PER_OBJECT[
-            punt.object_type
-          ];
-
-        await slaRouteMeterstandOp({
-          woning_id:
-            gegevens.woning.id,
-          controlesessie_id:
-            gegevens.sessie.id,
-          metertype,
-          waarde:
-            numeriekeWaarde as number,
-          bewoners_aantal:
-            gegevens.bewoners_aantal,
-        });
-      }
 
       const resultaat = await slaControleResultaatOp({
         controlesessie_id: gegevens.sessie.id,
@@ -603,17 +807,19 @@ export default function ControleurFlow({
                   ]
                 : undefined;
 
-            const vorigeStand =
-              vorigeMeterstand(
-                punt,
-                gegevens,
-              );
-
             const heeftAfwijking =
               puntInvoer?.resultaat &&
               afwijkendeResultaten.has(
                 puntInvoer.resultaat,
               );
+
+            if (
+              meterpunt &&
+              punt.woning_controlepunt_id !==
+                eersteMeterpuntId
+            ) {
+              return null;
+            }
 
             return (
               <article
@@ -647,54 +853,280 @@ export default function ControleurFlow({
                 </div>
 
                 {meterpunt && metertype ? (
-                  <div className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-5">
-                    <label className="block">
-                      <span className="block text-lg font-bold text-slate-950">
-                        Actuele meterstand
-                      </span>
+                  <div className="mt-5 space-y-4 rounded-2xl border border-blue-200 bg-blue-50 p-5">
+                    <div>
+                      <h4 className="text-xl font-bold text-slate-950">
+                        Alle meterstanden
+                      </h4>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Vul alle aanwezige meters in. Het systeem berekent daarna direct het verbruik en controleert op afwijkingen.
+                      </p>
+                    </div>
 
-                      {vorigeStand !== null && (
-                        <span className="mt-1 block text-sm text-slate-600">
-                          Vorige stand:{" "}
-                          {vorigeStand.toLocaleString(
-                            "nl-NL",
-                            {
-                              maximumFractionDigits: 3,
-                            },
-                          )}{" "}
-                          {meterEenheid(metertype)}
-                        </span>
-                      )}
+                    {huidigeMeterpunten.map(
+                      (meterPunt) => {
+                        const meterPuntInvoer =
+                          invoer[
+                            meterPunt
+                              .woning_controlepunt_id
+                          ];
 
-                      <div className="mt-4 flex items-center gap-3">
-                        <input
-                          autoFocus
-                          inputMode="decimal"
-                          type="number"
-                          min="0"
-                          step="0.001"
-                          value={
-                            puntInvoer?.numeriekeWaarde ??
-                            ""
+                        const meterPuntType =
+                          meterPunt.object_type
+                            ? METER_TYPE_PER_OBJECT[
+                                meterPunt
+                                  .object_type
+                              ]
+                            : undefined;
+
+                        if (!meterPuntType) {
+                          return null;
+                        }
+
+                        const meterVorigeStand =
+                          vorigeMeterstand(
+                            meterPunt,
+                            gegevens,
+                          );
+
+                        return (
+                          <label
+                            key={
+                              meterPunt
+                                .woning_controlepunt_id
+                            }
+                            className="block rounded-xl bg-white p-4"
+                          >
+                            <span className="block text-base font-bold text-slate-950">
+                              {meterPunt.object_naam ??
+                                meterPunt
+                                  .controlepunt_naam}
+                            </span>
+
+                            {meterVorigeStand !==
+                              null && (
+                              <span className="mt-1 block text-sm text-slate-600">
+                                Vorige stand:{" "}
+                                {meterVorigeStand.toLocaleString(
+                                  "nl-NL",
+                                  {
+                                    maximumFractionDigits: 3,
+                                  },
+                                )}{" "}
+                                {meterEenheid(
+                                  meterPuntType,
+                                )}
+                              </span>
+                            )}
+
+                            <div className="mt-3 flex items-center gap-3">
+                              <input
+                                inputMode="decimal"
+                                type="number"
+                                min="0"
+                                step="0.001"
+                                value={
+                                  meterPuntInvoer
+                                    ?.numeriekeWaarde ??
+                                  ""
+                                }
+                                onChange={(event) =>
+                                  wijzigPunt(
+                                    meterPunt
+                                      .woning_controlepunt_id,
+                                    {
+                                      numeriekeWaarde:
+                                        event.target
+                                          .value,
+                                    },
+                                  )
+                                }
+                                className="min-w-0 flex-1 rounded-xl border border-blue-300 bg-white px-4 py-4 text-2xl font-bold"
+                                placeholder="0,000"
+                              />
+
+                              <span className="shrink-0 text-lg font-bold text-slate-700">
+                                {meterEenheid(
+                                  meterPuntType,
+                                )}
+                              </span>
+                            </div>
+                          </label>
+                        );
+                      },
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={meterOpslaanBezig}
+                      onClick={() =>
+                        void slaMetersVanHuidigeRuimteOp()
+                      }
+                      className="w-full rounded-xl bg-blue-700 px-5 py-4 text-lg font-bold text-white disabled:opacity-50"
+                    >
+                      {meterOpslaanBezig
+                        ? "Opslaan en analyseren..."
+                        : "Meterstanden opslaan en controleren"}
+                    </button>
+
+                    {meterAnalyse && (
+                      <div
+                        className={`rounded-xl border p-4 ${
+                          meterAnalyse.status ===
+                          "normaal"
+                            ? "border-emerald-300 bg-emerald-50 text-emerald-950"
+                            : meterAnalyse.status ===
+                                "onvoldoende_data"
+                              ? "border-slate-300 bg-slate-50 text-slate-900"
+                              : "border-amber-300 bg-amber-50 text-amber-950"
+                        }`}
+                      >
+                        <p className="text-lg font-bold">
+                          {label(
+                            meterAnalyse.status,
+                          )}
+                        </p>
+                        <p className="mt-1">
+                          {
+                            meterAnalyse.samenvatting
                           }
-                          onChange={(event) =>
-                            wijzigPunt(
-                              punt.woning_controlepunt_id,
-                              {
-                                numeriekeWaarde:
+                        </p>
+
+                        {meterAnalyse.opvolging_nodig && (
+                          <div className="mt-5 rounded-xl border border-amber-300 bg-white p-4">
+                            <p className="font-bold">
+                              Verklaring afwijkend verbruik
+                            </p>
+                            <p className="mt-1 text-sm text-slate-600">
+                              Kies alleen wat werkelijk is vastgesteld. De uitkomst wordt automatisch meegenomen in opvolging en rapportage.
+                            </p>
+
+                            <select
+                              value={energieVerklaring}
+                              onChange={(event) => {
+                                setEnergieVerklaring(
                                   event.target.value,
-                              },
-                            )
-                          }
-                          className="min-w-0 flex-1 rounded-xl border border-blue-300 bg-white px-4 py-4 text-2xl font-bold"
-                          placeholder="0,000"
-                        />
+                                );
+                                setEnergieVerklaringOpgeslagen(
+                                  false,
+                                );
+                              }}
+                              className="mt-4 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                            >
+                              <option value="">
+                                Kies een verklaring
+                              </option>
+                              <option value="meer_bewoners_of_bezoekers">
+                                Meer bewoners of bezoekers
+                              </option>
+                              <option value="koude_periode">
+                                Koude periode
+                              </option>
+                              <option value="extra_verwarming">
+                                Extra verwarming gebruikt
+                              </option>
+                              <option value="lekkage_vermoed">
+                                Lekkage vermoed
+                              </option>
+                              <option value="installatie_defect">
+                                Installatie of apparatuur defect
+                              </option>
+                              <option value="meterstand_verkeerd">
+                                Meterstand mogelijk verkeerd
+                              </option>
+                              <option value="ander_gebruik">
+                                Ander verklaarbaar gebruik
+                              </option>
+                              <option value="geen_verklaring">
+                                Geen verklaring
+                              </option>
+                              <option value="overig">
+                                Overig
+                              </option>
+                            </select>
 
-                        <span className="shrink-0 text-lg font-bold text-slate-700">
-                          {meterEenheid(metertype)}
-                        </span>
+                            <textarea
+                              rows={3}
+                              value={
+                                energieVerklaringToelichting
+                              }
+                              onChange={(event) => {
+                                setEnergieVerklaringToelichting(
+                                  event.target.value,
+                                );
+                                setEnergieVerklaringOpgeslagen(
+                                  false,
+                                );
+                              }}
+                              className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                              placeholder="Korte toelichting, indien nodig"
+                            />
+
+                            <button
+                              type="button"
+                              disabled={
+                                energieVerklaringOpslaanBezig ||
+                                energieVerklaringOpgeslagen
+                              }
+                              onClick={() =>
+                                void slaAfwijkendeEnergieVerklaringOp()
+                              }
+                              className="mt-3 w-full rounded-xl bg-amber-700 px-5 py-4 font-bold text-white disabled:opacity-50"
+                            >
+                              {energieVerklaringOpslaanBezig
+                                ? "Verklaring opslaan..."
+                                : energieVerklaringOpgeslagen
+                                  ? "Verklaring opgeslagen"
+                                  : "Verklaring opslaan"}
+                            </button>
+
+                            {energieVerklaringOpgeslagen && (
+                              <p className="mt-3 rounded-lg bg-emerald-100 p-3 font-semibold text-emerald-900">
+                                De verklaring is opgeslagen en gemarkeerd voor opvolging.
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {meterAnalyse.dragers.length >
+                          0 && (
+                          <div className="mt-4 space-y-3">
+                            {meterAnalyse.dragers.map(
+                              (analyse) => (
+                                <div
+                                  key={
+                                    analyse.drager
+                                  }
+                                  className="rounded-lg bg-white/70 p-3"
+                                >
+                                  <p className="font-bold">
+                                    {label(
+                                      analyse.drager,
+                                    )}
+                                  </p>
+                                  <p className="mt-1 text-sm">
+                                    {
+                                      analyse.toelichting
+                                    }
+                                  </p>
+
+                                  {analyse.per_bewoner_per_week !==
+                                    null && (
+                                    <p className="mt-1 text-sm">
+                                      {
+                                        analyse.per_bewoner_per_week
+                                      }{" "}
+                                      {analyse.eenheid} per
+                                      bewoner per week
+                                    </p>
+                                  )}
+                                </div>
+                              ),
+                            )}
+                          </div>
+                        )}
                       </div>
-                    </label>
+                    )}
                   </div>
                 ) : internetpunt ? (
                   <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -881,10 +1313,11 @@ export default function ControleurFlow({
                   </div>
                 )}
 
-                {(
-                  !internetpunt ||
-                  Boolean(heeftAfwijking)
-                ) && (
+                {!meterpunt &&
+                  (
+                    !internetpunt ||
+                    Boolean(heeftAfwijking)
+                  ) && (
                   <button
                     type="button"
                     disabled={

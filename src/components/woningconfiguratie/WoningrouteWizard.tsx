@@ -1132,7 +1132,11 @@ export default function WoningrouteWizard({
                   routeRuimte.verdieping,
                 ) ?? null
               : null,
-          kamer_id: null,
+          kamer_id:
+            routeRuimte.ruimteType ===
+            "slaapkamer"
+              ? bestaand?.kamer_id ?? null
+              : null,
           naam:
             routeRuimte.naam.trim(),
           ruimte_type:

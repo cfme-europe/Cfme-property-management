@@ -591,7 +591,7 @@ test("controleur neemt meters en internet met minimale handelingen op", () => {
     "supabase/migrations/20260727143000_8_1k_route_meters_internet.sql",
   );
 
-  assert.match(flow, /Actuele meterstand/);
+  assert.match(flow, /Alle meterstanden/);
   assert.match(flow, /Vorige stand/);
   assert.match(flow, /Meterstand opslaan en verder/);
   assert.match(flow, /tekst: "Werkt"/);

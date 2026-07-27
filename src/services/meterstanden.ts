@@ -1,4 +1,8 @@
 import { createClient } from "@/lib/supabase/client";
+import {
+  analyseerMeterstanden,
+  type EnergieAnalyseResultaat,
+} from "@/services/energy-intelligence";
 import type {
   Meterstand,
   MeterstandInvoer,
@@ -169,21 +173,161 @@ export type RouteMeterType =
   | "gas_m3"
   | "water_m3";
 
-export async function slaRouteMeterstandOp(invoer: {
-  woning_id: number;
-  controlesessie_id: number;
-  metertype: RouteMeterType;
-  waarde: number;
-  bewoners_aantal: number;
-}): Promise<Meterstand> {
+export type RouteMeterwaarden = Partial<
+  Record<RouteMeterType, number>
+>;
+
+export type RouteMeterstandOpslag = {
+  meterstand: Meterstand;
+  analyse: EnergieAnalyseResultaat;
+};
+
+export type EnergieVerklaringInvoer = {
+  meterstand_id: number;
+  verklaring_code: string;
+  verklaring_toelichting?: string | null;
+};
+
+export async function slaEnergieVerklaringOp(
+  invoer: EnergieVerklaringInvoer,
+): Promise<Meterstand> {
   if (
-    !Number.isFinite(invoer.waarde) ||
-    invoer.waarde < 0
+    !Number.isInteger(invoer.meterstand_id) ||
+    invoer.meterstand_id <= 0
   ) {
+    throw new Error("Ongeldige meteropname.");
+  }
+
+  const verklaringCode =
+    invoer.verklaring_code.trim();
+
+  if (!verklaringCode) {
     throw new Error(
-      "De meterstand moet nul of hoger zijn."
+      "Kies eerst een verklaring voor het afwijkende verbruik.",
     );
   }
+
+  const toelichting =
+    invoer.verklaring_toelichting?.trim() || null;
+
+  if (
+    ["geen_verklaring", "overig"].includes(
+      verklaringCode,
+    ) &&
+    !toelichting
+  ) {
+    throw new Error(
+      "Geef een korte toelichting bij deze verklaring.",
+    );
+  }
+
+  const { data, error } = await supabase
+    .from("meterstanden")
+    .update({
+      verklaring_code: verklaringCode,
+      verklaring_toelichting: toelichting,
+      opvolging_nodig: true,
+    })
+    .eq("id", invoer.meterstand_id)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(
+      `Energieverklaring opslaan mislukt: ${error.message}`,
+    );
+  }
+
+  return data as Meterstand;
+}
+
+async function analyseerEnBewaarMeterstand(
+  meterstand: Meterstand,
+): Promise<RouteMeterstandOpslag> {
+  const { data: historie, error: historieFout } =
+    await supabase
+      .from("meterstanden")
+      .select("*")
+      .eq("woning_id", meterstand.woning_id)
+      .order("opnamedatum", { ascending: false })
+      .limit(8);
+
+  if (historieFout) {
+    throw new Error(
+      `Meterhistorie voor analyse ophalen mislukt: ${historieFout.message}`,
+    );
+  }
+
+  const analyse = analyseerMeterstanden(
+    (historie ?? []) as Meterstand[],
+  );
+
+  const { data: bijgewerkt, error: analyseFout } =
+    await supabase
+      .from("meterstanden")
+      .update({
+        analyse_status: analyse.status,
+        analyse_resultaat: analyse,
+        opvolging_nodig: analyse.opvolging_nodig,
+        geanalyseerd_at: new Date().toISOString(),
+      })
+      .eq("id", meterstand.id)
+      .select("*")
+      .single();
+
+  if (analyseFout) {
+    throw new Error(
+      `Energy Intelligence-resultaat opslaan mislukt: ${analyseFout.message}`,
+    );
+  }
+
+  return {
+    meterstand: bijgewerkt as Meterstand,
+    analyse,
+  };
+}
+
+function valideerRouteMeterwaarden(
+  waarden: RouteMeterwaarden,
+): RouteMeterwaarden {
+  const ingevuld = Object.entries(waarden).filter(
+    (
+      item,
+    ): item is [RouteMeterType, number] =>
+      item[1] !== undefined,
+  );
+
+  if (ingevuld.length === 0) {
+    throw new Error(
+      "Vul minimaal één actuele meterstand in.",
+    );
+  }
+
+  for (const [, waarde] of ingevuld) {
+    if (
+      !Number.isFinite(waarde) ||
+      waarde < 0
+    ) {
+      throw new Error(
+        "Iedere meterstand moet nul of hoger zijn.",
+      );
+    }
+  }
+
+  return Object.fromEntries(
+    ingevuld,
+  ) as RouteMeterwaarden;
+}
+
+export async function slaRouteMeterstandenOp(invoer: {
+  woning_id: number;
+  controlesessie_id: number;
+  waarden: RouteMeterwaarden;
+  bewoners_aantal: number;
+}): Promise<RouteMeterstandOpslag> {
+  const waarden = valideerRouteMeterwaarden(
+    invoer.waarden,
+  );
 
   const {
     data: { user },
@@ -191,7 +335,7 @@ export async function slaRouteMeterstandOp(invoer: {
 
   if (!user) {
     throw new Error(
-      "Geen geldige gebruikerssessie."
+      "Geen geldige gebruikerssessie.",
     );
   }
 
@@ -208,11 +352,11 @@ export async function slaRouteMeterstandOp(invoer: {
 
   if (zoekFout) {
     throw new Error(
-      `Meteropname zoeken mislukt: ${zoekFout.message}`
+      `Meteropname zoeken mislukt: ${zoekFout.message}`,
     );
   }
 
-  const basis = {
+  const volledig: MeterstandInvoer = {
     woning_id: invoer.woning_id,
     controlesessie_id:
       invoer.controlesessie_id,
@@ -220,27 +364,58 @@ export async function slaRouteMeterstandOp(invoer: {
     bewoners_aantal:
       invoer.bewoners_aantal,
     dagstroom_kwh:
-      bestaand?.dagstroom_kwh ?? null,
+      waarden.dagstroom_kwh ??
+      bestaand?.dagstroom_kwh ??
+      null,
     nachtstroom_kwh:
-      bestaand?.nachtstroom_kwh ?? null,
+      waarden.nachtstroom_kwh ??
+      bestaand?.nachtstroom_kwh ??
+      null,
     gas_m3:
-      bestaand?.gas_m3 ?? null,
+      waarden.gas_m3 ??
+      bestaand?.gas_m3 ??
+      null,
     water_m3:
-      bestaand?.water_m3 ?? null,
+      waarden.water_m3 ??
+      bestaand?.water_m3 ??
+      null,
     opgenomen_door: user.id,
     opmerkingen:
       "Opgenomen tijdens woningcontrole",
   };
 
-  const volledig = {
-    ...basis,
-    [invoer.metertype]: invoer.waarde,
-  };
-
-  return bestaand
-    ? updateMeterstand(
+  const meterstand = bestaand
+    ? await updateMeterstand(
         bestaand.id,
         volledig,
       )
-    : createMeterstand(volledig);
+    : await createMeterstand(volledig);
+
+  return analyseerEnBewaarMeterstand(
+    meterstand,
+  );
+}
+
+/**
+ * Tijdelijke compatibiliteitsfunctie.
+ * Nieuwe controleurflows gebruiken altijd
+ * slaRouteMeterstandenOp voor gezamenlijke opslag.
+ */
+export async function slaRouteMeterstandOp(invoer: {
+  woning_id: number;
+  controlesessie_id: number;
+  metertype: RouteMeterType;
+  waarde: number;
+  bewoners_aantal: number;
+}): Promise<RouteMeterstandOpslag> {
+  return slaRouteMeterstandenOp({
+    woning_id: invoer.woning_id,
+    controlesessie_id:
+      invoer.controlesessie_id,
+    bewoners_aantal:
+      invoer.bewoners_aantal,
+    waarden: {
+      [invoer.metertype]: invoer.waarde,
+    },
+  });
 }

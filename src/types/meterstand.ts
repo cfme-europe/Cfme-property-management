@@ -13,6 +13,17 @@ export type Meterstand = {
   water_m3: number | null;
   opgenomen_door: string | null;
   opmerkingen: string | null;
+  analyse_status?:
+    | "onvoldoende_data"
+    | "normaal"
+    | "verhoogd"
+    | "kritiek"
+    | "onwaarschijnlijk";
+  analyse_resultaat?: Record<string, unknown>;
+  verklaring_code?: string | null;
+  verklaring_toelichting?: string | null;
+  opvolging_nodig?: boolean;
+  geanalyseerd_at?: string | null;
 };
 
 export type MeterstandInvoer = {
