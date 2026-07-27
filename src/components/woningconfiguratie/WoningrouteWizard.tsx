@@ -732,12 +732,11 @@ function bestaandeRuimten(
   );
 
   const kamerPerId = new Map(
-    configuratie.ruimten
-      .filter((ruimte) => ruimte.kamer_id !== null)
-      .map((ruimte) => [ruimte.kamer_id, ruimte]),
+    configuratie.kamers.map((kamer) => [
+      kamer.id,
+      kamer,
+    ]),
   );
-
-  void kamerPerId;
 
   return configuratie.ruimten
     .filter((ruimte) => ruimte.actief)
@@ -785,7 +784,16 @@ function bestaandeRuimten(
           : null,
         capaciteit:
           ruimte.ruimte_type === "slaapkamer"
-            ? 1
+            ? Math.max(
+                1,
+                ruimte.kamer_id === null
+                  ? 1
+                  : Number(
+                      kamerPerId.get(
+                        ruimte.kamer_id,
+                      )?.capaciteit ?? 1,
+                    ),
+              )
             : null,
         routeInstructie: ruimte.route_instructie ?? "",
         controles,
@@ -812,6 +820,21 @@ export default function WoningrouteWizard({
     useState<string | null>(null);
   const [objectZoektekst, setObjectZoektekst] =
     useState("");
+  const [capaciteitInvoer, setCapaciteitInvoer] =
+    useState<Record<string, string>>(() =>
+      Object.fromEntries(
+        bestaandeRuimten(configuratie)
+          .filter(
+            (ruimte) =>
+              ruimte.ruimteType ===
+              "slaapkamer",
+          )
+          .map((ruimte) => [
+            ruimte.sleutel,
+            String(ruimte.capaciteit ?? 1),
+          ]),
+      ),
+    );
   const [vrijeNaam, setVrijeNaam] = useState("");
   const [vrijeBuitenruimte, setVrijeBuitenruimte] = useState(false);
   const [bezig, setBezig] = useState(false);
@@ -967,6 +990,78 @@ export default function WoningrouteWizard({
       nieuw.splice(doel, 0, ruimte);
       return nieuw;
     });
+  }
+
+  function capaciteitWaarde(
+    ruimte: GekozenRuimte,
+  ): string {
+    return (
+      capaciteitInvoer[ruimte.sleutel] ??
+      String(ruimte.capaciteit ?? 1)
+    );
+  }
+
+  function stelCapaciteitIn(
+    ruimte: GekozenRuimte,
+    waarde: number,
+  ) {
+    const capaciteit = Math.max(
+      1,
+      Math.floor(waarde),
+    );
+
+    wijzigRuimte(ruimte.sleutel, {
+      capaciteit,
+    });
+
+    setCapaciteitInvoer((huidig) => ({
+      ...huidig,
+      [ruimte.sleutel]:
+        String(capaciteit),
+    }));
+
+    setFout("");
+  }
+
+  function verwerkCapaciteitInvoer(
+    ruimte: GekozenRuimte,
+  ) {
+    const invoer =
+      capaciteitWaarde(ruimte).trim();
+
+    if (!invoer) {
+      setCapaciteitInvoer((huidig) => ({
+        ...huidig,
+        [ruimte.sleutel]: String(
+          ruimte.capaciteit ?? 1,
+        ),
+      }));
+      return;
+    }
+
+    const capaciteit = Number(invoer);
+
+    if (
+      !Number.isInteger(capaciteit) ||
+      capaciteit < 1
+    ) {
+      setFout(
+        `Capaciteit van "${ruimte.naam}" moet minimaal 1 zijn.`,
+      );
+
+      setCapaciteitInvoer((huidig) => ({
+        ...huidig,
+        [ruimte.sleutel]: String(
+          ruimte.capaciteit ?? 1,
+        ),
+      }));
+      return;
+    }
+
+    stelCapaciteitIn(
+      ruimte,
+      capaciteit,
+    );
   }
 
   function objectAantal(
@@ -1752,28 +1847,92 @@ export default function WoningrouteWizard({
                 {open && (
                   <div className="space-y-6 border-t p-6">
                     {ruimte.ruimteType === "slaapkamer" && (
-                      <label className="block">
-                        <span className="mb-1 block font-bold">
-                          Capaciteit slaapkamer
-                        </span>
-                        <input
-                          required
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={ruimte.capaciteit ?? 1}
-                          onChange={(event) =>
-                            wijzigRuimte(ruimte.sleutel, {
-                              capaciteit: Number(event.target.value),
-                            })
-                          }
-                          className="w-full rounded-xl border px-4 py-3"
-                        />
-                        <span className="mt-1 block text-sm text-slate-600">
-                          De gekoppelde bewonerskamer krijgt automatisch
-                          dezelfde capaciteit.
-                        </span>
-                      </label>
+                      <section className="rounded-2xl bg-slate-100 p-5">
+                        <h4 className="font-bold">
+                          Aantal slaapplaatsen
+                        </h4>
+
+                        <p className="mt-1 text-sm text-slate-600">
+                          Dit is tegelijk de capaciteit van
+                          de gekoppelde bewonerskamer.
+                        </p>
+
+                        <div className="mt-4 flex items-center gap-3">
+                          <button
+                            type="button"
+                            disabled={
+                              (ruimte.capaciteit ?? 1) <= 1
+                            }
+                            onClick={() =>
+                              stelCapaciteitIn(
+                                ruimte,
+                                (ruimte.capaciteit ?? 1) - 1,
+                              )
+                            }
+                            className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-400 bg-white text-2xl font-bold disabled:opacity-30"
+                            aria-label="Eén slaapplaats minder"
+                          >
+                            −
+                          </button>
+
+                          <input
+                            required
+                            type="number"
+                            inputMode="numeric"
+                            min="1"
+                            step="1"
+                            value={capaciteitWaarde(
+                              ruimte,
+                            )}
+                            onChange={(event) =>
+                              setCapaciteitInvoer(
+                                (huidig) => ({
+                                  ...huidig,
+                                  [ruimte.sleutel]:
+                                    event.target.value,
+                                }),
+                              )
+                            }
+                            onBlur={() =>
+                              verwerkCapaciteitInvoer(
+                                ruimte,
+                              )
+                            }
+                            onKeyDown={(event) => {
+                              if (
+                                event.key === "Enter"
+                              ) {
+                                event.preventDefault();
+                                verwerkCapaciteitInvoer(
+                                  ruimte,
+                                );
+                                event.currentTarget.blur();
+                              }
+                            }}
+                            className="h-12 w-24 rounded-xl border border-slate-300 bg-white px-3 text-center text-lg font-black"
+                            aria-label="Aantal slaapplaatsen"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              stelCapaciteitIn(
+                                ruimte,
+                                (ruimte.capaciteit ?? 1) + 1,
+                              )
+                            }
+                            className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-700 text-2xl font-bold text-white"
+                            aria-label="Eén slaapplaats meer"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        <p className="mt-3 text-sm font-medium text-emerald-800">
+                          Huidige capaciteit:{" "}
+                          {ruimte.capaciteit ?? 1}
+                        </p>
+                      </section>
                     )}
 
                     <section>

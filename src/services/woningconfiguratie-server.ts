@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import type { Kamer } from "@/types/kamer";
 import type {
   ControlepuntDefinitie,
   WoningConfiguratie,
@@ -25,6 +26,7 @@ export async function getWoningConfiguratie(
   const [
     verdiepingenResultaat,
     ruimtenResultaat,
+    kamersResultaat,
     objectenResultaat,
     controlepuntenResultaat,
     definitiesResultaat,
@@ -42,6 +44,13 @@ export async function getWoningConfiguratie(
       .eq("woning_id", woningId)
       .order("actief", { ascending: false })
       .order("loopvolgorde", { ascending: true })
+      .order("id", { ascending: true }),
+    supabase
+      .from("kamers")
+      .select("*")
+      .eq("woning_id", woningId)
+      .order("actief", { ascending: false })
+      .order("naam", { ascending: true })
       .order("id", { ascending: true }),
     supabase
       .from("woning_objecten")
@@ -70,6 +79,7 @@ export async function getWoningConfiguratie(
   const fout =
     verdiepingenResultaat.error ??
     ruimtenResultaat.error ??
+    kamersResultaat.error ??
     objectenResultaat.error ??
     controlepuntenResultaat.error ??
     definitiesResultaat.error;
@@ -85,6 +95,8 @@ export async function getWoningConfiguratie(
       (verdiepingenResultaat.data ?? []) as WoningVerdieping[],
     ruimten:
       (ruimtenResultaat.data ?? []) as WoningRuimte[],
+    kamers:
+      (kamersResultaat.data ?? []) as Kamer[],
     objecten:
       (objectenResultaat.data ?? []) as WoningObject[],
     controlepunten:

@@ -1,3 +1,5 @@
+import type { Kamer } from "@/types/kamer";
+
 export const RUIMTE_TYPEN = [
   "toegangsdeur",
   "hal",
@@ -248,6 +250,7 @@ export type WoningrouteOpslagResultaat = {
 export type WoningConfiguratie = {
   verdiepingen: WoningVerdieping[];
   ruimten: WoningRuimte[];
+  kamers: Kamer[];
   objecten: WoningObject[];
   controlepunten: WoningControlepunt[];
   definities: ControlepuntDefinitie[];
