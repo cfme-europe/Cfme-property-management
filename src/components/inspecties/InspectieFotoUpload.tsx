@@ -11,6 +11,7 @@ import { uploadInspectieFoto } from "@/services/inspectiefotos";
 
 type Props = {
   inspectieId: number;
+  controleAfwijkingId?: number | null;
 };
 
 type UploadResultaat = {
@@ -23,6 +24,7 @@ const MAXIMAAL_AANTAL = 10;
 
 export default function InspectieFotoUpload({
   inspectieId,
+  controleAfwijkingId = null,
 }: Props) {
   const router = useRouter();
   const bestandInput = useRef<HTMLInputElement>(null);
@@ -94,6 +96,8 @@ export default function InspectieFotoUpload({
       try {
         await uploadInspectieFoto({
           inspectie_id: inspectieId,
+          controle_afwijking_id:
+            controleAfwijkingId,
           bestand,
           omschrijving,
         });

@@ -768,3 +768,62 @@ test("9.0D kamerwissel is transactioneel en bewaart historie", () => {
     /delete from public\.bewoner_kamerhistorie/i,
   );
 });
+
+test("9.0E onderhoudsopvolging is één transactionele keten", () => {
+  const migration = lees(
+    "supabase/migrations/20260727230000_9_0e_maintenance_intelligence.sql",
+  );
+  const service = lees(
+    "src/services/controleafwijkingen.ts",
+  );
+
+  assert.match(
+    migration,
+    /create or replace function public\.beheer_controle_afwijking\(/,
+  );
+  assert.match(
+    migration,
+    /for update/,
+  );
+  assert.match(
+    migration,
+    /verplicht herstelbewijs moet zijn goedgekeurd/i,
+  );
+  assert.match(
+    service,
+    /\.rpc\(\s*"beheer_controle_afwijking"/,
+  );
+});
+
+test("9.0E toont doorlooptijd, herhaling en herstelbewijs", () => {
+  const server = lees(
+    "src/services/controleafwijkingen-server.ts",
+  );
+  const component = lees(
+    "src/components/afwijkingen/ControleAfwijkingenBeheer.tsx",
+  );
+
+  assert.match(server, /doorlooptijd_dagen/);
+  assert.match(server, /terugkeer_aantal/);
+  assert.match(server, /herstelbewijs_aantal/);
+  assert.match(component, /Doorlooptijd/);
+  assert.match(component, /Herhaling/);
+  assert.match(component, /Herstelbewijs/);
+  assert.match(
+    component,
+    /controleAfwijkingId=\{/,
+  );
+
+  const uploadComponent = lees(
+    "src/components/inspecties/InspectieFotoUpload.tsx",
+  );
+
+  assert.match(
+    uploadComponent,
+    /controleAfwijkingId\?: number \| null/,
+  );
+  assert.match(
+    uploadComponent,
+    /controle_afwijking_id:\s*controleAfwijkingId/,
+  );
+});

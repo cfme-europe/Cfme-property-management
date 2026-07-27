@@ -147,6 +147,10 @@ export async function uploadInspectieFoto(
     .from("inspectie_fotos")
     .insert({
       inspectie_id: invoer.inspectie_id,
+      controle_resultaat_id:
+        invoer.controle_resultaat_id ?? null,
+      controle_afwijking_id:
+        invoer.controle_afwijking_id ?? null,
       bestandspad,
       bestandsnaam: invoer.bestand.name,
       mime_type: invoer.bestand.type,

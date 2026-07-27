@@ -2,11 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import InspectieFotoUpload from "@/components/inspecties/InspectieFotoUpload";
 import { updateControleAfwijkingBeheer } from "@/services/controleafwijkingen";
 import type {
   ControleAfwijkingBeheer,
   ControleAfwijkingStatus,
   FactuurOntvanger,
+  HerstelbewijsStatus,
 } from "@/types/controleafwijking";
 
 type Props = {
@@ -26,7 +28,9 @@ function bedrag(waarde: number | null): string {
 function titel(afwijking: ControleAfwijkingBeheer): string {
   const resultaat = afwijking.resultaat;
 
-  if (!resultaat) return `Afwijking ${afwijking.id}`;
+  if (!resultaat) {
+    return `Afwijking ${afwijking.id}`;
+  }
 
   return [
     resultaat.ruimte_naam_snapshot,
@@ -37,11 +41,16 @@ function titel(afwijking: ControleAfwijkingBeheer): string {
     .join(" · ");
 }
 
+function statusLabel(status: string | null): string {
+  return status?.replaceAll("_", " ") ?? "—";
+}
+
 export default function ControleAfwijkingenBeheer({
   woningId,
   afwijkingen,
 }: Props) {
   const router = useRouter();
+
   const [geselecteerd, setGeselecteerd] =
     useState<ControleAfwijkingBeheer | null>(null);
   const [status, setStatus] =
@@ -61,6 +70,10 @@ export default function ControleAfwijkingenBeheer({
     herstelbewijsOmschrijving,
     setHerstelbewijsOmschrijving,
   ] = useState("");
+  const [
+    herstelbewijsStatus,
+    setHerstelbewijsStatus,
+  ] = useState<HerstelbewijsStatus>("niet_vereist");
   const [oplossing, setOplossing] = useState("");
   const [geschatteKosten, setGeschatteKosten] =
     useState("");
@@ -78,14 +91,18 @@ export default function ControleAfwijkingenBeheer({
   const invoerClass =
     "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none focus:border-emerald-600";
 
-  function selecteer(afwijking: ControleAfwijkingBeheer) {
+  function selecteer(
+    afwijking: ControleAfwijkingBeheer,
+  ): void {
     setGeselecteerd(afwijking);
     setStatus(afwijking.status);
     setVerantwoordelijke(
       afwijking.verantwoordelijke ?? "",
     );
     setDeadline(afwijking.deadline ?? "");
-    setHercontroleNodig(afwijking.hercontrole_nodig);
+    setHercontroleNodig(
+      afwijking.hercontrole_nodig,
+    );
     setHercontroleVoor(
       afwijking.hercontrole_voor ?? "",
     );
@@ -94,6 +111,9 @@ export default function ControleAfwijkingenBeheer({
     );
     setHerstelbewijsOmschrijving(
       afwijking.herstelbewijs_omschrijving ?? "",
+    );
+    setHerstelbewijsStatus(
+      afwijking.herstelbewijs_status,
     );
     setOplossing(afwijking.oplossing ?? "");
     setGeschatteKosten(
@@ -116,12 +136,29 @@ export default function ControleAfwijkingenBeheer({
       afwijking.operationeel_gevolg ?? "",
     );
     setFout("");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+
+  function wijzigHerstelbewijsVerplicht(
+    verplicht: boolean,
+  ): void {
+    setHerstelbewijsVerplicht(verplicht);
+    setHerstelbewijsStatus(
+      verplicht ? "vereist" : "niet_vereist",
+    );
+
+    if (!verplicht) {
+      setHerstelbewijsOmschrijving("");
+    }
   }
 
   async function opslaan(
     event: FormEvent<HTMLFormElement>,
-  ) {
+  ): Promise<void> {
     event.preventDefault();
 
     if (!geselecteerd) return;
@@ -146,6 +183,10 @@ export default function ControleAfwijkingenBeheer({
             herstelbewijsVerplicht,
           herstelbewijs_omschrijving:
             herstelbewijsOmschrijving,
+          herstelbewijs_status:
+            herstelbewijsVerplicht
+              ? herstelbewijsStatus
+              : "niet_vereist",
           oplossing,
           geschatte_kosten:
             geschatteKosten === ""
@@ -157,7 +198,8 @@ export default function ControleAfwijkingenBeheer({
               : Number(werkelijkeKosten),
           factuur_naar: factuurNaar,
           financieel_gevolg: financieelGevolg,
-          operationeel_gevolg: operationeelGevolg,
+          operationeel_gevolg:
+            operationeelGevolg,
         },
       );
 
@@ -184,6 +226,7 @@ export default function ControleAfwijkingenBeheer({
           <h2 className="text-xl font-bold">
             {titel(geselecteerd)}
           </h2>
+
           <p className="mt-2 text-slate-600">
             {geselecteerd.toelichting}
           </p>
@@ -209,7 +252,9 @@ export default function ControleAfwijkingenBeheer({
               <option value="in_opvolging">
                 In opvolging
               </option>
-              <option value="opgelost">Opgelost</option>
+              <option value="opgelost">
+                Opgelost
+              </option>
               <option value="geaccepteerd">
                 Geaccepteerd
               </option>
@@ -221,7 +266,9 @@ export default function ControleAfwijkingenBeheer({
             <input
               value={verantwoordelijke}
               onChange={(event) =>
-                setVerantwoordelijke(event.target.value)
+                setVerantwoordelijke(
+                  event.target.value,
+                )
               }
               className={invoerClass}
               placeholder="Verantwoordelijke"
@@ -240,7 +287,8 @@ export default function ControleAfwijkingenBeheer({
               value={factuurNaar}
               onChange={(event) =>
                 setFactuurNaar(
-                  event.target.value as FactuurOntvanger,
+                  event.target
+                    .value as FactuurOntvanger,
                 )
               }
               className={invoerClass}
@@ -263,7 +311,9 @@ export default function ControleAfwijkingenBeheer({
               step="0.01"
               value={geschatteKosten}
               onChange={(event) =>
-                setGeschatteKosten(event.target.value)
+                setGeschatteKosten(
+                  event.target.value,
+                )
               }
               className={invoerClass}
               placeholder="Geschatte kosten"
@@ -275,7 +325,9 @@ export default function ControleAfwijkingenBeheer({
               step="0.01"
               value={werkelijkeKosten}
               onChange={(event) =>
-                setWerkelijkeKosten(event.target.value)
+                setWerkelijkeKosten(
+                  event.target.value,
+                )
               }
               className={invoerClass}
               placeholder="Werkelijke kosten"
@@ -301,7 +353,7 @@ export default function ControleAfwijkingenBeheer({
                 type="checkbox"
                 checked={herstelbewijsVerplicht}
                 onChange={(event) =>
-                  setHerstelbewijsVerplicht(
+                  wijzigHerstelbewijsVerplicht(
                     event.target.checked,
                   )
                 }
@@ -316,24 +368,81 @@ export default function ControleAfwijkingenBeheer({
               type="date"
               value={hercontroleVoor}
               onChange={(event) =>
-                setHercontroleVoor(event.target.value)
+                setHercontroleVoor(
+                  event.target.value,
+                )
               }
               className={`${invoerClass} mt-4`}
             />
           )}
 
           {herstelbewijsVerplicht && (
-            <textarea
-              rows={3}
-              value={herstelbewijsOmschrijving}
-              onChange={(event) =>
-                setHerstelbewijsOmschrijving(
-                  event.target.value,
-                )
-              }
-              className={`${invoerClass} mt-4`}
-              placeholder="Vereist herstelbewijs"
-            />
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <select
+                value={herstelbewijsStatus}
+                onChange={(event) =>
+                  setHerstelbewijsStatus(
+                    event.target
+                      .value as HerstelbewijsStatus,
+                  )
+                }
+                className={invoerClass}
+              >
+                <option value="vereist">
+                  Bewijs vereist
+                </option>
+                <option value="aangeleverd">
+                  Bewijs aangeleverd
+                </option>
+                <option value="goedgekeurd">
+                  Bewijs goedgekeurd
+                </option>
+                <option value="afgekeurd">
+                  Bewijs afgekeurd
+                </option>
+              </select>
+
+              <div className="rounded-xl bg-slate-100 px-4 py-3">
+                <span className="text-sm text-slate-500">
+                  Gekoppelde bewijsfoto’s
+                </span>
+                <br />
+                <strong>
+                  {geselecteerd.herstelbewijs_aantal}
+                </strong>
+              </div>
+
+              <textarea
+                rows={3}
+                value={herstelbewijsOmschrijving}
+                onChange={(event) =>
+                  setHerstelbewijsOmschrijving(
+                    event.target.value,
+                  )
+                }
+                className={`${invoerClass} md:col-span-2`}
+                placeholder="Vereist herstelbewijs"
+              />
+
+              <div className="md:col-span-2">
+                {geselecteerd.inspectie_id ? (
+                  <InspectieFotoUpload
+                    inspectieId={
+                      geselecteerd.inspectie_id
+                    }
+                    controleAfwijkingId={
+                      geselecteerd.id
+                    }
+                  />
+                ) : (
+                  <p className="rounded-xl bg-amber-100 p-4 text-amber-900">
+                    Herstelbewijs kan niet worden
+                    toegevoegd omdat deze afwijking
+                    niet aan een inspectie is gekoppeld.
+                  </p>
+                )}
+              </div>
+            </div>
           )}
 
           {status === "opgelost" && (
@@ -353,7 +462,9 @@ export default function ControleAfwijkingenBeheer({
             rows={3}
             value={financieelGevolg}
             onChange={(event) =>
-              setFinancieelGevolg(event.target.value)
+              setFinancieelGevolg(
+                event.target.value,
+              )
             }
             className={`${invoerClass} mt-4`}
             placeholder="Financieel gevolg"
@@ -363,7 +474,9 @@ export default function ControleAfwijkingenBeheer({
             rows={3}
             value={operationeelGevolg}
             onChange={(event) =>
-              setOperationeelGevolg(event.target.value)
+              setOperationeelGevolg(
+                event.target.value,
+              )
             }
             className={`${invoerClass} mt-4`}
             placeholder="Operationeel gevolg"
@@ -374,8 +487,11 @@ export default function ControleAfwijkingenBeheer({
               disabled={bezig}
               className="rounded-xl bg-emerald-700 px-6 py-3 font-bold text-white disabled:opacity-50"
             >
-              {bezig ? "Opslaan..." : "Opvolging opslaan"}
+              {bezig
+                ? "Opslaan..."
+                : "Opvolging opslaan"}
             </button>
+
             <button
               type="button"
               onClick={() => setGeselecteerd(null)}
@@ -408,12 +524,14 @@ export default function ControleAfwijkingenBeheer({
                     <h3 className="font-bold">
                       {titel(afwijking)}
                     </h3>
+
                     <p className="mt-1 text-sm text-slate-600">
                       {afwijking.toelichting}
                     </p>
                   </div>
+
                   <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900">
-                    {afwijking.status.replaceAll("_", " ")}
+                    {statusLabel(afwijking.status)}
                   </span>
                 </div>
 
@@ -423,8 +541,11 @@ export default function ControleAfwijkingenBeheer({
                       Urgentie
                     </span>
                     <br />
-                    <strong>{afwijking.urgentie}</strong>
+                    <strong>
+                      {statusLabel(afwijking.urgentie)}
+                    </strong>
                   </p>
+
                   <p>
                     <span className="text-sm text-slate-500">
                       Melding
@@ -434,6 +555,7 @@ export default function ControleAfwijkingenBeheer({
                       {afwijking.melding_id ?? "—"}
                     </strong>
                   </p>
+
                   <p>
                     <span className="text-sm text-slate-500">
                       Taak
@@ -443,6 +565,7 @@ export default function ControleAfwijkingenBeheer({
                       {afwijking.taak_id ?? "—"}
                     </strong>
                   </p>
+
                   <p>
                     <span className="text-sm text-slate-500">
                       Kosten
@@ -452,6 +575,84 @@ export default function ControleAfwijkingenBeheer({
                       {bedrag(
                         afwijking.werkelijke_kosten ??
                           afwijking.geschatte_kosten,
+                      )}
+                    </strong>
+                  </p>
+
+                  <p>
+                    <span className="text-sm text-slate-500">
+                      Doorlooptijd
+                    </span>
+                    <br />
+                    <strong>
+                      {afwijking.doorlooptijd_dagen} dagen
+                    </strong>
+                  </p>
+
+                  <p>
+                    <span className="text-sm text-slate-500">
+                      Deadline
+                    </span>
+                    <br />
+                    <strong>
+                      {afwijking.over_deadline
+                        ? "Overschreden"
+                        : afwijking.deadline ?? "—"}
+                    </strong>
+                  </p>
+
+                  <p>
+                    <span className="text-sm text-slate-500">
+                      Opvolging
+                    </span>
+                    <br />
+                    <strong>
+                      Melding:{" "}
+                      {statusLabel(
+                        afwijking.melding_status,
+                      )}
+                      {" · "}
+                      Taak:{" "}
+                      {statusLabel(
+                        afwijking.taak_status,
+                      )}
+                    </strong>
+                  </p>
+
+                  <p>
+                    <span className="text-sm text-slate-500">
+                      Herhaling
+                    </span>
+                    <br />
+                    <strong>
+                      {afwijking.terugkeer_aantal > 1
+                        ? `${afwijking.terugkeer_aantal}× terugkerend`
+                        : "Eerste registratie"}
+                    </strong>
+                  </p>
+
+                  <p>
+                    <span className="text-sm text-slate-500">
+                      Herstelbewijs
+                    </span>
+                    <br />
+                    <strong>
+                      {statusLabel(
+                        afwijking.herstelbewijs_status,
+                      )}
+                      {" · "}
+                      {afwijking.herstelbewijs_aantal} foto’s
+                    </strong>
+                  </p>
+
+                  <p>
+                    <span className="text-sm text-slate-500">
+                      Factuur
+                    </span>
+                    <br />
+                    <strong>
+                      {statusLabel(
+                        afwijking.factuur_naar,
                       )}
                     </strong>
                   </p>

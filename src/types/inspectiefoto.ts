@@ -2,6 +2,8 @@ export type InspectieFoto = {
   id: number;
   created_at: string;
   inspectie_id: number;
+  controle_resultaat_id?: number | null;
+  controle_afwijking_id?: number | null;
   bestandspad: string;
   bestandsnaam: string;
   mime_type: string;
@@ -13,6 +15,8 @@ export type InspectieFoto = {
 
 export type InspectieFotoUpload = {
   inspectie_id: number;
+  controle_resultaat_id?: number | null;
+  controle_afwijking_id?: number | null;
   bestand: File;
   omschrijving?: string | null;
 };

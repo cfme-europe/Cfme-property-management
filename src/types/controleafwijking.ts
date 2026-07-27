@@ -11,6 +11,13 @@ export type FactuurOntvanger =
   | "eigenaar"
   | "nog_te_bepalen";
 
+export type HerstelbewijsStatus =
+  | "niet_vereist"
+  | "vereist"
+  | "aangeleverd"
+  | "goedgekeurd"
+  | "afgekeurd";
+
 export type ControleAfwijkingBeheer = {
   id: number;
   created_at: string;
@@ -29,6 +36,16 @@ export type ControleAfwijkingBeheer = {
   hercontrole_voor: string | null;
   herstelbewijs_verplicht: boolean;
   herstelbewijs_omschrijving: string | null;
+  herstelbewijs_status: HerstelbewijsStatus;
+  herstelbewijs_beoordeeld_at: string | null;
+  herstelbewijs_beoordeeld_door: string | null;
+  herstelbewijs_aantal: number;
+  melding_status: string | null;
+  taak_status: string | null;
+  taak_deadline: string | null;
+  doorlooptijd_dagen: number;
+  over_deadline: boolean;
+  terugkeer_aantal: number;
   opgelost_at: string | null;
   oplossing: string | null;
   geschatte_kosten: number | null;
@@ -51,6 +68,7 @@ export type ControleAfwijkingBeheerInvoer = {
   hercontrole_voor: string | null;
   herstelbewijs_verplicht: boolean;
   herstelbewijs_omschrijving: string | null;
+  herstelbewijs_status: HerstelbewijsStatus;
   oplossing: string | null;
   geschatte_kosten: number | null;
   werkelijke_kosten: number | null;
