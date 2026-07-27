@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getWoningById } from "@/services/woningen-server";
 import {
-  getHuurdersVoorVerhuurperiode,
   getKamersVoorWoning,
   getBewonersVoorVerhuurperiode,
   getInspectiesVoorWoning,
@@ -84,7 +83,6 @@ export default async function WoningDossierPage({
   ]);
 
   const [
-    huurders,
     kamers,
     bewoners,
     inspecties,
@@ -98,9 +96,6 @@ export default async function WoningDossierPage({
     controlebriefing,
     woningplanning,
   ] = await Promise.all([
-    actieveVerhuur
-      ? getHuurdersVoorVerhuurperiode(actieveVerhuur.id)
-      : Promise.resolve([]),
     getKamersVoorWoning(woningId),
     actieveVerhuur
       ? getBewonersVoorVerhuurperiode(actieveVerhuur.id)
@@ -1481,286 +1476,288 @@ export default async function WoningDossierPage({
           )}
         </section>
 
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow" id="kamers">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold">Kamers</h2>
-              {kamers.length > 10 && volledigeSectie !== "kamers" && (
-                <Link
-                  href={{
-                    pathname: `/woningen/${woning.id}`,
-                    query: { alles: "kamers" },
-                    hash: "kamers",
-                  }}
-                  className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
-                >
-                  Alles bekijken ({kamers.length})
-                </Link>
-              )}
-              <p className="mt-1 text-slate-600">
-                Kamerindeling en geregistreerde capaciteit.
-              </p>
-            </div>
+        <section
+          className="mb-8 rounded-2xl bg-white p-6 shadow"
+          id="bezetting"
+        >
+          {(() => {
+            const actieveBewoners = bewoners.filter(
+              (bewoner) => bewoner.status === "actief",
+            );
 
-            <Link
-              href={`/woningen/${woning.id}/kamers`}
-              className="rounded-xl border border-emerald-700 px-5 py-3 font-medium text-emerald-700"
-            >
-              Kamers beheren
-            </Link>
-          </div>
+            const bewonersPerKamer = new Map<
+              number,
+              typeof actieveBewoners
+            >();
 
-          {kamers.length === 0 ? (
-            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
-              Nog geen kamers geregistreerd.
-            </p>
-          ) : (
-            <>
-              <div className="mb-5 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl bg-slate-100 p-4">
-                  <p className="text-sm text-slate-500">
-                    Totaal kamers
-                  </p>
-                  <p className="mt-1 text-2xl font-bold">
-                    {kamers.length}
-                  </p>
-                </div>
+            for (const bewoner of actieveBewoners) {
+              if (bewoner.kamer_id === null) {
+                continue;
+              }
 
-                <div className="rounded-xl bg-slate-100 p-4">
-                  <p className="text-sm text-slate-500">
-                    Actieve kamers
-                  </p>
-                  <p className="mt-1 text-2xl font-bold">
-                    {kamers.filter((kamer) => kamer.actief).length}
-                  </p>
-                </div>
+              const bestaand =
+                bewonersPerKamer.get(
+                  bewoner.kamer_id,
+                ) ?? [];
 
-                <div className="rounded-xl bg-slate-100 p-4">
-                  <p className="text-sm text-slate-500">
-                    Totale capaciteit
-                  </p>
-                  <p className="mt-1 text-2xl font-bold">
-                    {kamers
-                      .filter((kamer) => kamer.actief)
-                      .reduce(
-                        (totaal, kamer) =>
-                          totaal + kamer.capaciteit,
-                        0
-                      )}
-                  </p>
-                </div>
-              </div>
+              bewonersPerKamer.set(
+                bewoner.kamer_id,
+                [...bestaand, bewoner],
+              );
+            }
 
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {(volledigeSectie === "kamers" ? kamers : kamers.slice(0, 10)).map((kamer) => (
-                  <div
-                    key={kamer.id}
-                    className="rounded-xl border border-slate-200 p-5"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="font-semibold">{kamer.naam}</p>
+            const actieveKamers = kamers.filter(
+              (kamer) => kamer.actief,
+            );
 
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                          kamer.actief
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-slate-200 text-slate-700"
-                        }`}
-                      >
-                        {kamer.actief ? "Actief" : "Inactief"}
-                      </span>
-                    </div>
+            const totaleCapaciteit =
+              actieveKamers.reduce(
+                (totaal, kamer) =>
+                  totaal + kamer.capaciteit,
+                0,
+              );
 
-                    <p className="mt-3 text-sm text-slate-600">
-                      Verdieping: {kamer.verdieping || "—"}
-                    </p>
+            const toegewezenBewoners =
+              actieveBewoners.filter(
+                (bewoner) =>
+                  bewoner.kamer_id !== null,
+              ).length;
 
-                    <p className="text-sm text-slate-600">
-                      Capaciteit: {kamer.capaciteit}
+            const bewonersZonderKamer =
+              actieveBewoners.filter(
+                (bewoner) =>
+                  bewoner.kamer_id === null,
+              );
+
+            return (
+              <>
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold">
+                      Kamers en bezetting
+                    </h2>
+                    <p className="mt-1 text-slate-600">
+                      Actuele bezetting per slaapkamer,
+                      automatisch afgeleid uit de actieve
+                      bewonersplaatsingen.
                     </p>
                   </div>
-                ))}
-              </div>
-            </>
-          )}
-        </section>
 
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow" id="bewoners">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold">Bewoners</h2>
-              {bewoners.length > 10 && volledigeSectie !== "bewoners" && (
-                <Link
-                  href={{
-                    pathname: `/woningen/${woning.id}`,
-                    query: { alles: "bewoners" },
-                    hash: "bewoners",
-                  }}
-                  className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
-                >
-                  Alles bekijken ({bewoners.length})
-                </Link>
-              )}
-              <p className="mt-1 text-slate-600">
-                Bewoners en kamerbezetting binnen de actieve verhuurperiode.
-              </p>
-            </div>
+                  <div className="flex flex-wrap gap-3">
+                    <Link
+                      href={`/woningen/${woning.id}/configuratie`}
+                      className="rounded-xl border border-blue-700 px-5 py-3 font-medium text-blue-800"
+                    >
+                      Capaciteit en kamers
+                    </Link>
 
-            {actieveVerhuur && (
-              <Link
-                href={`/woningen/${woning.id}/bewoners/nieuw`}
-                className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
-              >
-                Bewoner toevoegen
-              </Link>
-            )}
-          </div>
-
-          {!actieveVerhuur ? (
-            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
-              Start eerst een verhuurperiode om bewoners te registreren.
-            </p>
-          ) : bewoners.length === 0 ? (
-            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
-              Nog geen bewoners geregistreerd.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[850px]">
-                <thead className="border-b bg-slate-100">
-                  <tr>
-                    <th className="p-4 text-left">Bewoner</th>
-                    <th className="p-4 text-left">Kamer</th>
-                    <th className="p-4 text-left">Incheckdatum</th>
-                    <th className="p-4 text-left">Uitcheckdatum</th>
-                    <th className="p-4 text-left">Status</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {(volledigeSectie === "bewoners" ? bewoners : bewoners.slice(0, 10)).map((bewoner) => {
-                    const bewonersnaam = [
-                      bewoner.voornaam,
-                      bewoner.tussenvoegsel,
-                      bewoner.achternaam,
-                    ]
-                      .filter(Boolean)
-                      .join(" ");
-
-                    return (
-                      <tr
-                        key={bewoner.id}
-                        className="border-b border-slate-200 last:border-0"
+                    {actieveVerhuur && (
+                      <Link
+                        href={`/woningen/${woning.id}/bewoners/nieuw`}
+                        className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
                       >
-                        <td className="p-4">
-                          <Link
-                            href={`/woningen/${woning.id}/bewoners/${bewoner.id}`}
-                            className="font-semibold text-emerald-700 hover:underline"
-                          >
-                            {bewonersnaam}
-                          </Link>
-                        </td>
+                        Bewoner toevoegen
+                      </Link>
+                    )}
+                  </div>
+                </div>
 
-                        <td className="p-4">
-                          {bewoner.kamer?.naam || "Niet toegewezen"}
-                        </td>
+                {!actieveVerhuur ? (
+                  <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
+                    Start eerst een zakelijke
+                    verhuurperiode om bewoners te
+                    registreren.
+                  </p>
+                ) : actieveKamers.length === 0 ? (
+                  <p className="rounded-xl bg-amber-50 p-5 text-amber-900">
+                    Nog geen actieve slaapkamers
+                    geconfigureerd. Voeg slaapkamers en
+                    capaciteit toe via Woningconfiguratie.
+                  </p>
+                ) : (
+                  <>
+                    <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="rounded-xl bg-slate-100 p-4">
+                        <p className="text-sm text-slate-500">
+                          Slaapkamers
+                        </p>
+                        <p className="mt-1 text-2xl font-bold">
+                          {actieveKamers.length}
+                        </p>
+                      </div>
 
-                        <td className="p-4">
-                          {datum(bewoner.incheckdatum)}
-                        </td>
+                      <div className="rounded-xl bg-slate-100 p-4">
+                        <p className="text-sm text-slate-500">
+                          Bezet
+                        </p>
+                        <p className="mt-1 text-2xl font-bold">
+                          {toegewezenBewoners}
+                        </p>
+                      </div>
 
-                        <td className="p-4">
-                          {datum(bewoner.uitcheckdatum)}
-                        </td>
+                      <div className="rounded-xl bg-slate-100 p-4">
+                        <p className="text-sm text-slate-500">
+                          Capaciteit
+                        </p>
+                        <p className="mt-1 text-2xl font-bold">
+                          {totaleCapaciteit}
+                        </p>
+                      </div>
 
-                        <td className="p-4">
-                          <span
-                            className={`rounded-full px-3 py-1 text-sm font-semibold ${
-                              bewoner.status === "actief"
-                                ? "bg-emerald-100 text-emerald-800"
-                                : "bg-slate-200 text-slate-700"
+                      <div
+                        className={`rounded-xl p-4 ${
+                          toegewezenBewoners >
+                          totaleCapaciteit
+                            ? "bg-red-50 text-red-900"
+                            : "bg-emerald-50 text-emerald-900"
+                        }`}
+                      >
+                        <p className="text-sm">
+                          Vrije plaatsen
+                        </p>
+                        <p className="mt-1 text-2xl font-bold">
+                          {Math.max(
+                            0,
+                            totaleCapaciteit -
+                              toegewezenBewoners,
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {actieveKamers.map((kamer) => {
+                        const kamerBewoners =
+                          bewonersPerKamer.get(
+                            kamer.id,
+                          ) ?? [];
+
+                        const bezetting =
+                          kamerBewoners.length;
+
+                        const overbezet =
+                          bezetting >
+                          kamer.capaciteit;
+
+                        return (
+                          <article
+                            key={kamer.id}
+                            className={`rounded-2xl border p-5 ${
+                              overbezet
+                                ? "border-red-300 bg-red-50"
+                                : "border-slate-200"
                             }`}
                           >
-                            {bewoner.status}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <h3 className="text-lg font-bold">
+                                  {kamer.naam}
+                                </h3>
+                                <p className="mt-1 text-sm text-slate-500">
+                                  {kamer.verdieping ||
+                                    "Verdieping niet vastgelegd"}
+                                </p>
+                              </div>
 
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow" id="huurders">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold">Huurders</h2>
-              {huurders.length > 10 && volledigeSectie !== "huurders" && (
-                <Link
-                  href={{
-                    pathname: `/woningen/${woning.id}`,
-                    query: { alles: "huurders" },
-                    hash: "huurders",
-                  }}
-                  className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
-                >
-                  Alles bekijken ({huurders.length})
-                </Link>
-              )}
-              <p className="mt-1 text-slate-600">
-                Bewoners binnen de actieve verhuurperiode.
-              </p>
-            </div>
+                              <span
+                                className={`rounded-full px-3 py-1 text-sm font-bold ${
+                                  overbezet
+                                    ? "bg-red-200 text-red-900"
+                                    : bezetting ===
+                                        kamer.capaciteit
+                                      ? "bg-amber-100 text-amber-900"
+                                      : "bg-emerald-100 text-emerald-900"
+                                }`}
+                              >
+                                {bezetting} /{" "}
+                                {kamer.capaciteit} bezet
+                              </span>
+                            </div>
 
-            {actieveVerhuur && (
-              <Link
-                href={`/woningen/${woning.id}/huurders/nieuw`}
-                className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
-              >
-                Huurder toevoegen
-              </Link>
-            )}
-          </div>
+                            {kamerBewoners.length === 0 ? (
+                              <p className="mt-4 rounded-xl bg-slate-100 p-4 text-sm text-slate-600">
+                                Geen actieve bewoners
+                                toegewezen.
+                              </p>
+                            ) : (
+                              <div className="mt-4 space-y-2">
+                                {kamerBewoners.map(
+                                  (bewoner) => {
+                                    const naam = [
+                                      bewoner.voornaam,
+                                      bewoner.tussenvoegsel,
+                                      bewoner.achternaam,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(" ");
 
-          {!actieveVerhuur ? (
-            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
-              Start eerst een verhuurperiode om huurders te registreren.
-            </p>
-          ) : huurders.length === 0 ? (
-            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
-              Nog geen huurders geregistreerd.
-            </p>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {(volledigeSectie === "huurders" ? huurders : huurders.slice(0, 10)).map((huurder) => {
-                const volledigeNaam = [
-                  huurder.voornaam,
-                  huurder.tussenvoegsel,
-                  huurder.achternaam,
-                ]
-                  .filter(Boolean)
-                  .join(" ");
+                                    return (
+                                      <Link
+                                        key={bewoner.id}
+                                        href={`/woningen/${woning.id}/bewoners/${bewoner.id}`}
+                                        className="flex min-h-12 items-center justify-between gap-3 rounded-xl bg-slate-100 px-4 py-3 transition hover:bg-slate-200"
+                                      >
+                                        <span className="font-medium">
+                                          {naam}
+                                        </span>
+                                        <span className="text-sm text-emerald-700">
+                                          Openen →
+                                        </span>
+                                      </Link>
+                                    );
+                                  },
+                                )}
+                              </div>
+                            )}
+                          </article>
+                        );
+                      })}
+                    </div>
 
-                return (
-                  <Link
-                    key={huurder.id}
-                    href={`/woningen/${woning.id}/huurders/${huurder.id}`}
-                    className="rounded-xl border border-slate-200 p-5 transition hover:border-emerald-600 hover:shadow"
-                  >
-                    <p className="font-semibold">{volledigeNaam}</p>
-                    <p className="mt-2 text-sm text-slate-600">
-                      {huurder.telefoon || "Geen telefoonnummer"}
-                    </p>
-                    <p className="text-sm text-slate-600">
-                      {huurder.email || "Geen e-mailadres"}
-                    </p>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
+                    {bewonersZonderKamer.length >
+                      0 && (
+                      <div className="mt-6 rounded-2xl bg-amber-50 p-5 text-amber-900">
+                        <h3 className="font-bold">
+                          Bewoners zonder kamer
+                        </h3>
+                        <p className="mt-1 text-sm">
+                          {
+                            bewonersZonderKamer.length
+                          }{" "}
+                          actieve bewoner(s) hebben nog
+                          geen kamerplaatsing.
+                        </p>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {bewonersZonderKamer.map(
+                            (bewoner) => {
+                              const naam = [
+                                bewoner.voornaam,
+                                bewoner.tussenvoegsel,
+                                bewoner.achternaam,
+                              ]
+                                .filter(Boolean)
+                                .join(" ");
+
+                              return (
+                                <Link
+                                  key={bewoner.id}
+                                  href={`/woningen/${woning.id}/bewoners/${bewoner.id}/bewerken`}
+                                  className="rounded-xl border border-amber-700 bg-white px-4 py-2 font-medium"
+                                >
+                                  {naam} toewijzen
+                                </Link>
+                              );
+                            },
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            );
+          })()}
         </section>
 
         <section className="rounded-2xl bg-white p-6 shadow" id="verhuurhistorie">
