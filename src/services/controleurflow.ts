@@ -5,6 +5,7 @@ import type {
   ControleResultaat,
   ControleResultaatWaarde,
   GebrekType,
+  RuimteAkkoordResultaat,
 } from "@/types/controleurflow";
 
 const supabase = createClient();
@@ -263,4 +264,57 @@ export async function rondControleflowAf(
       );
     }
   }
+}
+
+
+export async function slaRuimteAkkoordOp(invoer: {
+  controlesessie_id: number;
+  ruimte_id: number;
+  controlepunt_ids: number[];
+}): Promise<RuimteAkkoordResultaat[]> {
+  if (
+    !Number.isInteger(invoer.controlesessie_id) ||
+    invoer.controlesessie_id <= 0
+  ) {
+    throw new Error("Ongeldige controlesessie.");
+  }
+
+  if (
+    !Number.isInteger(invoer.ruimte_id) ||
+    invoer.ruimte_id <= 0
+  ) {
+    throw new Error("Ongeldige ruimte.");
+  }
+
+  const controlepuntIds = Array.from(
+    new Set(invoer.controlepunt_ids),
+  );
+
+  if (
+    controlepuntIds.length === 0 ||
+    controlepuntIds.some(
+      (id) => !Number.isInteger(id) || id <= 0,
+    )
+  ) {
+    throw new Error(
+      "Er zijn geen geldige controlepunten voor ruimteakkoord.",
+    );
+  }
+
+  const { data, error } = await supabase.rpc(
+    "sla_ruimte_akkoord_op",
+    {
+      p_controlesessie_id: invoer.controlesessie_id,
+      p_ruimte_id: invoer.ruimte_id,
+      p_controlepunt_ids: controlepuntIds,
+    },
+  );
+
+  if (error) {
+    throw new Error(
+      `Ruimteakkoord opslaan mislukt: ${error.message}`,
+    );
+  }
+
+  return (data ?? []) as RuimteAkkoordResultaat[];
 }

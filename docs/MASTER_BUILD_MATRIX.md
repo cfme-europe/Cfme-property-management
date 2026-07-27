@@ -251,31 +251,22 @@ Gerealiseerd:
 - kamerrechten zijn aangescherpt;
 - database-lint, tests, lint, build en Supabase dry-run zijn schoon.
 
-### 9.0C Inspection Engine — ruimteakkoord — ⬜ Gepland
+### 9.0C Inspection Engine — ruimteakkoord — ✅ Gereed
 
-Doel:
+Gerealiseerd:
 
-Normale ruimtes met één hoofdhandeling afronden.
-
-Scope:
-
-- “Alles in deze ruimte akkoord”;
-- alle standaardcontrolepunten gezamenlijk opslaan;
-- afwijking vooraf selecteren;
-- alleen afwijkende onderdelen openen;
-- automatisch verder;
-- eindecontrole met uitsluitend ontbrekende punten en afwijkingen;
-- internetvoorzieningen waar mogelijk gezamenlijk akkoord.
-
-Afhankelijkheden:
-
-- 9.0B voor volledige consistente ruimteconfiguratie.
-
-Acceptatie:
-
-- normale woningcontrole vereist aanzienlijk minder handelingen;
-- geen afzonderlijke “goed”-actie per standaardcontrolepunt;
-- afwijkingen blijven individueel en volledig traceerbaar.
+- één hoofdactie “Alles in deze ruimte akkoord”;
+- normale controlepunten worden gezamenlijk en transactioneel als goed opgeslagen;
+- meterpunten blijven in de bestaande gezamenlijke Energy Intelligence-flow;
+- vooraf gekozen afwijkingen worden niet overschreven;
+- afwijkingen, foto’s en automatische opvolging blijven individueel traceerbaar;
+- bestaande afwijkingen worden bij nieuwe goedkeuring passend niet-relevant gemaakt;
+- automatische doorgang na een volledig afgeronde ruimte;
+- handmatig doorgaan blokkeert wanneer verplichte punten ontbreken;
+- eindcontrole toont ontbrekende verplichte punten en vastgelegde afwijkingen;
+- controleur kan vanuit de eindcontrole direct terug naar het ontbrekende punt;
+- databasefunctie gebruikt bestaande controlerechten en actieve sessievalidatie;
+- database-lint, tests, lint, build en Supabase dry-run zijn schoon.
 
 ### 9.0D Occupancy Intelligence — ⬜ Gepland
 

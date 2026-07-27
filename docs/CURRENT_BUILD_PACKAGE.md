@@ -6,8 +6,8 @@
 **Repository:** cfme-europe/Cfme-property-management
 **Branch:** main
 **HEAD:** 50ab7a3
-**Laatste afgeronde bouwblok:** 9.0B Reality Engine — volledige invoernorm
-**Eerstvolgende bouwblok:** 9.0C Inspection Engine — ruimteakkoord
+**Laatste afgeronde bouwblok:** 9.0C Inspection Engine — ruimteakkoord
+**Eerstvolgende bouwblok:** 9.0D Occupancy Intelligence
 
 ---
 
@@ -403,3 +403,39 @@ Eindcontrole:
 Volgend bouwblok:
 
 `9.0C Inspection Engine — ruimteakkoord`
+
+---
+
+## 13. BEWEZEN AFGEROND — BOUWBLOK 9.0C
+
+Gerealiseerd:
+
+- één hoofdactie voor een normale ruimte;
+- gezamenlijke transactionele opslag van normale controlepunten;
+- vooraf gekozen afwijkingen worden uitgesloten van ruimteakkoord;
+- meterpunten blijven in de bestaande Energy Intelligence-flow;
+- internetcontrole blijft verkort;
+- afwijkingen, foto’s, meldingen en taken blijven individueel gekoppeld;
+- automatische doorgang na volledige ruimte;
+- blokkade op overslaan van ontbrekende verplichte punten;
+- eindcontrole met ontbrekende punten en vastgelegde afwijkingen;
+- directe navigatie terug naar ontbrekende controlepunten.
+
+Migraties:
+
+- `20260727200000_9_0c_inspection_ruimteakkoord.sql`;
+- `20260727203000_9_0c_ruimteakkoord_lintcorrectie.sql`;
+- `20260727210000_9_0c_ruimteakkoord_ambiguiteit_hardening.sql`.
+
+Eindcontrole:
+
+- 34 van 34 tests geslaagd;
+- ESLint schoon;
+- TypeScript en productiebuild schoon;
+- database-lint schoon;
+- Supabase dry-run schoon;
+- remote database volledig bijgewerkt.
+
+Volgend bouwblok:
+
+`9.0D Occupancy Intelligence`

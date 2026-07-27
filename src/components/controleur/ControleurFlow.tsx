@@ -11,6 +11,7 @@ import {
   rondControleflowAf,
   slaControleAfwijkingOp,
   slaControleResultaatOp,
+  slaRuimteAkkoordOp,
   uploadControleFoto,
 } from "@/services/controleurflow";
 import {
@@ -217,6 +218,29 @@ export default function ControleurFlow({
   );
   const [bezigPunt, setBezigPunt] =
     useState<number | null>(null);
+  const [ruimteAkkoordBezig, setRuimteAkkoordBezig] =
+    useState(false);
+  const [afwijkendePuntIds, setAfwijkendePuntIds] =
+    useState<Set<number>>(
+      () =>
+        new Set(
+          gegevens.afwijkingen
+            .filter(
+              (afwijking) =>
+                afwijking.status !== "niet_relevant",
+            )
+            .map((afwijking) => {
+              const resultaat = gegevens.resultaten.find(
+                (item) =>
+                  item.id ===
+                  afwijking.controle_resultaat_id,
+              );
+
+              return resultaat?.woning_controlepunt_id ?? 0;
+            })
+            .filter((id) => id > 0),
+        ),
+    );
   const [afrondenBezig, setAfrondenBezig] =
     useState(false);
   const [fout, setFout] = useState("");
@@ -248,6 +272,29 @@ export default function ControleurFlow({
 
   const eersteMeterpuntId =
     huidigeMeterpunten[0]?.woning_controlepunt_id ?? null;
+
+  const huidigeNormalePunten =
+    huidigeRuimte?.punten.filter(
+      (punt) => !isMeterpunt(punt),
+    ) ?? [];
+
+  const huidigeOntbrekendeVerplichtePunten =
+    huidigeRuimte?.punten.filter(
+      (punt) =>
+        punt.verplicht &&
+        !opgeslagen.has(
+          punt.woning_controlepunt_id,
+        ),
+    ) ?? [];
+
+  const ontbrekendeVerplichtePunten =
+    gegevens.route.filter(
+      (punt) =>
+        punt.verplicht &&
+        !opgeslagen.has(
+          punt.woning_controlepunt_id,
+        ),
+    );
 
   const verplichtePunten = gegevens.route.filter(
     (punt) => punt.verplicht,
@@ -286,6 +333,144 @@ export default function ControleurFlow({
   ) {
     wijzigPunt(puntId, {
       foto: event.target.files?.[0] ?? null,
+    });
+  }
+
+  async function slaHuidigeRuimteAkkoordOp() {
+    if (!huidigeRuimte) {
+      return;
+    }
+
+    const kandidaten = huidigeNormalePunten.filter(
+      (punt) => {
+        const puntInvoer =
+          invoer[punt.woning_controlepunt_id];
+
+        const afwijkingGekozen =
+          Boolean(
+            puntInvoer?.resultaat &&
+            afwijkendeResultaten.has(
+              puntInvoer.resultaat,
+            ),
+          );
+
+        return (
+          !opgeslagen.has(
+            punt.woning_controlepunt_id,
+          ) &&
+          !afwijkingGekozen
+        );
+      },
+    );
+
+    if (kandidaten.length === 0) {
+      setFout(
+        "Er zijn geen open normale controlepunten om gezamenlijk akkoord te geven.",
+      );
+      return;
+    }
+
+    setRuimteAkkoordBezig(true);
+    setFout("");
+
+    try {
+      const resultaten =
+        await slaRuimteAkkoordOp({
+          controlesessie_id:
+            gegevens.sessie.id,
+          ruimte_id: huidigeRuimte.id,
+          controlepunt_ids: kandidaten.map(
+            (punt) =>
+              punt.woning_controlepunt_id,
+          ),
+        });
+
+      const nieuwOpgeslagen =
+        new Set(opgeslagen);
+
+      const nieuweAfwijkendePuntIds =
+        new Set(afwijkendePuntIds);
+
+      for (const resultaat of resultaten) {
+        nieuwOpgeslagen.add(
+          resultaat.woning_controlepunt_id,
+        );
+
+        nieuweAfwijkendePuntIds.delete(
+          resultaat.woning_controlepunt_id,
+        );
+
+        wijzigPunt(
+          resultaat.woning_controlepunt_id,
+          {
+            resultaat: "goed",
+            toelichting: "",
+            foto: null,
+          },
+        );
+      }
+
+      setOpgeslagen(nieuwOpgeslagen);
+      setAfwijkendePuntIds(
+        nieuweAfwijkendePuntIds,
+      );
+
+      const ruimteAfgerond =
+        huidigeRuimte.punten.every(
+          (punt) =>
+            nieuwOpgeslagen.has(
+              punt.woning_controlepunt_id,
+            ),
+        );
+
+      if (
+        ruimteAfgerond &&
+        ruimteIndex < ruimten.length - 1
+      ) {
+        setRuimteIndex((huidig) =>
+          Math.min(
+            ruimten.length - 1,
+            huidig + 1,
+          ),
+        );
+
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
+      }
+    } catch (error) {
+      setFout(
+        error instanceof Error
+          ? error.message
+          : "Ruimteakkoord opslaan mislukt.",
+      );
+    } finally {
+      setRuimteAkkoordBezig(false);
+    }
+  }
+
+  function gaNaarVolgendeRuimte() {
+    if (
+      huidigeOntbrekendeVerplichtePunten.length > 0
+    ) {
+      setFout(
+        `Deze ruimte bevat nog ${huidigeOntbrekendeVerplichtePunten.length} verplicht controlepunt(en).`,
+      );
+      return;
+    }
+
+    setFout("");
+    setRuimteIndex((huidig) =>
+      Math.min(
+        ruimten.length - 1,
+        huidig + 1,
+      ),
+    );
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
     });
   }
 
@@ -613,6 +798,14 @@ export default function ControleurFlow({
             urgentie: puntInvoer.urgentie,
           });
 
+        setAfwijkendePuntIds((huidig) => {
+          const nieuw = new Set(huidig);
+          nieuw.add(
+            punt.woning_controlepunt_id,
+          );
+          return nieuw;
+        });
+
         if (
           puntInvoer.foto &&
           gegevens.sessie.inspectie_id
@@ -630,6 +823,14 @@ export default function ControleurFlow({
         }
       } else {
         await markeerAfwijkingNietRelevant(resultaat.id);
+
+        setAfwijkendePuntIds((huidig) => {
+          const nieuw = new Set(huidig);
+          nieuw.delete(
+            punt.woning_controlepunt_id,
+          );
+          return nieuw;
+        });
       }
 
       const nieuwOpgeslagen = new Set(
@@ -788,6 +989,31 @@ export default function ControleurFlow({
           <p className="mt-5 rounded-xl bg-red-100 p-4 text-red-800">
             {fout}
           </p>
+        )}
+
+        {huidigeNormalePunten.length > 0 && (
+          <section className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow">
+            <h3 className="text-xl font-bold text-emerald-950">
+              Normale ruimte
+            </h3>
+            <p className="mt-1 text-emerald-900">
+              Selecteer alleen afwijkingen. Zijn de overige onderdelen goed,
+              sla ze dan gezamenlijk op.
+            </p>
+
+            <button
+              type="button"
+              disabled={ruimteAkkoordBezig}
+              onClick={() =>
+                void slaHuidigeRuimteAkkoordOp()
+              }
+              className="mt-4 w-full rounded-xl bg-emerald-700 px-5 py-5 text-lg font-bold text-white disabled:opacity-50"
+            >
+              {ruimteAkkoordBezig
+                ? "Ruimte opslaan..."
+                : "Alles in deze ruimte akkoord"}
+            </button>
+          </section>
         )}
 
         <div className="mt-5 space-y-5">
@@ -1344,6 +1570,73 @@ export default function ControleurFlow({
           })}
         </div>
 
+        {ruimteIndex === ruimten.length - 1 && (
+          <section className="mt-6 rounded-2xl bg-white p-5 shadow">
+            <h3 className="text-xl font-bold">
+              Eindcontrole
+            </h3>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl bg-slate-100 p-4">
+                <p className="text-sm text-slate-600">
+                  Ontbrekende verplichte punten
+                </p>
+                <p className="mt-1 text-2xl font-bold">
+                  {ontbrekendeVerplichtePunten.length}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-amber-50 p-4">
+                <p className="text-sm text-amber-800">
+                  Vastgelegde afwijkingen
+                </p>
+                <p className="mt-1 text-2xl font-bold text-amber-950">
+                  {afwijkendePuntIds.size}
+                </p>
+              </div>
+            </div>
+
+            {ontbrekendeVerplichtePunten.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {ontbrekendeVerplichtePunten.map(
+                  (punt) => (
+                    <button
+                      key={
+                        punt.woning_controlepunt_id
+                      }
+                      type="button"
+                      onClick={() => {
+                        const index =
+                          ruimten.findIndex(
+                            (ruimte) =>
+                              ruimte.id ===
+                              punt.ruimte_id,
+                          );
+
+                        if (index >= 0) {
+                          setRuimteIndex(index);
+                          window.scrollTo({
+                            top: 0,
+                            behavior: "smooth",
+                          });
+                        }
+                      }}
+                      className="block w-full rounded-xl border border-red-200 bg-red-50 p-4 text-left"
+                    >
+                      <span className="font-bold text-red-900">
+                        {punt.ruimte_naam}
+                      </span>
+                      <span className="mt-1 block text-sm text-red-800">
+                        {punt.controlepunt_naam}
+                      </span>
+                    </button>
+                  ),
+                )}
+              </div>
+            )}
+          </section>
+        )}
+
         <div className="mt-6 grid grid-cols-2 gap-3">
           <button
             type="button"
@@ -1361,14 +1654,7 @@ export default function ControleurFlow({
           {ruimteIndex < ruimten.length - 1 ? (
             <button
               type="button"
-              onClick={() =>
-                setRuimteIndex((huidig) =>
-                  Math.min(
-                    ruimten.length - 1,
-                    huidig + 1,
-                  ),
-                )
-              }
+              onClick={gaNaarVolgendeRuimte}
               className="rounded-xl bg-blue-700 px-4 py-4 font-bold text-white"
             >
               Volgende ruimte

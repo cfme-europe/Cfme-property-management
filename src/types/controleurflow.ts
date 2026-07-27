@@ -82,6 +82,11 @@ export type ControleResultaat = {
   opmerkingen: string | null;
 };
 
+export type RuimteAkkoordResultaat = {
+  controle_resultaat_id: number;
+  woning_controlepunt_id: number;
+};
+
 export type ControleAfwijking = {
   id: number;
   controle_resultaat_id: number;

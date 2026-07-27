@@ -651,3 +651,63 @@ test("9.0B beschermt capaciteit en bestaande bewonershistorie", () => {
   assert.match(migratie, /set actief = false/i);
   assert.doesNotMatch(migratie, /delete from public\.kamers/i);
 });
+
+
+test("9.0C normale ruimte wordt met één hoofdhandeling opgeslagen", () => {
+  const flow = lees(
+    "src/components/controleur/ControleurFlow.tsx",
+  );
+  const service = lees(
+    "src/services/controleurflow.ts",
+  );
+  const migratie = lees(
+    "supabase/migrations/20260727200000_9_0c_inspection_ruimteakkoord.sql",
+  );
+
+  assert.match(flow, /Alles in deze ruimte akkoord/);
+  assert.match(flow, /slaHuidigeRuimteAkkoordOp/);
+  assert.match(flow, /gaNaarVolgendeRuimte/);
+  assert.match(flow, /Eindcontrole/);
+  assert.match(flow, /Ontbrekende verplichte punten/);
+  assert.match(flow, /Vastgelegde afwijkingen/);
+  assert.match(service, /slaRuimteAkkoordOp/);
+  assert.match(service, /sla_ruimte_akkoord_op/);
+  assert.match(
+    migratie,
+    /create or replace function public\.sla_ruimte_akkoord_op/,
+  );
+  assert.match(
+    migratie,
+    /on conflict[\s\S]*controlesessie_id[\s\S]*woning_controlepunt_id/i,
+  );
+});
+
+test("9.0C ruimteakkoord overschrijft geen gekozen afwijkingen of meters", () => {
+  const flow = lees(
+    "src/components/controleur/ControleurFlow.tsx",
+  );
+  const migratie = lees(
+    "supabase/migrations/20260727200000_9_0c_inspection_ruimteakkoord.sql",
+  );
+
+  assert.match(
+    flow,
+    /huidigeNormalePunten[\s\S]*!isMeterpunt/,
+  );
+  assert.match(
+    flow,
+    /afwijkingGekozen[\s\S]*!afwijkingGekozen/,
+  );
+  assert.match(
+    migratie,
+    /status = 'niet_relevant'/,
+  );
+  assert.match(
+    migratie,
+    /mag_controles_uitvoeren\(\)/,
+  );
+  assert.doesNotMatch(
+    migratie,
+    /to anon/i,
+  );
+});
