@@ -32,6 +32,16 @@ function valideer(
     throw new Error("Ongeldige woning.");
   }
 
+  if (
+    invoer.object_id !== null &&
+    (
+      !Number.isInteger(invoer.object_id) ||
+      invoer.object_id <= 0
+    )
+  ) {
+    throw new Error("Ongeldig object.");
+  }
+
   if (!toegestaneTypes.includes(invoer.type)) {
     throw new Error("Ongeldig certificeringstype.");
   }
@@ -78,6 +88,7 @@ function valideer(
 
   return {
     woning_id: invoer.woning_id,
+    object_id: invoer.object_id,
     type: invoer.type,
     naam,
     installatie_omschrijving: schoon(
@@ -161,13 +172,12 @@ export async function createCertificering(
   invoer: CertificeringInvoer
 ): Promise<Certificering> {
   const geldig = valideer(invoer);
-
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("certificeringen")
     .insert(geldig)
-    .select("*")
+    .select("id")
     .single();
 
   if (error) {
@@ -205,7 +215,6 @@ export async function updateCertificering(
   }
 
   const geldig = valideer(invoer);
-
   const supabase = await createClient();
 
   const { data, error } = await supabase

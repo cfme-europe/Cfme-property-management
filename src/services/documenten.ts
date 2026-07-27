@@ -234,6 +234,22 @@ export async function createDocument(
   const bestand = valideerBestand(
     formData.get("bestand")
   );
+  const objectIdWaarde = schoon(
+    formData.get("object_id")
+  );
+  const objectId = objectIdWaarde
+    ? Number(objectIdWaarde)
+    : null;
+
+  if (
+    objectId !== null &&
+    (
+      !Number.isInteger(objectId) ||
+      objectId <= 0
+    )
+  ) {
+    throw new Error("Ongeldig object.");
+  }
 
   if (!titel) {
     throw new Error("Titel is verplicht.");
@@ -263,6 +279,7 @@ export async function createDocument(
       .from("documenten")
       .insert({
         woning_id: woningId,
+        object_id: objectId,
         titel,
         document_type: documentType,
         omschrijving,

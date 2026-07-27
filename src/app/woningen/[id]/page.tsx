@@ -148,6 +148,13 @@ export default async function WoningDossierPage({
             </Link>
 
             <Link
+              href={`/woningen/${woning.id}/compliance`}
+              className="rounded-xl border border-emerald-700 px-4 py-3 font-medium text-emerald-800"
+            >
+              Compliance
+            </Link>
+
+            <Link
               href={`/woningen/${woning.id}/configuratie`}
               className="rounded-xl border border-blue-700 px-5 py-3 font-medium text-blue-800"
             >

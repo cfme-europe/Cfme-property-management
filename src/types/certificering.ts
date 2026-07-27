@@ -16,6 +16,12 @@ export type Certificering = {
   created_at: string;
   updated_at: string;
   woning_id: number;
+  object_id: number | null;
+  object_naam: string | null;
+  object_type: string | null;
+  objectnummer: string | null;
+  ruimte_id: number | null;
+  ruimte_naam: string | null;
   type: CertificeringType;
   naam: string;
   installatie_omschrijving: string | null;
@@ -36,6 +42,7 @@ export type Certificering = {
 
 export type CertificeringInvoer = {
   woning_id: number;
+  object_id: number | null;
   type: CertificeringType;
   naam: string;
   installatie_omschrijving: string | null;

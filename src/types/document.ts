@@ -24,6 +24,12 @@ export type DocumentOverzicht = {
   created_at: string;
   updated_at: string;
   woning_id: number;
+  object_id: number | null;
+  object_naam: string | null;
+  object_type: string | null;
+  objectnummer: string | null;
+  ruimte_id: number | null;
+  ruimte_naam: string | null;
   titel: string;
   document_type: DocumentType;
   omschrijving: string | null;

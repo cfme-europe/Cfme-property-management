@@ -1,13 +1,23 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import {
+  useEffect,
+  useState,
+  type FormEvent,
+} from "react";
+import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 import { certificeringOpslaan } from "@/app/woningen/[id]/certificeringen/actions";
 import type {
   Certificering,
   CertificeringInvoer,
   CertificeringType,
 } from "@/types/certificering";
+import type {
+  ComplianceObjectOptie,
+} from "@/types/compliance";
 
 type Props = {
   woningId: number;
@@ -27,7 +37,27 @@ export default function CertificeringForm({
   certificering,
 }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const objectIdUitUrl = Number(
+    searchParams.get("objectId") ?? ""
+  );
 
+  const [objecten, setObjecten] = useState<
+    ComplianceObjectOptie[]
+  >([]);
+  const [objectenLaden, setObjectenLaden] =
+    useState(true);
+  const [objectId, setObjectId] = useState(
+    String(
+      certificering?.object_id ??
+        (
+          Number.isInteger(objectIdUitUrl) &&
+          objectIdUitUrl > 0
+            ? objectIdUitUrl
+            : ""
+        )
+    )
+  );
   const [type, setType] = useState<CertificeringType>(
     certificering?.type ?? "scope"
   );
@@ -69,6 +99,50 @@ export default function CertificeringForm({
   const [bezig, setBezig] = useState(false);
   const [fout, setFout] = useState("");
 
+  useEffect(() => {
+    let actief = true;
+
+    async function laden() {
+      try {
+        const response = await fetch(
+          `/api/woningen/${woningId}/objecten`,
+          { cache: "no-store" }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            "Objecten konden niet worden geladen."
+          );
+        }
+
+        const data =
+          (await response.json()) as ComplianceObjectOptie[];
+
+        if (actief) {
+          setObjecten(data);
+        }
+      } catch (error) {
+        if (actief) {
+          setFout(
+            error instanceof Error
+              ? error.message
+              : "Objecten laden mislukt."
+          );
+        }
+      } finally {
+        if (actief) {
+          setObjectenLaden(false);
+        }
+      }
+    }
+
+    void laden();
+
+    return () => {
+      actief = false;
+    };
+  }, [woningId]);
+
   const invoerClass =
     "w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-600";
 
@@ -81,6 +155,7 @@ export default function CertificeringForm({
 
     const invoer: CertificeringInvoer = {
       woning_id: woningId,
+      object_id: objectId ? Number(objectId) : null,
       type,
       naam,
       installatie_omschrijving:
@@ -106,7 +181,7 @@ export default function CertificeringForm({
         invoer
       );
 
-      router.push(`/woningen/${woningId}`);
+      router.push(`/woningen/${woningId}/compliance`);
       router.refresh();
     } catch (error) {
       setFout(
@@ -128,6 +203,34 @@ export default function CertificeringForm({
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
+        <label>
+          <span className="mb-1 block text-sm font-medium">
+            Object
+          </span>
+
+          <select
+            value={objectId}
+            disabled={objectenLaden}
+            onChange={(event) =>
+              setObjectId(event.target.value)
+            }
+            className={invoerClass}
+          >
+            <option value="">
+              Woningbrede certificering
+            </option>
+
+            {objecten.map((object) => (
+              <option key={object.id} value={object.id}>
+                {object.ruimte_naam} — {object.naam}
+                {object.objectnummer
+                  ? ` (${object.objectnummer})`
+                  : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <label>
           <span className="mb-1 block text-sm font-medium">
             Type *
@@ -170,7 +273,7 @@ export default function CertificeringForm({
 
         <label>
           <span className="mb-1 block text-sm font-medium">
-            Installatie of object
+            Installatieomschrijving
           </span>
 
           <input
@@ -181,7 +284,6 @@ export default function CertificeringForm({
               )
             }
             className={invoerClass}
-            placeholder="Bijvoorbeeld cv-ketel zolder"
           />
         </label>
 
@@ -215,27 +317,6 @@ export default function CertificeringForm({
 
         <label>
           <span className="mb-1 block text-sm font-medium">
-            Waarschuwing vooraf
-          </span>
-
-          <input
-            required
-            type="number"
-            min="0"
-            max="365"
-            step="1"
-            value={waarschuwingsdagen}
-            onChange={(event) =>
-              setWaarschuwingsdagen(
-                event.target.value
-              )
-            }
-            className={invoerClass}
-          />
-        </label>
-
-        <label>
-          <span className="mb-1 block text-sm font-medium">
             Keuringsdatum *
           </span>
 
@@ -258,10 +339,31 @@ export default function CertificeringForm({
           <input
             required
             type="date"
-            value={geldigTot}
             min={keuringsdatum}
+            value={geldigTot}
             onChange={(event) =>
               setGeldigTot(event.target.value)
+            }
+            className={invoerClass}
+          />
+        </label>
+
+        <label>
+          <span className="mb-1 block text-sm font-medium">
+            Waarschuwing vooraf
+          </span>
+
+          <input
+            required
+            type="number"
+            min="0"
+            max="365"
+            step="1"
+            value={waarschuwingsdagen}
+            onChange={(event) =>
+              setWaarschuwingsdagen(
+                event.target.value
+              )
             }
             className={invoerClass}
           />
