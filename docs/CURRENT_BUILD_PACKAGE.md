@@ -6,8 +6,8 @@
 **Repository:** cfme-europe/Cfme-property-management
 **Branch:** main
 **HEAD:** 50ab7a3
-**Laatste afgeronde bouwblok:** 9.0D Occupancy Intelligence
-**Eerstvolgende bouwblok:** 9.0E Maintenance Intelligence
+**Laatste afgeronde bouwblok:** 9.0E Maintenance Intelligence
+**Eerstvolgende bouwblok:** 9.0F Compliance Intelligence
 
 ---
 
@@ -472,3 +472,45 @@ Eindcontrole:
 Volgend bouwblok:
 
 `9.0E Maintenance Intelligence`
+
+---
+
+## 15. BEWEZEN AFGEROND — BOUWBLOK 9.0E
+
+Gerealiseerd:
+
+- transactionele onderhoudsopvolging;
+- controleafwijking als primaire bron;
+- automatische koppeling met melding en taak;
+- herstel, oplossing, verantwoordelijke en deadline;
+- hercontrole en automatische hercontroletaak;
+- geschatte en werkelijke kosten;
+- factuurontvanger en gevolgen;
+- herstelbewijsstatus en beoordelingsregistratie;
+- blokkade op afsluiten zonder goedgekeurd verplicht herstelbewijs;
+- bewijsfoto-upload via bestaande inspectiefoto-opslag;
+- directe koppeling van bewijsfoto aan controleafwijking;
+- zichtbare melding- en taakstatus;
+- doorlooptijd en deadlineoverschrijding;
+- herkenning van terugkerende problemen.
+
+Migratie:
+
+- `20260727230000_9_0e_maintenance_intelligence.sql`.
+
+Eindcontrole:
+
+- 38 van 38 tests geslaagd;
+- ESLint schoon;
+- TypeScript en productiebuild schoon;
+- database-lint schoon;
+- Supabase dry-run schoon;
+- remote database volledig bijgewerkt.
+
+Commit:
+
+- `1b4b6e9` — `9.0E maintenance intelligence`.
+
+Volgend bouwblok:
+
+`9.0F Compliance Intelligence`

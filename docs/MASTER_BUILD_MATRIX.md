@@ -285,30 +285,31 @@ Gerealiseerd:
 - gebruikers zien direct bezetting, capaciteit en vrije plaatsen;
 - database-lint, tests, lint, build en Supabase dry-run zijn schoon.
 
-### 9.0E Maintenance Intelligence — ⬜ Gepland
+### 9.0E Maintenance Intelligence — ✅ Gereed
 
-Doel:
+Gerealiseerd:
 
-Afwijking, melding, taak, herstel, kosten en facturatie als één keten.
-
-Scope:
-
-- één afwijkingsbron;
-- automatische categorie en prioriteit;
-- passende melding en taak;
-- verantwoordelijke;
-- herstelbewijs;
-- hercontrole;
+- controleafwijking blijft de primaire onderhoudsbron;
+- melding en taak blijven automatisch en idempotent gekoppeld;
+- één transactionele databasefunctie beheert de volledige onderhoudsopvolging;
+- verantwoordelijke, deadline, herstel, oplossing en hercontrole;
+- automatische hercontroletaak via de bestaande opvolgingsketen;
 - geschatte en werkelijke kosten;
-- factuurontvanger;
-- doorlooptijd;
-- terugkerende schade;
-- woning- en objecthistorie.
+- factuurontvanger en financiële en operationele gevolgen;
+- herstelbewijsstatus: vereist, aangeleverd, goedgekeurd of afgekeurd;
+- verplicht herstelbewijs blokkeert afsluiting totdat bewijs is goedgekeurd;
+- bestaande inspectiefoto-opslag wordt hergebruikt voor herstelbewijs;
+- bewijsfoto’s worden direct aan de controleafwijking gekoppeld;
+- gekoppelde melding- en taakstatus zijn zichtbaar;
+- doorlooptijd en deadlineoverschrijding zijn zichtbaar;
+- terugkerende problemen worden herkend per woning, ruimte, object, controlepunt en gebrekstype;
+- bestaande automatische opvolging blijft de enige synchronisatiebron;
+- 38 van 38 tests, ESLint, build, database-lint en Supabase dry-run zijn schoon.
 
 Afhankelijkheden:
 
 - Inspection Engine;
-- bestaande meldingen/takenbasis.
+- bestaande meldingen-, taken- en inspectiefotobasis.
 
 ### 9.0F Compliance Intelligence — ⬜ Gepland
 
