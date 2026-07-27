@@ -204,6 +204,47 @@ export type WoningControlepuntInvoer = {
   opmerkingen?: string | null;
 };
 
+
+export type WoningrouteVerdiepingInvoer = {
+  id?: number | null;
+  naam: string;
+  niveau: number;
+  loopvolgorde: number;
+  opmerkingen?: string | null;
+};
+
+export type WoningrouteObjectInvoer = {
+  id?: number | null;
+  naam: string;
+  object_type: string;
+};
+
+export type WoningrouteRuimteInvoer = {
+  id?: number | null;
+  naam: string;
+  ruimte_type: RuimteType;
+  buiten: boolean;
+  verdieping_naam: string | null;
+  capaciteit: number | null;
+  route_instructie: string | null;
+  controles: string[];
+  objecten: WoningrouteObjectInvoer[];
+};
+
+export type WoningrouteOpslagInvoer = {
+  verdiepingen: WoningrouteVerdiepingInvoer[];
+  ruimten: WoningrouteRuimteInvoer[];
+};
+
+export type WoningrouteOpslagResultaat = {
+  woning_id: number;
+  verdiepingen: number;
+  ruimten: number;
+  slaapkamers: number;
+  objecten: number;
+  controlepunten: number;
+};
+
 export type WoningConfiguratie = {
   verdiepingen: WoningVerdieping[];
   ruimten: WoningRuimte[];

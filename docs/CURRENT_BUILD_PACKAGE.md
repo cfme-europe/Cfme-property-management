@@ -1,13 +1,13 @@
 # CFME CONTROL — CURRENT BUILD PACKAGE
 
-**Status:** Actief overdrachtspunt  
-**Versie:** 1.0  
-**Datum:** 27 juli 2026  
-**Repository:** cfme-europe/Cfme-property-management  
-**Branch:** main  
-**HEAD:** 50ab7a3  
-**Laatste afgeronde bouwblok:** 9.0A Reality Engine + Energy Intelligence  
-**Eerstvolgende bouwblok:** 9.0B Reality Engine — volledige invoernorm
+**Status:** Actief overdrachtspunt
+**Versie:** 1.0
+**Datum:** 27 juli 2026
+**Repository:** cfme-europe/Cfme-property-management
+**Branch:** main
+**HEAD:** 50ab7a3
+**Laatste afgeronde bouwblok:** 9.0B Reality Engine — volledige invoernorm
+**Eerstvolgende bouwblok:** 9.0C Inspection Engine — ruimteakkoord
 
 ---
 
@@ -347,8 +347,8 @@ Deze documenten zijn bindend.
 
 Geen nieuwe brainstorm, geen herontwerp en geen algemene inventarisatie.
 
-Repository: cfme-europe/Cfme-property-management  
-Branch: main  
+Repository: cfme-europe/Cfme-property-management
+Branch: main
 Verwachte HEAD: 50ab7a3
 
 Start uitsluitend met:
@@ -364,3 +364,42 @@ Verifieer daarna alleen de gerichte scope van bouwblok 9.0B.
 Communiceer uitsluitend in het Nederlands, kort en zakelijk.
 
 Terminalopdrachten beginnen altijd met clear &&.
+
+---
+
+## 12. BEWEZEN AFGEROND — BOUWBLOK 9.0B
+
+Gerealiseerd:
+
+- één begeleide woningconfiguratie;
+- automatische standaardroute;
+- onbeperkte ruimten en verdiepingen;
+- capaciteit per slaapkamer in dezelfde flow;
+- automatische bewonerskamerkoppeling;
+- transactionele opslag van verdiepingen, ruimten, objecten en controlepunten;
+- veilige deactivering zonder vernietiging van historie;
+- automatische objectnummering;
+- routepreview;
+- geavanceerd beheer uitsluitend voor uitzonderingen;
+- kamerbeheer herpositioneerd naar capaciteit en historie;
+- zelfstandige primaire kameraanmaak verwijderd;
+- onveilige capaciteitsverlaging en slaapkamerdeactivering geblokkeerd;
+- aangescherpte kamerrechten.
+
+Migraties:
+
+- `20260727190000_9_0b_reality_volledige_invoernorm.sql`;
+- `20260727193000_9_0b_reality_lintcorrectie.sql`.
+
+Eindcontrole:
+
+- 32 van 32 tests geslaagd;
+- ESLint schoon;
+- TypeScript en productiebuild schoon;
+- database-lint schoon;
+- Supabase dry-run schoon;
+- remote database volledig bijgewerkt.
+
+Volgend bouwblok:
+
+`9.0C Inspection Engine — ruimteakkoord`

@@ -1,9 +1,9 @@
 # CFME CONTROL — MASTER BUILD MATRIX
 
-**Status:** Bindend  
-**Versie:** 1.0  
-**Repository:** `cfme-europe/Cfme-property-management`  
-**Branch:** `main`  
+**Status:** Bindend
+**Versie:** 1.0
+**Repository:** `cfme-europe/Cfme-property-management`
+**Branch:** `main`
 **Referentiecommit:** `50ab7a3`
 
 ---
@@ -230,40 +230,26 @@ Gerealiseerd:
 - 29/29 tests;
 - lint, build en database-lint groen.
 
-### 9.0B Reality Engine — volledige invoernorm — ⬜ Gepland
+### 9.0B Reality Engine — volledige invoernorm — ✅ Gereed
 
-Doel:
+Gerealiseerd:
 
-Alle woningconfiguratie laten voldoen aan:
-
-- werkelijkheid één keer beschrijven;
-- automatische standaardroute;
-- automatische object- en controlepuntvoorstellen;
-- alleen uitzonderingen configureren;
-- geen dubbele invoer.
-
-Scope:
-
-- slaapkamer-capaciteit in routewizard;
-- kamerbeheer alleen voor bezetting en historie;
-- logisch standaardverdiepingsvoorstel;
-- grote omhoog/omlaagbediening;
-- automatische nummering;
-- routepreview;
-- activeren in één handeling;
-- objectdetails alleen waar noodzakelijk;
-- bestaande geavanceerde editor behouden voor uitzonderingen.
-
-Afhankelijkheden:
-
-- 9.0A gereed.
-
-Acceptatie:
-
-- nieuwe woning kan zonder afzonderlijke kamerconfiguratie volledig worden ingericht;
-- route, kamers, objecten en controlepunten ontstaan uit één invoer;
-- bestaande data blijft behouden;
-- geen dubbele kamers.
+- woning wordt één keer beschreven via de begeleide routewizard;
+- slaapkamercapaciteit wordt in dezelfde flow vastgelegd;
+- fysieke slaapkamer en bewonerskamer blijven automatisch gekoppeld;
+- één transactionele databasefunctie activeert de volledige woningroute;
+- standaardverdiepingen worden logisch voorgesteld en onbeperkt uitgebreid;
+- kunstmatige aantallimiet verwijderd;
+- routevolgorde en objectnummering ontstaan automatisch;
+- route wordt aangepast met grote omhoog- en omlaagbediening;
+- standaardobjecten en controlepunten worden automatisch voorgesteld;
+- technische keuzes staan onder geavanceerde uitzonderingen;
+- routepreview toont verdieping, capaciteit, objecten en controlepunten;
+- zelfstandige primaire kameraanmaak en verwijderen zijn uit kamerbeheer verwijderd;
+- historische kamers en bewonershistorie blijven behouden;
+- onveilige capaciteitsverlaging of slaapkamerdeactivering wordt geblokkeerd;
+- kamerrechten zijn aangescherpt;
+- database-lint, tests, lint, build en Supabase dry-run zijn schoon.
 
 ### 9.0C Inspection Engine — ruimteakkoord — ⬜ Gepland
 

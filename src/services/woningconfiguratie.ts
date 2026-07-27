@@ -8,6 +8,8 @@ import type {
   WoningObjectInvoer,
   WoningControlepunt,
   WoningControlepuntInvoer,
+  WoningrouteOpslagInvoer,
+  WoningrouteOpslagResultaat,
 } from "@/types/woningconfiguratie";
 
 const supabase = createClient();
@@ -278,4 +280,43 @@ export async function updateControlepunt(
   if (!data) throw new Error("Controlepunt niet gevonden.");
 
   return data as WoningControlepunt;
+}
+
+
+export async function slaVolledigeWoningrouteOp(
+  woningId: number,
+  configuratie: WoningrouteOpslagInvoer,
+): Promise<WoningrouteOpslagResultaat> {
+  geldigId(woningId, "woning");
+
+  if (!Array.isArray(configuratie.ruimten) || configuratie.ruimten.length === 0) {
+    throw new Error("Kies minimaal één ruimte.");
+  }
+
+  for (const ruimte of configuratie.ruimten) {
+    if (!ruimte.naam.trim()) {
+      throw new Error("Iedere ruimte moet een naam hebben.");
+    }
+
+    if (
+      ruimte.ruimte_type === "slaapkamer" &&
+      (!Number.isInteger(ruimte.capaciteit) ||
+        (ruimte.capaciteit ?? 0) < 1)
+    ) {
+      throw new Error(
+        `Capaciteit van slaapkamer "${ruimte.naam}" moet minimaal 1 zijn.`,
+      );
+    }
+  }
+
+  const { data, error } = await supabase.rpc("sla_woningroute_op", {
+    p_woning_id: woningId,
+    p_configuratie: configuratie,
+  });
+
+  if (error) {
+    throw new Error(`Woningroute opslaan mislukt: ${error.message}`);
+  }
+
+  return data as WoningrouteOpslagResultaat;
 }

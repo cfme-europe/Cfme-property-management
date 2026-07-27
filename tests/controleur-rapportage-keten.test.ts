@@ -553,9 +553,9 @@ test("woningconfiguratie gebruikt een begeleide routewizard met buitenruimten", 
     "src/app/woningen/[id]/configuratie/page.tsx",
   );
 
-  assert.match(wizard, /Ruimten kiezen/);
-  assert.match(wizard, /Looproute bepalen/);
-  assert.match(wizard, /Inhoud en controles/);
+  assert.match(wizard, /Aanwezige ruimten/);
+  assert.match(wizard, /Looproute/);
+  assert.match(wizard, /Noodzakelijke details/);
   assert.match(wizard, /Achtertuin/);
   assert.match(wizard, /Buitenberging/);
   assert.match(wizard, /Containerplaats/);
@@ -602,4 +602,52 @@ test("controleur neemt meters en internet met minimale handelingen op", () => {
   assert.match(migratie, /mag_controles_uitvoeren/);
   assert.match(migratie, /METER_DAGSTROOM/);
   assert.match(migratie, /INTERNET_WERKING/);
+});
+
+
+test("9.0B woningroute gebruikt één transactionele invoernorm", () => {
+  const wizard = lees(
+    "src/components/woningconfiguratie/WoningrouteWizard.tsx",
+  );
+  const service = lees(
+    "src/services/woningconfiguratie.ts",
+  );
+  const migratie = lees(
+    "supabase/migrations/20260727190000_9_0b_reality_volledige_invoernorm.sql",
+  );
+
+  assert.match(wizard, /slaVolledigeWoningrouteOp/);
+  assert.match(wizard, /capaciteit/);
+  assert.doesNotMatch(wizard, /Math\.min\(20/);
+  assert.match(service, /sla_woningroute_op/);
+  assert.match(migratie, /create or replace function public\.sla_woningroute_op/);
+  assert.match(migratie, /perform public\.controleer_reality_engine\(\)/);
+  assert.match(migratie, /revoke all[\s\S]*from public, anon/i);
+});
+
+test("9.0B kamerbeheer maakt geen zelfstandige kamers meer", () => {
+  const beheer = lees(
+    "src/components/kamers/Kamerbeheer.tsx",
+  );
+  const service = lees(
+    "src/services/kamers.ts",
+  );
+
+  assert.doesNotMatch(beheer, /Nieuwe kamer toevoegen/);
+  assert.doesNotMatch(beheer, /Kamer toevoegen/);
+  assert.doesNotMatch(beheer, /Verwijderen/);
+  assert.doesNotMatch(service, /export async function createKamer/);
+  assert.doesNotMatch(service, /export async function deleteKamer/);
+  assert.match(beheer, /Bewonerskamers uit de fysieke woningroute/);
+});
+
+test("9.0B beschermt capaciteit en bestaande bewonershistorie", () => {
+  const migratie = lees(
+    "supabase/migrations/20260727190000_9_0b_reality_volledige_invoernorm.sql",
+  );
+
+  assert.match(migratie, /capaciteit[\s\S]*actuele bezetting/i);
+  assert.match(migratie, /actieve bewoners aan gekoppeld/i);
+  assert.match(migratie, /set actief = false/i);
+  assert.doesNotMatch(migratie, /delete from public\.kamers/i);
 });

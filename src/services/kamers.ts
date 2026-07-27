@@ -65,24 +65,6 @@ export async function getKamerById(
   return data as Kamer | null;
 }
 
-export async function createKamer(
-  invoer: KamerInvoer
-): Promise<Kamer> {
-  const geldig = valideer(invoer);
-
-  const { data, error } = await supabase
-    .from("kamers")
-    .insert(geldig)
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(`Kamer opslaan mislukt: ${error.message}`);
-  }
-
-  return data as Kamer;
-}
-
 export async function updateKamer(
   kamerId: number,
   invoer: KamerInvoer
@@ -110,19 +92,4 @@ export async function updateKamer(
   }
 
   return data as Kamer;
-}
-
-export async function deleteKamer(
-  kamerId: number,
-  woningId: number
-): Promise<void> {
-  const { error } = await supabase
-    .from("kamers")
-    .delete()
-    .eq("id", kamerId)
-    .eq("woning_id", woningId);
-
-  if (error) {
-    throw new Error(`Kamer verwijderen mislukt: ${error.message}`);
-  }
 }
