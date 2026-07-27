@@ -334,12 +334,148 @@ export default function WoningconfiguratieBeheer({
             <h2 className="text-xl font-bold">
               {verdieping ? "Verdieping bewerken" : "Verdieping toevoegen"}
             </h2>
-            <div className="mt-5 grid gap-4 md:grid-cols-3">
-              <input required value={verdiepingNaam} onChange={(e) => setVerdiepingNaam(e.target.value)} className={invoerClass} placeholder="Naam" />
-              <input required type="number" step="1" value={niveau} onChange={(e) => setNiveau(e.target.value)} className={invoerClass} placeholder="Niveau" />
-              <input required type="number" min="0" step="1" value={verdiepingVolgorde} onChange={(e) => setVerdiepingVolgorde(e.target.value)} className={invoerClass} placeholder="Loopvolgorde" />
+            <div className="mt-5">
+              <p className="text-sm font-semibold text-slate-700">
+                Veelgebruikte verdiepingen
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Kies een voorbeeld om naam en niveau automatisch in te vullen.
+              </p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[
+                  {
+                    naam: "Kelder",
+                    niveau: "-1",
+                  },
+                  {
+                    naam: "Begane grond",
+                    niveau: "0",
+                  },
+                  {
+                    naam: "Eerste verdieping",
+                    niveau: "1",
+                  },
+                  {
+                    naam: "Tweede verdieping",
+                    niveau: "2",
+                  },
+                  {
+                    naam: "Zolder",
+                    niveau: "3",
+                  },
+                ].map((keuze) => {
+                  const geselecteerd =
+                    verdiepingNaam === keuze.naam &&
+                    niveau === keuze.niveau;
+
+                  return (
+                    <button
+                      key={keuze.naam}
+                      type="button"
+                      onClick={() => {
+                        setVerdiepingNaam(
+                          keuze.naam,
+                        );
+                        setNiveau(
+                          keuze.niveau,
+                        );
+                      }}
+                      className={`rounded-xl border px-4 py-3 text-sm font-semibold ${
+                        geselecteerd
+                          ? "border-emerald-700 bg-emerald-700 text-white"
+                          : "border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+                      }`}
+                    >
+                      {keuze.naam}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <textarea value={verdiepingOpmerking} onChange={(e) => setVerdiepingOpmerking(e.target.value)} className={`${invoerClass} mt-4`} placeholder="Opmerkingen" />
+
+            <div className="mt-5 grid gap-5 md:grid-cols-3">
+              <label className="block">
+                <span className="mb-1 block font-semibold text-slate-800">
+                  Naam verdieping *
+                </span>
+                <input
+                  required
+                  value={verdiepingNaam}
+                  onChange={(event) =>
+                    setVerdiepingNaam(
+                      event.target.value,
+                    )
+                  }
+                  className={invoerClass}
+                  placeholder="Bijvoorbeeld Begane grond"
+                />
+                <span className="mt-2 block text-sm text-slate-500">
+                  De herkenbare naam die beheer en controleur zien.
+                </span>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block font-semibold text-slate-800">
+                  Niveau *
+                </span>
+                <input
+                  required
+                  type="number"
+                  step="1"
+                  value={niveau}
+                  onChange={(event) =>
+                    setNiveau(
+                      event.target.value,
+                    )
+                  }
+                  className={invoerClass}
+                  placeholder="0"
+                />
+                <span className="mt-2 block text-sm text-slate-500">
+                  Kelder = -1, begane grond = 0, eerste verdieping = 1.
+                </span>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block font-semibold text-slate-800">
+                  Loopvolgorde *
+                </span>
+                <input
+                  required
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={verdiepingVolgorde}
+                  onChange={(event) =>
+                    setVerdiepingVolgorde(
+                      event.target.value,
+                    )
+                  }
+                  className={invoerClass}
+                  placeholder="1"
+                />
+                <span className="mt-2 block text-sm text-slate-500">
+                  Bepaalt wanneer deze verdieping in de controleroute komt.
+                </span>
+              </label>
+            </div>
+
+            <label className="mt-4 block">
+              <span className="mb-1 block font-semibold text-slate-800">
+                Opmerkingen
+              </span>
+              <textarea
+                value={verdiepingOpmerking}
+                onChange={(event) =>
+                  setVerdiepingOpmerking(
+                    event.target.value,
+                  )
+                }
+                className={invoerClass}
+                placeholder="Bijvoorbeeld alleen bereikbaar via buitentrap"
+              />
+            </label>
             <label className="mt-4 flex gap-3"><input type="checkbox" checked={verdiepingActief} onChange={(e) => setVerdiepingActief(e.target.checked)} /> Actief</label>
             <div className="mt-5 flex gap-3">
               <button disabled={bezig} className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white disabled:opacity-50">Opslaan</button>
