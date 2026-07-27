@@ -47,10 +47,11 @@ if (
 const verplichtWizard = [
   "Inhoud van deze ruimte",
   "Aanpassen",
-  "Ander object toevoegen",
-  "Object toevoegen",
+  "Aanbevolen voor deze ruimte",
+  "Zoek of typ een object",
+  "Toevoegen",
   "Aanpassingen gereed",
-  "voegVrijObjectToe",
+  "voegGezochtObjectToe",
 ];
 
 for (const term of verplichtWizard) {

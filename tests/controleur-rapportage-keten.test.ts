@@ -572,7 +572,11 @@ test("woningconfiguratie gebruikt een begeleide routewizard met buitenruimten", 
   );
   assert.match(
     wizard,
-    /Ander object toevoegen/,
+    /Aanbevolen voor deze ruimte/,
+  );
+  assert.match(
+    wizard,
+    /Zoek of typ een object/,
   );
 });
 

@@ -170,6 +170,119 @@ const OBJECTEN: Record<string, ObjectSjabloon> = {
     naam: "Overige internetvoorziening",
     objectType: "internetvoorziening",
   },
+  stoel: {
+    code: "stoel",
+    naam: "Stoel",
+    objectType: "stoel",
+  },
+  tafel: {
+    code: "tafel",
+    naam: "Tafel",
+    objectType: "tafel",
+  },
+  kast: {
+    code: "kast",
+    naam: "Kast",
+    objectType: "kast",
+  },
+  stellingkast: {
+    code: "stellingkast",
+    naam: "Stellingkast",
+    objectType: "stellingkast",
+  },
+  vriezer: {
+    code: "vriezer",
+    naam: "Vriezer",
+    objectType: "vriezer",
+  },
+  boiler: {
+    code: "boiler",
+    naam: "Boiler",
+    objectType: "boiler",
+  },
+  meterkast: {
+    code: "meterkast",
+    naam: "Meterkast",
+    objectType: "meterkast",
+  },
+  ventilatie: {
+    code: "ventilatie",
+    naam: "Ventilatie",
+    objectType: "ventilatie",
+  },
+  verlichting: {
+    code: "verlichting",
+    naam: "Verlichting",
+    objectType: "verlichting",
+  },
+  pomp: {
+    code: "pomp",
+    naam: "Pomp",
+    objectType: "pomp",
+  },
+};
+
+const AANBEVOLEN_OBJECTEN_PER_RUIMTETYPE: Record<
+  string,
+  string[]
+> = {
+  toegangsdeur: [
+    "rookmelder",
+    "verlichting",
+  ],
+  hal: [
+    "rookmelder",
+    "verlichting",
+    "kast",
+    "stoel",
+  ],
+  gang: [
+    "rookmelder",
+    "verlichting",
+    "kast",
+    "stoel",
+  ],
+  slaapkamer: [
+    "rookmelder",
+    "verlichting",
+    "kast",
+    "stoel",
+    "tafel",
+  ],
+  keuken: [
+    "rookmelder",
+    "koelkast",
+    "vriezer",
+    "kookplaat",
+    "afzuigkap",
+    "verlichting",
+  ],
+  technische_ruimte: [
+    "cv_ketel",
+    "boiler",
+    "meterkast",
+    "gasmeter",
+    "watermeter",
+    "ventilatie",
+    "rookmelder",
+    "brandblusser",
+  ],
+  wasruimte: [
+    "wasmachine",
+    "droger",
+    "ventilatie",
+    "verlichting",
+  ],
+  berging: [
+    "stellingkast",
+    "kast",
+    "vriezer",
+    "verlichting",
+  ],
+  buitenruimte: [
+    "buitenverlichting",
+    "afvalcontainer",
+  ],
 };
 
 const RUIMTE_SJABLONEN: RuimteSjabloon[] = [
@@ -697,8 +810,8 @@ export default function WoningrouteWizard({
   const [openRuimte, setOpenRuimte] = useState<string | null>(null);
   const [bewerkObjectenRuimte, setBewerkObjectenRuimte] =
     useState<string | null>(null);
-  const [vrijObjectType, setVrijObjectType] = useState("");
-  const [vrijObjectNaam, setVrijObjectNaam] = useState("");
+  const [objectZoektekst, setObjectZoektekst] =
+    useState("");
   const [vrijeNaam, setVrijeNaam] = useState("");
   const [vrijeBuitenruimte, setVrijeBuitenruimte] = useState(false);
   const [bezig, setBezig] = useState(false);
@@ -865,7 +978,7 @@ export default function WoningrouteWizard({
     ).length;
   }
 
-  function relevanteObjecten(
+  function aanbevolenObjecten(
     ruimte: GekozenRuimte,
   ): ObjectSjabloon[] {
     const ruimteSjabloon = RUIMTE_SJABLONEN.find(
@@ -875,9 +988,14 @@ export default function WoningrouteWizard({
 
     const codes = new Set([
       ...(ruimteSjabloon?.objecten ?? []),
-      ...ruimte.objecten.map(
-        (object) => object.code,
+      ...(
+        AANBEVOLEN_OBJECTEN_PER_RUIMTETYPE[
+          ruimte.ruimteType
+        ] ?? []
       ),
+      ...ruimte.objecten
+        .map((object) => object.code)
+        .filter((code) => Boolean(OBJECTEN[code])),
     ]);
 
     return Array.from(codes)
@@ -885,6 +1003,44 @@ export default function WoningrouteWizard({
       .filter(
         (object): object is ObjectSjabloon =>
           Boolean(object),
+      )
+      .sort((a, b) =>
+        a.naam.localeCompare(b.naam, "nl-NL"),
+      );
+  }
+
+  function zoekObjectSjabloon(
+    zoektekst: string,
+  ): ObjectSjabloon | null {
+    const zoekwaarde =
+      zoektekst.trim().toLowerCase();
+
+    if (!zoekwaarde) {
+      return null;
+    }
+
+    const genormaliseerd =
+      normaliseerObjectType(zoekwaarde);
+
+    return (
+      Object.values(OBJECTEN).find(
+        (object) =>
+          object.code === genormaliseerd ||
+          object.objectType === genormaliseerd ||
+          object.naam.toLowerCase() === zoekwaarde,
+      ) ?? null
+    );
+  }
+
+  function leesbareObjectNaam(
+    waarde: string,
+  ): string {
+    return waarde
+      .trim()
+      .replace(/[_-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/^./, (letter) =>
+        letter.toUpperCase(),
       );
   }
 
@@ -1025,49 +1181,6 @@ export default function WoningrouteWizard({
     });
   }
 
-  function wijzigObjectNaam(
-    ruimteSleutel: string,
-    objectSleutel: string,
-    naam: string,
-  ) {
-    const ruimte = ruimten.find(
-      (item) =>
-        item.sleutel === ruimteSleutel,
-    );
-
-    if (!ruimte) return;
-
-    wijzigRuimte(ruimteSleutel, {
-      objecten: ruimte.objecten.map(
-        (object) =>
-          object.sleutel === objectSleutel
-            ? {
-                ...object,
-                naam,
-              }
-            : object,
-      ),
-    });
-  }
-
-  function verwijderObject(
-    ruimteSleutel: string,
-    objectSleutel: string,
-  ) {
-    const ruimte = ruimten.find(
-      (item) => item.sleutel === ruimteSleutel,
-    );
-
-    if (!ruimte) return;
-
-    wijzigRuimte(ruimteSleutel, {
-      objecten: ruimte.objecten.filter(
-        (object) =>
-          object.sleutel !== objectSleutel,
-      ),
-    });
-  }
-
   function normaliseerObjectType(
     waarde: string,
   ): string {
@@ -1078,44 +1191,79 @@ export default function WoningrouteWizard({
       .replace(/^_+|_+$/g, "");
   }
 
-  function voegVrijObjectToe(
+  function voegGezochtObjectToe(
     ruimteSleutel: string,
   ) {
-    const type = normaliseerObjectType(
-      vrijObjectType,
-    );
-    const naam = vrijObjectNaam.trim();
+    const zoektekst =
+      objectZoektekst.trim();
 
-    if (!type || !naam) {
+    if (!zoektekst) {
       setFout(
-        "Vul voor het andere object zowel het objecttype als een herkenbare naam in.",
+        "Zoek of typ eerst een object.",
       );
       return;
     }
 
     const ruimte = ruimten.find(
-      (item) => item.sleutel === ruimteSleutel,
+      (item) =>
+        item.sleutel === ruimteSleutel,
     );
 
     if (!ruimte) return;
 
-    const nieuwObject: GekozenObject = {
-      sleutel: uniekeSleutel(type),
-      id: null,
-      code: type,
-      naam,
-      objectType: type,
-    };
+    const bestaandSjabloon =
+      zoekObjectSjabloon(zoektekst);
 
-    wijzigRuimte(ruimteSleutel, {
-      objecten: [
-        ...ruimte.objecten,
-        nieuwObject,
-      ],
-    });
+    if (bestaandSjabloon) {
+      wijzigObjectAantal(
+        ruimteSleutel,
+        bestaandSjabloon,
+        objectAantal(
+          ruimte,
+          bestaandSjabloon.code,
+        ) + 1,
+      );
+    } else {
+      const type =
+        normaliseerObjectType(zoektekst);
+      const basisNaam =
+        leesbareObjectNaam(zoektekst);
 
-    setVrijObjectType("");
-    setVrijObjectNaam("");
+      if (!type || !basisNaam) {
+        setFout(
+          "Het ingevoerde object is niet geldig.",
+        );
+        return;
+      }
+
+      const aantalBestaand =
+        ruimte.objecten.filter(
+          (object) =>
+            object.objectType === type,
+        ).length;
+
+      const nieuwObject: GekozenObject = {
+        sleutel: uniekeSleutel(type),
+        id: null,
+        code: type,
+        naam:
+          aantalBestaand === 0
+            ? basisNaam
+            : `${basisNaam} ${
+                aantalBestaand + 1
+              }`,
+        objectType: type,
+      };
+
+      wijzigRuimte(ruimteSleutel, {
+        objecten: [
+          ...ruimte.objecten,
+          nieuwObject,
+        ],
+      });
+    }
+
+    setObjectZoektekst("");
     setFout("");
   }
 
@@ -1635,7 +1783,8 @@ export default function WoningrouteWizard({
                             Inhoud van deze ruimte
                           </h4>
                           <p className="mt-1 text-sm text-slate-600">
-                            Apparatuur en overige afzonderlijk gevolgde objecten.
+                            Wat aanwezig is, wat logisch is
+                            en wat je zelf wilt toevoegen.
                           </p>
                         </div>
 
@@ -1651,9 +1800,7 @@ export default function WoningrouteWizard({
                                 ? ruimte.sleutel
                                 : null,
                             );
-
-                            setVrijObjectType("");
-                            setVrijObjectNaam("");
+                            setObjectZoektekst("");
                             setFout("");
                           }}
                           className={`rounded-xl px-5 py-3 font-bold ${
@@ -1670,295 +1817,179 @@ export default function WoningrouteWizard({
                         </button>
                       </div>
 
-                      {ruimte.objecten.length === 0 ? (
-                        <p className="mt-4 rounded-xl bg-slate-100 p-4 text-sm text-slate-600">
-                          Nog geen apparatuur of objecten
-                          geregistreerd.
-                        </p>
-                      ) : (
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {ruimte.objecten.map(
-                            (object) => (
-                              <span
-                                key={object.sleutel}
-                                className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800"
-                              >
-                                {object.naam}
-                              </span>
-                            ),
-                          )}
-                        </div>
-                      )}
+                      <div className="mt-5">
+                        <h5 className="font-bold">
+                          Aanwezig
+                        </h5>
+
+                        {ruimte.objecten.length === 0 ? (
+                          <p className="mt-3 rounded-xl bg-slate-100 p-4 text-sm text-slate-600">
+                            Nog geen objecten geregistreerd.
+                          </p>
+                        ) : (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {ruimte.objecten.map(
+                              (object) => (
+                                <span
+                                  key={object.sleutel}
+                                  className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold"
+                                >
+                                  {object.naam}
+                                </span>
+                              ),
+                            )}
+                          </div>
+                        )}
+                      </div>
 
                       {bewerkObjectenRuimte ===
                         ruimte.sleutel && (
-                        <div className="mt-6 space-y-5 border-t border-slate-200 pt-6">
-                          <div>
+                        <div className="mt-6 space-y-6 border-t border-slate-200 pt-6">
+                          <section>
                             <h5 className="font-bold">
-                              Veelgebruikte objecten
+                              Aanbevolen voor deze ruimte
                             </h5>
                             <p className="mt-1 text-sm text-slate-600">
-                              Pas alleen het werkelijk
-                              aanwezige aantal aan.
-                            </p>
-                          </div>
-
-                          {relevanteObjecten(
-                            ruimte,
-                          ).length === 0 ? (
-                            <p className="rounded-xl bg-slate-100 p-4 text-sm text-slate-600">
-                              Voor deze ruimte zijn geen
-                              standaardobjecten voorgesteld.
-                            </p>
-                          ) : (
-                            <div className="space-y-4">
-                              {relevanteObjecten(
-                                ruimte,
-                              ).map(
-                                (sjabloon) => {
-                                  const aantal =
-                                    objectAantal(
-                                      ruimte,
-                                      sjabloon.code,
-                                    );
-
-                                  const objecten =
-                                    ruimte.objecten.filter(
-                                      (object) =>
-                                        object.code ===
-                                        sjabloon.code,
-                                    );
-
-                                  return (
-                                    <article
-                                      key={
-                                        sjabloon.code
-                                      }
-                                      className="rounded-2xl border border-slate-200 p-4"
-                                    >
-                                      <div className="flex flex-wrap items-center justify-between gap-4">
-                                        <h6 className="font-bold">
-                                          {
-                                            sjabloon.naam
-                                          }
-                                        </h6>
-
-                                        <div className="flex items-center gap-3">
-                                          <button
-                                            type="button"
-                                            disabled={
-                                              aantal === 0
-                                            }
-                                            onClick={() =>
-                                              wijzigObjectAantal(
-                                                ruimte.sleutel,
-                                                sjabloon,
-                                                aantal - 1,
-                                              )
-                                            }
-                                            className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-400 text-2xl font-bold disabled:opacity-30"
-                                            aria-label={`${sjabloon.naam} verwijderen`}
-                                          >
-                                            −
-                                          </button>
-
-                                          <span className="min-w-8 text-center text-lg font-black">
-                                            {aantal}
-                                          </span>
-
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              wijzigObjectAantal(
-                                                ruimte.sleutel,
-                                                sjabloon,
-                                                aantal + 1,
-                                              )
-                                            }
-                                            className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-700 text-2xl font-bold text-white"
-                                            aria-label={`${sjabloon.naam} toevoegen`}
-                                          >
-                                            +
-                                          </button>
-                                        </div>
-                                      </div>
-
-                                      {objecten.length >
-                                        0 && (
-                                        <div className="mt-4 grid gap-3 md:grid-cols-2">
-                                          {objecten.map(
-                                            (
-                                              object,
-                                              objectIndex,
-                                            ) => (
-                                              <label
-                                                key={
-                                                  object.sleutel
-                                                }
-                                                className="block rounded-xl bg-slate-100 p-4"
-                                              >
-                                                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                                  Exemplaar{" "}
-                                                  {objectIndex +
-                                                    1}
-                                                  {object.id !==
-                                                  null
-                                                    ? ` · bestaand ${object.id}`
-                                                    : " · nieuw"}
-                                                </span>
-
-                                                <input
-                                                  required
-                                                  value={
-                                                    object.naam
-                                                  }
-                                                  onChange={(
-                                                    event,
-                                                  ) =>
-                                                    wijzigObjectNaam(
-                                                      ruimte.sleutel,
-                                                      object.sleutel,
-                                                      event
-                                                        .target
-                                                        .value,
-                                                    )
-                                                  }
-                                                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
-                                                  placeholder="Herkenbare naam"
-                                                />
-                                              </label>
-                                            ),
-                                          )}
-                                        </div>
-                                      )}
-                                    </article>
-                                  );
-                                },
-                              )}
-                            </div>
-                          )}
-
-                          <section className="rounded-2xl bg-slate-100 p-5">
-                            <h5 className="font-bold">
-                              Ander object toevoegen
-                            </h5>
-                            <p className="mt-1 text-sm text-slate-600">
-                              Bijvoorbeeld een vriezer,
-                              brandblusser, pomp, kast of
-                              afwijkend apparaat.
+                              Pas alleen het werkelijk aanwezige
+                              aantal aan.
                             </p>
 
                             <div className="mt-4 grid gap-3 md:grid-cols-2">
-                              <input
-                                value={vrijObjectType}
-                                onChange={(event) =>
-                                  setVrijObjectType(
-                                    event.target.value,
-                                  )
-                                }
-                                className="rounded-xl border border-slate-300 bg-white px-4 py-3"
-                                placeholder="Objecttype, bijvoorbeeld brandblusser"
-                              />
+                              {aanbevolenObjecten(
+                                ruimte,
+                              ).map((sjabloon) => {
+                                const aantal =
+                                  objectAantal(
+                                    ruimte,
+                                    sjabloon.code,
+                                  );
 
-                              <input
-                                value={vrijObjectNaam}
-                                onChange={(event) =>
-                                  setVrijObjectNaam(
-                                    event.target.value,
-                                  )
-                                }
-                                className="rounded-xl border border-slate-300 bg-white px-4 py-3"
-                                placeholder="Herkenbare naam"
-                              />
-                            </div>
+                                return (
+                                  <div
+                                    key={sjabloon.code}
+                                    className="flex min-h-20 items-center justify-between gap-4 rounded-xl border border-slate-200 p-4"
+                                  >
+                                    <span className="font-bold">
+                                      {sjabloon.naam}
+                                    </span>
 
-                            <button
-                              type="button"
-                              onClick={() =>
-                                voegVrijObjectToe(
-                                  ruimte.sleutel,
-                                )
-                              }
-                              className="mt-4 rounded-xl bg-slate-950 px-5 py-3 font-bold text-white"
-                            >
-                              Object toevoegen
-                            </button>
-                          </section>
-
-                          {ruimte.objecten.filter(
-                            (object) =>
-                              !OBJECTEN[
-                                object.code
-                              ],
-                          ).length > 0 && (
-                            <section>
-                              <h5 className="font-bold">
-                                Overige objecten
-                              </h5>
-
-                              <div className="mt-3 space-y-3">
-                                {ruimte.objecten
-                                  .filter(
-                                    (object) =>
-                                      !OBJECTEN[
-                                        object.code
-                                      ],
-                                  )
-                                  .map((object) => (
-                                    <div
-                                      key={
-                                        object.sleutel
-                                      }
-                                      className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 p-4"
-                                    >
-                                      <input
-                                        value={
-                                          object.naam
+                                    <div className="flex items-center gap-3">
+                                      <button
+                                        type="button"
+                                        disabled={
+                                          aantal === 0
                                         }
-                                        onChange={(
-                                          event,
-                                        ) =>
-                                          wijzigObjectNaam(
+                                        onClick={() =>
+                                          wijzigObjectAantal(
                                             ruimte.sleutel,
-                                            object.sleutel,
-                                            event.target
-                                              .value,
+                                            sjabloon,
+                                            aantal - 1,
                                           )
                                         }
-                                        className="min-w-60 flex-1 rounded-xl border border-slate-300 px-4 py-3"
-                                      />
+                                        className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-400 text-xl font-bold disabled:opacity-30"
+                                        aria-label={`${sjabloon.naam} verwijderen`}
+                                      >
+                                        −
+                                      </button>
 
-                                      <span className="rounded-full bg-slate-100 px-3 py-2 text-sm">
-                                        {
-                                          object.objectType
-                                        }
+                                      <span className="min-w-7 text-center text-lg font-black">
+                                        {aantal}
                                       </span>
 
                                       <button
                                         type="button"
                                         onClick={() =>
-                                          verwijderObject(
+                                          wijzigObjectAantal(
                                             ruimte.sleutel,
-                                            object.sleutel,
+                                            sjabloon,
+                                            aantal + 1,
                                           )
                                         }
-                                        className="rounded-xl border border-red-600 px-4 py-3 font-medium text-red-700"
+                                        className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-700 text-xl font-bold text-white"
+                                        aria-label={`${sjabloon.naam} toevoegen`}
                                       >
-                                        Verwijderen
+                                        +
                                       </button>
                                     </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </section>
+
+                          <section className="rounded-2xl bg-slate-100 p-5">
+                            <h5 className="font-bold">
+                              Zoek of typ een object
+                            </h5>
+                            <p className="mt-1 text-sm text-slate-600">
+                              Bijvoorbeeld stoel, brandblusser,
+                              vriezer, pomp of een volledig nieuw
+                              objecttype.
+                            </p>
+
+                            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                              <input
+                                list={`objectkeuzes-${ruimte.sleutel}`}
+                                value={objectZoektekst}
+                                onChange={(event) =>
+                                  setObjectZoektekst(
+                                    event.target.value,
+                                  )
+                                }
+                                onKeyDown={(event) => {
+                                  if (
+                                    event.key === "Enter"
+                                  ) {
+                                    event.preventDefault();
+                                    voegGezochtObjectToe(
+                                      ruimte.sleutel,
+                                    );
+                                  }
+                                }}
+                                className="min-h-12 flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3"
+                                placeholder="Zoek of typ, bijvoorbeeld stoel"
+                              />
+
+                              <datalist
+                                id={`objectkeuzes-${ruimte.sleutel}`}
+                              >
+                                {Object.values(OBJECTEN)
+                                  .sort((a, b) =>
+                                    a.naam.localeCompare(
+                                      b.naam,
+                                      "nl-NL",
+                                    ),
+                                  )
+                                  .map((object) => (
+                                    <option
+                                      key={object.code}
+                                      value={object.naam}
+                                    />
                                   ))}
-                              </div>
-                            </section>
-                          )}
+                              </datalist>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  voegGezochtObjectToe(
+                                    ruimte.sleutel,
+                                  )
+                                }
+                                className="min-h-12 rounded-xl bg-slate-950 px-6 py-3 font-bold text-white"
+                              >
+                                Toevoegen
+                              </button>
+                            </div>
+                          </section>
 
                           <button
                             type="button"
-                            onClick={() =>
+                            onClick={() => {
                               setBewerkObjectenRuimte(
                                 null,
-                              )
-                            }
+                              );
+                              setObjectZoektekst("");
+                            }}
                             className="w-full rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white"
                           >
                             Aanpassingen gereed
