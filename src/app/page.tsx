@@ -633,6 +633,28 @@ export default async function Home() {
           </div>
         </section>
       </div>
-    </main>
+
+      <section className="mx-auto mt-8 max-w-7xl px-4 pb-8 sm:px-6">
+        <Link
+          href="/intelligence/predictive"
+          className="flex min-h-24 items-center justify-between gap-5 rounded-2xl bg-slate-950 p-6 text-white shadow-lg transition hover:bg-slate-800"
+        >
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-emerald-300">
+              9.0J Predictive Intelligence
+            </p>
+            <h2 className="mt-1 text-xl font-bold">
+              Bekijk uitlegbare voorspelsignalen
+            </h2>
+            <p className="mt-1 text-sm text-slate-300">
+              Historische patronen, betrouwbaarheid, onzekerheid en prioriteit voor hercontrole.
+            </p>
+          </div>
+          <span className="text-2xl" aria-hidden="true">
+            →
+          </span>
+        </Link>
+      </section>
+</main>
   );
 }
