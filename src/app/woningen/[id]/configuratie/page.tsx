@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import WoningconfiguratieBeheer from "@/components/woningconfiguratie/WoningconfiguratieBeheer";
+import WoningrouteWizard from "@/components/woningconfiguratie/WoningrouteWizard";
 import { getWoningConfiguratie } from "@/services/woningconfiguratie-server";
 import { getWoningById } from "@/services/woningen-server";
 
@@ -52,10 +53,27 @@ export default async function WoningconfiguratiePage({
           </p>
         </header>
 
-        <WoningconfiguratieBeheer
+        <WoningrouteWizard
           woningId={woning.id}
           configuratie={configuratie}
         />
+
+        <details className="mt-8 rounded-2xl border border-slate-300 bg-white shadow">
+          <summary className="cursor-pointer p-6 text-lg font-bold">
+            Geavanceerd technisch beheer
+          </summary>
+
+          <div className="border-t border-slate-200 p-6">
+            <p className="mb-6 text-slate-600">
+              Alleen gebruiken voor uitzonderingen die niet via de begeleide woningroute kunnen worden ingesteld.
+            </p>
+
+            <WoningconfiguratieBeheer
+              woningId={woning.id}
+              configuratie={configuratie}
+            />
+          </div>
+        </details>
       </div>
     </main>
   );

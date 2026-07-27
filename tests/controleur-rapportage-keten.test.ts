@@ -544,3 +544,23 @@ test("bevoegde gebruikers kunnen verhuurperiodes veilig beheren", () => {
     /create policy[\s\S]*to anon/i,
   );
 });
+
+test("woningconfiguratie gebruikt een begeleide routewizard met buitenruimten", () => {
+  const wizard = lees(
+    "src/components/woningconfiguratie/WoningrouteWizard.tsx",
+  );
+  const pagina = lees(
+    "src/app/woningen/[id]/configuratie/page.tsx",
+  );
+
+  assert.match(wizard, /Ruimten kiezen/);
+  assert.match(wizard, /Looproute bepalen/);
+  assert.match(wizard, /Inhoud en controles/);
+  assert.match(wizard, /Achtertuin/);
+  assert.match(wizard, /Buitenberging/);
+  assert.match(wizard, /Containerplaats/);
+  assert.match(wizard, /verplaatsRuimte/);
+  assert.match(wizard, /Woningroute opslaan en activeren/);
+  assert.match(pagina, /WoningrouteWizard/);
+  assert.match(pagina, /Geavanceerd technisch beheer/);
+});
