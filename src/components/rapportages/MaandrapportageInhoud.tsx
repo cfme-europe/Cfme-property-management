@@ -5,6 +5,7 @@ import {
   type JsonObject,
   zakelijkLabel,
 } from "@/lib/rapportages/zakelijke-rapportage";
+import { bouwRapportageEindvorm } from "@/lib/rapportages/rapportage-eindvorm";
 import type { Maandrapportage } from "@/types/maandrapportage";
 
 type Props = {
@@ -201,6 +202,8 @@ export default function MaandrapportageInhoud({
   const model = bouwZakelijkeRapportageModel(
     data,
   );
+  const eindvorm =
+    bouwRapportageEindvorm(data);
 
   if (!model.gegenereerd_op) {
     return (
@@ -633,6 +636,52 @@ export default function MaandrapportageInhoud({
 
       <RapportSectie
         nummer="06"
+        titel="Bestuurlijke duiding"
+        omschrijving="Vaste keten: vorige situatie, huidige situatie, verschil, actie, resultaat en betekenis."
+      >
+        <p className="mb-5 rounded-xl bg-slate-950 p-5 text-lg font-bold text-white">
+          {eindvorm.managementconclusie}
+        </p>
+
+        <div className="space-y-5">
+          {eindvorm.duiding.map((regel) => (
+            <article
+              key={regel.sleutel}
+              className="rounded-2xl border border-slate-200 p-5"
+            >
+              <h4 className="text-lg font-bold">
+                {regel.onderwerp}
+              </h4>
+
+              <dl className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {[
+                  ["Vorige situatie", regel.vorige_situatie],
+                  ["Huidige situatie", regel.huidige_situatie],
+                  ["Verschil", regel.verschil],
+                  ["Actie", regel.actie],
+                  ["Resultaat", regel.resultaat],
+                  ["Betekenis", regel.betekenis],
+                ].map(([label, waarde]) => (
+                  <div
+                    key={label}
+                    className="rounded-xl bg-slate-100 p-4"
+                  >
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      {label}
+                    </dt>
+                    <dd className="mt-2 text-sm leading-6 text-slate-800">
+                      {waarde}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </article>
+          ))}
+        </div>
+      </RapportSectie>
+
+      <RapportSectie
+        nummer="07"
         titel="Acties en besluiten"
         omschrijving="Concrete opvolging op basis van risico, energie en openstaande werkzaamheden."
       >

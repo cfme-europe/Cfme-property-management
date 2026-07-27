@@ -9,6 +9,7 @@ import {
   bouwZakelijkeRapportageModel,
   zakelijkLabel,
 } from "@/lib/rapportages/zakelijke-rapportage";
+import { bouwRapportageEindvorm } from "@/lib/rapportages/rapportage-eindvorm";
 
 export const dynamic = "force-dynamic";
 
@@ -364,6 +365,10 @@ export async function GET(
       bouwZakelijkeRapportageModel(
         rapportage.rapport_data,
       );
+    const eindvorm =
+      bouwRapportageEindvorm(
+        rapportage.rapport_data,
+      );
 
     function euro(waarde: number): string {
       return new Intl.NumberFormat("nl-NL", {
@@ -556,6 +561,45 @@ export async function GET(
         { inspringen: 4, grootte: 9 },
       );
     });
+
+    sectie("Bestuurlijke duiding");
+    schrijf(
+      eindvorm.managementconclusie,
+      { vet: true, grootte: 11 },
+    );
+
+    eindvorm.duiding.forEach(
+      (regel, index) => {
+        schrijf(
+          `${index + 1}. ${regel.onderwerp}`,
+          { vet: true },
+        );
+        schrijf(
+          `Vorige situatie: ${regel.vorige_situatie}`,
+          { inspringen: 4, grootte: 9 },
+        );
+        schrijf(
+          `Huidige situatie: ${regel.huidige_situatie}`,
+          { inspringen: 4, grootte: 9 },
+        );
+        schrijf(
+          `Verschil: ${regel.verschil}`,
+          { inspringen: 4, grootte: 9 },
+        );
+        schrijf(
+          `Actie: ${regel.actie}`,
+          { inspringen: 4, grootte: 9 },
+        );
+        schrijf(
+          `Resultaat: ${regel.resultaat}`,
+          { inspringen: 4, grootte: 9 },
+        );
+        schrijf(
+          `Financiële en operationele betekenis: ${regel.betekenis}`,
+          { inspringen: 4, grootte: 9 },
+        );
+      },
+    );
 
     sectie("Acties en besluiten");
 

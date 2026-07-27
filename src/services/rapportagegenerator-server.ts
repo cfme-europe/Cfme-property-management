@@ -75,6 +75,7 @@ export async function genereerMaandrapportageData(
     bewonersResultaat,
     afwijkingenResultaat,
     takenResultaat,
+    certificeringenResultaat,
     templateResultaat,
   ] = await Promise.all([
     supabase
@@ -139,6 +140,11 @@ export async function genereerMaandrapportageData(
       .eq("woning_id", rapportage.woning_id),
 
     supabase
+      .from("certificeringen")
+      .select("*")
+      .eq("woning_id", rapportage.woning_id),
+
+    supabase
       .from("rapporttemplateversies")
       .select(`
         *,
@@ -194,6 +200,12 @@ export async function genereerMaandrapportageData(
     );
   }
 
+  if (certificeringenResultaat.error) {
+    throw new Error(
+      `Certificeringen ophalen mislukt: ${certificeringenResultaat.error.message}`
+    );
+  }
+
   if (templateResultaat.error) {
     throw new Error(
       `Gekoppelde templateversie ophalen mislukt: ${templateResultaat.error.message}`
@@ -230,6 +242,11 @@ export async function genereerMaandrapportageData(
 
   const taken =
     takenResultaat.data ?? [];
+
+  const certificeringen =
+    (certificeringenResultaat.data ?? []) as Array<
+      Record<string, unknown>
+    >;
 
   const vorigeMaandDatum = new Date(
     Date.UTC(
@@ -529,6 +546,40 @@ export async function genereerMaandrapportageData(
           ),
         }
       : {}),
+
+    compliance: certificeringen.map(
+      (certificering) => {
+        const geldigTot =
+          typeof certificering.geldig_tot === "string"
+            ? certificering.geldig_tot
+            : typeof certificering.vervaldatum === "string"
+              ? certificering.vervaldatum
+              : typeof certificering.einddatum === "string"
+                ? certificering.einddatum
+                : null;
+
+        return {
+          id:
+            typeof certificering.id === "number"
+              ? certificering.id
+              : null,
+          onderwerp:
+            typeof certificering.naam === "string"
+              ? certificering.naam
+              : typeof certificering.type === "string"
+                ? certificering.type
+                : "Certificering",
+          status:
+            typeof certificering.status === "string"
+              ? certificering.status
+              : "onbekend",
+          geldig_tot: geldigTot,
+          verlopen:
+            geldigTot !== null &&
+            geldigTot < totEnMet,
+        };
+      },
+    ),
 
     ...(zichtbareBloktypen.has("opmerkingen")
       ? {

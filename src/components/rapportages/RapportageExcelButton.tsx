@@ -8,6 +8,7 @@ import {
   zakelijkVeldlabel,
   zakelijkeCelWaarde,
 } from "@/lib/rapportages/zakelijke-rapportage";
+import { bouwRapportageEindvorm } from "@/lib/rapportages/rapportage-eindvorm";
 import {
   markeerRapportexportMislukt,
   startRapportexport,
@@ -117,6 +118,10 @@ export default function RapportageExcelButton({
       const model = bouwZakelijkeRapportageModel(
         rapportage.rapport_data,
       );
+      const eindvorm =
+        bouwRapportageEindvorm(
+          rapportage.rapport_data,
+        );
 
       function werkblad(
         naam: string,
@@ -193,6 +198,42 @@ export default function RapportageExcelButton({
           "Kosten definitief",
           model.kosten.definitief,
         ],
+      ]);
+
+      werkblad("Bestuurlijke duiding", [
+        [
+          "Onderwerp",
+          "Vorige situatie",
+          "Huidige situatie",
+          "Verschil",
+          "Actie",
+          "Resultaat",
+          "Financiële en operationele betekenis",
+        ],
+        ...eindvorm.duiding.map((regel) => [
+          regel.onderwerp,
+          regel.vorige_situatie,
+          regel.huidige_situatie,
+          regel.verschil,
+          regel.actie,
+          regel.resultaat,
+          regel.betekenis,
+        ]),
+      ]);
+
+      werkblad("Compliance", [
+        [
+          "Onderwerp",
+          "Status",
+          "Geldig tot",
+          "Verlopen",
+        ],
+        ...eindvorm.compliance.map((regel) => [
+          regel.onderwerp,
+          regel.status,
+          regel.geldig_tot ?? "",
+          regel.verlopen,
+        ]),
       ]);
 
       werkblad("Vergelijking", [
