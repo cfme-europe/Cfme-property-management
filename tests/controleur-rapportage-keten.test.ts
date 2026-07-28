@@ -560,7 +560,7 @@ test("woningconfiguratie gebruikt een begeleide routewizard met buitenruimten", 
   assert.match(wizard, /Buitenberging/);
   assert.match(wizard, /Containerplaats/);
   assert.match(wizard, /verplaatsRuimte/);
-  assert.match(wizard, /Woningroute opslaan en activeren/);
+  assert.match(wizard, /Wijzigingen opslaan/);
   assert.match(pagina, /WoningrouteWizard/);
   assert.doesNotMatch(
     pagina,
@@ -578,6 +578,9 @@ test("woningconfiguratie gebruikt een begeleide routewizard met buitenruimten", 
     wizard,
     /Zoek of typ een object/,
   );
+  assert.match(wizard, /Bewoners/);
+  assert.match(wizard, /bewonersPerKamer/);
+  assert.match(wizard, /Wijzigingen opslaan/);
 });
 
 test("woningroute ondersteunt meters en internetvoorzieningen op hun exacte locatie", () => {

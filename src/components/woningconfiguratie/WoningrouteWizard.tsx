@@ -807,8 +807,13 @@ export default function WoningrouteWizard({
   configuratie,
 }: Props) {
   const router = useRouter();
+  const bestaandeConfiguratie = configuratie.ruimten.some(
+    (ruimte) => ruimte.actief,
+  );
 
-  const [stap, setStap] = useState<WizardStap>("ruimten");
+  const [stap, setStap] = useState<WizardStap>(() =>
+    bestaandeConfiguratie ? "details" : "ruimten",
+  );
   const [verdiepingen, setVerdiepingen] = useState<VerdiepingKeuze[]>(
     () => maakVerdiepingen(configuratie),
   );
@@ -847,6 +852,31 @@ export default function WoningrouteWizard({
         new Set(RUIMTE_SJABLONEN.map((sjabloon) => sjabloon.categorie)),
       ),
     [],
+  );
+
+  const bewonersPerKamer = useMemo(() => {
+    const resultaat = new Map<number, WoningConfiguratie["bewoners"]>();
+
+    for (const bewoner of configuratie.bewoners) {
+      if (bewoner.kamer_id === null) continue;
+
+      const bewoners = resultaat.get(bewoner.kamer_id) ?? [];
+      bewoners.push(bewoner);
+      resultaat.set(bewoner.kamer_id, bewoners);
+    }
+
+    return resultaat;
+  }, [configuratie.bewoners]);
+
+  const kamerIdPerRuimteId = useMemo(
+    () =>
+      new Map(
+        configuratie.ruimten.map((ruimte) => [
+          ruimte.id,
+          ruimte.kamer_id,
+        ]),
+      ),
+    [configuratie.ruimten],
   );
 
   const stapIndex = STAPPEN.findIndex((item) => item.sleutel === stap);
@@ -1484,11 +1514,14 @@ export default function WoningrouteWizard({
       );
 
       setMelding(
-        `Woningroute geactiveerd: ${resultaat.ruimten} ruimten, ` +
+        `Wijzigingen opgeslagen: ${resultaat.ruimten} ruimten, ` +
           `${resultaat.slaapkamers} slaapkamers en ` +
           `${resultaat.controlepunten} controlepunten.`,
       );
 
+      setStap("details");
+      setBewerkObjectenRuimte(null);
+      setObjectZoektekst("");
       router.refresh();
     } catch (error) {
       setFout(
@@ -1508,11 +1541,11 @@ export default function WoningrouteWizard({
           Reality Engine
         </p>
         <h2 className="mt-2 text-3xl font-bold">
-          Beschrijf de woning één keer
+          Ruimten en inrichting beheren
         </h2>
         <p className="mt-3 max-w-3xl text-slate-300">
-          De route, slaapkamers, bewonerskamers, objecten en controlepunten
-          ontstaan automatisch uit deze begeleide invoer.
+          Open een ruimte, wijzig slaapplaatsen of objecten en sla alles
+          met één duidelijke knop op.
         </p>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -1527,8 +1560,12 @@ export default function WoningrouteWizard({
                   : "border-slate-700 bg-slate-900 text-slate-300"
               }`}
             >
-              <span className="text-sm font-bold">Stap {item.nummer}</span>
-              <span className="mt-1 block font-semibold">{item.titel}</span>
+              <span className="text-sm font-bold">
+                Onderdeel {item.nummer}
+              </span>
+              <span className="mt-1 block font-semibold">
+                {item.titel}
+              </span>
             </button>
           ))}
         </div>
@@ -1932,6 +1969,53 @@ export default function WoningrouteWizard({
                           Huidige capaciteit:{" "}
                           {ruimte.capaciteit ?? 1}
                         </p>
+
+                        {(() => {
+                          const kamerId = ruimte.id
+                            ? kamerIdPerRuimteId.get(ruimte.id) ?? null
+                            : null;
+                          const bewoners = kamerId
+                            ? bewonersPerKamer.get(kamerId) ?? []
+                            : [];
+
+                          return (
+                            <div className="mt-5 border-t border-slate-300 pt-4">
+                              <div className="flex items-center justify-between gap-3">
+                                <h5 className="font-bold">Bewoners</h5>
+                                <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-slate-700">
+                                  {bewoners.length} / {ruimte.capaciteit ?? 1}
+                                </span>
+                              </div>
+
+                              {bewoners.length === 0 ? (
+                                <p className="mt-3 text-sm text-slate-600">
+                                  Deze slaapkamer heeft momenteel geen actieve bewoners.
+                                </p>
+                              ) : (
+                                <ul className="mt-3 space-y-2">
+                                  {bewoners.map((bewoner) => (
+                                    <li
+                                      key={bewoner.id}
+                                      className="rounded-xl bg-white px-4 py-3 font-semibold text-slate-800"
+                                    >
+                                      {[
+                                        bewoner.voornaam,
+                                        bewoner.tussenvoegsel,
+                                        bewoner.achternaam,
+                                      ]
+                                        .filter(Boolean)
+                                        .join(" ")}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+
+                              <p className="mt-3 text-xs text-slate-500">
+                                Bewoners worden beheerd via het bestaande bewonersbeheer.
+                              </p>
+                            </div>
+                          );
+                        })()}
                       </section>
                     )}
 
@@ -2151,7 +2235,7 @@ export default function WoningrouteWizard({
                             }}
                             className="w-full rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white"
                           >
-                            Aanpassingen gereed
+                            Objecten sluiten
                           </button>
                         </div>
                       )}
@@ -2223,40 +2307,53 @@ export default function WoningrouteWizard({
             );
           })}
 
+        </div>
+      )}
+
+      <footer className="sticky bottom-3 z-20 rounded-2xl bg-white p-4 shadow-xl">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            {!bestaandeConfiguratie && stapIndex > 0 && (
+              <button
+                type="button"
+                onClick={vorigeStap}
+                className="rounded-xl border px-5 py-3"
+              >
+                Vorige
+              </button>
+            )}
+
+            {!bestaandeConfiguratie &&
+              stap !== "voorbeeld" && (
+                <button
+                  type="button"
+                  onClick={volgendeStap}
+                  className="rounded-xl border px-5 py-3 font-semibold"
+                >
+                  Volgende
+                </button>
+              )}
+          </div>
+
+          <span className="text-sm font-semibold text-slate-600">
+            {ruimten.length} ruimte(n)
+          </span>
+
           <button
             type="button"
             disabled={bezig}
             onClick={slaRouteOp}
-            className="w-full rounded-2xl bg-emerald-700 px-6 py-5 text-lg font-bold text-white disabled:opacity-50"
+            className="min-w-48 rounded-xl bg-emerald-700 px-6 py-3 font-bold text-white disabled:opacity-50"
           >
             {bezig
-              ? "Opslaan en activeren..."
-              : "Woningroute opslaan en activeren"}
+              ? "Opslaan..."
+              : "Wijzigingen opslaan"}
           </button>
         </div>
-      )}
 
-      <footer className="sticky bottom-3 flex items-center justify-between rounded-2xl bg-white p-4 shadow-xl">
-        <button
-          type="button"
-          disabled={stapIndex === 0}
-          onClick={vorigeStap}
-          className="rounded-xl border px-5 py-3 disabled:opacity-30"
-        >
-          Vorige
-        </button>
-
-        <span className="font-semibold">{ruimten.length} ruimte(n)</span>
-
-        {stap !== "voorbeeld" && (
-          <button
-            type="button"
-            onClick={volgendeStap}
-            className="rounded-xl bg-emerald-700 px-5 py-3 font-semibold text-white"
-          >
-            Volgende
-          </button>
-        )}
+        <p className="mt-2 text-right text-xs text-slate-500">
+          Wijzigingen zijn pas definitief na opslaan.
+        </p>
       </footer>
     </section>
   );

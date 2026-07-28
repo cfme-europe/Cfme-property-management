@@ -9,6 +9,23 @@ import {
   veiligeVolgendeRoute,
 } from "@/lib/auth/navigatie";
 
+function verwijderSupabaseCookies(
+  request: NextRequest,
+  response: NextResponse
+) {
+  for (const cookie of request.cookies.getAll()) {
+    if (cookie.name.startsWith("sb-")) {
+      response.cookies.set(cookie.name, "", {
+        expires: new Date(0),
+        maxAge: 0,
+        path: "/",
+      });
+    }
+  }
+
+  return response;
+}
+
 export async function updateSession(
   request: NextRequest
 ) {
@@ -51,35 +68,30 @@ export async function updateSession(
   );
 
   const {
-    data: claimsData,
-    error: claimsError,
-  } = await supabase.auth.getClaims();
-
-  if (claimsError) {
-    console.warn(
-      "[CFME Auth] Sessiecontrole mislukt",
-      {
-        message:
-          claimsError.message || null,
-        code:
-          "code" in claimsError
-            ? claimsError.code
-            : null,
-      }
-    );
-  }
-
-  const claims =
-    claimsError
-      ? null
-      : claimsData?.claims ?? null;
+    data: { user },
+    error: gebruikerFout,
+  } = await supabase.auth.getUser();
 
   const pathname =
     request.nextUrl.pathname;
   const publiekeRoute =
     isPubliekeRoute(pathname);
 
-  if (!claims && !publiekeRoute) {
+  if (gebruikerFout) {
+    console.warn(
+      "[CFME Auth] Ongeldige sessie verwijderd",
+      {
+        message:
+          gebruikerFout.message || null,
+        code:
+          "code" in gebruikerFout
+            ? gebruikerFout.code
+            : null,
+      }
+    );
+  }
+
+  if (!user && !publiekeRoute) {
     const loginUrl =
       request.nextUrl.clone();
 
@@ -99,10 +111,20 @@ export async function updateSession(
       );
     }
 
-    return NextResponse.redirect(loginUrl);
+    return verwijderSupabaseCookies(
+      request,
+      NextResponse.redirect(loginUrl)
+    );
   }
 
-  if (claims && pathname === "/login") {
+  if (!user && gebruikerFout) {
+    return verwijderSupabaseCookies(
+      request,
+      response
+    );
+  }
+
+  if (user && pathname === "/login") {
     const dashboardUrl =
       request.nextUrl.clone();
 

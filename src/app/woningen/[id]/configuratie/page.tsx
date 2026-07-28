@@ -43,12 +43,12 @@ export default async function WoningconfiguratiePage({
           </p>
 
           <h1 className="mt-2 text-3xl font-bold">
-            Fysieke looproute van {woning.adres}
+            Ruimten en inrichting van {woning.adres}
           </h1>
 
           <p className="mt-2 text-slate-600">
-            Beheer verdiepingen, ruimten, individuele objecten en relevante
-            controlepunten in de werkelijke loopvolgorde.
+            Bewerk bestaande ruimten direct. Gebruik de andere onderdelen
+            alleen wanneer de woningindeling of looproute verandert.
           </p>
         </header>
 

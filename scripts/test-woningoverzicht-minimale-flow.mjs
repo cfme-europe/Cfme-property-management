@@ -50,7 +50,7 @@ const verplichtWizard = [
   "Aanbevolen voor deze ruimte",
   "Zoek of typ een object",
   "Toevoegen",
-  "Aanpassingen gereed",
+  "Objecten sluiten",
   "voegGezochtObjectToe",
 ];
 

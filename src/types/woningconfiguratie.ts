@@ -1,3 +1,4 @@
+import type { Bewoner } from "@/types/bewoner";
 import type { Kamer } from "@/types/kamer";
 
 export const RUIMTE_TYPEN = [
@@ -251,6 +252,7 @@ export type WoningConfiguratie = {
   verdiepingen: WoningVerdieping[];
   ruimten: WoningRuimte[];
   kamers: Kamer[];
+  bewoners: Bewoner[];
   objecten: WoningObject[];
   controlepunten: WoningControlepunt[];
   definities: ControlepuntDefinitie[];

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import type { Bewoner } from "@/types/bewoner";
 import type { Kamer } from "@/types/kamer";
 import type {
   ControlepuntDefinitie,
@@ -90,13 +91,40 @@ export async function getWoningConfiguratie(
     );
   }
 
+  const kamers = (kamersResultaat.data ?? []) as Kamer[];
+  const actieveKamerIds = kamers
+    .filter((kamer) => kamer.actief)
+    .map((kamer) => kamer.id);
+
+  let bewoners: Bewoner[] = [];
+
+  if (actieveKamerIds.length > 0) {
+    const bewonersResultaat = await supabase
+      .from("bewoners")
+      .select("*")
+      .in("kamer_id", actieveKamerIds)
+      .eq("status", "actief")
+      .is("uitcheckdatum", null)
+      .order("kamer_id", { ascending: true })
+      .order("achternaam", { ascending: true })
+      .order("voornaam", { ascending: true });
+
+    if (bewonersResultaat.error) {
+      throw new Error(
+        `Actieve bewoners ophalen mislukt: ${bewonersResultaat.error.message}`,
+      );
+    }
+
+    bewoners = (bewonersResultaat.data ?? []) as Bewoner[];
+  }
+
   return {
     verdiepingen:
       (verdiepingenResultaat.data ?? []) as WoningVerdieping[],
     ruimten:
       (ruimtenResultaat.data ?? []) as WoningRuimte[],
-    kamers:
-      (kamersResultaat.data ?? []) as Kamer[],
+    kamers,
+    bewoners,
     objecten:
       (objectenResultaat.data ?? []) as WoningObject[],
     controlepunten:
