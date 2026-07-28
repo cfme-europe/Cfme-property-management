@@ -182,29 +182,50 @@ export async function getControleurFlow(
     a.controlepunt_volgorde - b.controlepunt_volgorde
   );
 
-  const [bewonersResultaat, meterstandResultaat] =
-    await Promise.all([
-      supabase
-        .from("bewoners")
-        .select("id", { count: "exact", head: true })
-        .eq("woning_id", sessie.woning_id)
-        .is("uitcheckdatum", null),
-      supabase
-        .from("meterstanden")
-        .select(
-          "dagstroom_kwh,nachtstroom_kwh,gas_m3,water_m3",
-        )
-        .eq("woning_id", sessie.woning_id)
-        .order("opnamedatum", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
+  const {
+    data: actieveVerhuurperiode,
+    error: verhuurperiodeFout,
+  } = await supabase
+    .from("verhuurperiodes")
+    .select("id")
+    .eq("woning_id", sessie.woning_id)
+    .eq("status", "actief")
+    .maybeSingle();
 
-  if (bewonersResultaat.error) {
+  if (verhuurperiodeFout) {
     throw new Error(
-      `Bewonersaantal ophalen mislukt: ${bewonersResultaat.error.message}`,
+      `Actieve verhuurperiode ophalen mislukt: ${verhuurperiodeFout.message}`,
     );
   }
+
+  let bewonersAantal = 0;
+
+  if (actieveVerhuurperiode) {
+    const bewonersResultaat = await supabase
+      .from("bewoners")
+      .select("id", { count: "exact", head: true })
+      .eq("verhuurperiode_id", actieveVerhuurperiode.id)
+      .eq("status", "actief")
+      .is("uitcheckdatum", null);
+
+    if (bewonersResultaat.error) {
+      throw new Error(
+        `Bewonersaantal ophalen mislukt: ${bewonersResultaat.error.message}`,
+      );
+    }
+
+    bewonersAantal = bewonersResultaat.count ?? 0;
+  }
+
+  const meterstandResultaat = await supabase
+    .from("meterstanden")
+    .select(
+      "dagstroom_kwh,nachtstroom_kwh,gas_m3,water_m3",
+    )
+    .eq("woning_id", sessie.woning_id)
+    .order("opnamedatum", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   if (meterstandResultaat.error) {
     throw new Error(
@@ -220,7 +241,7 @@ export async function getControleurFlow(
       (resultatenResultaat.data ?? []) as ControleResultaat[],
     afwijkingen:
       (afwijkingenResultaat.data ?? []) as ControleAfwijking[],
-    bewoners_aantal: bewonersResultaat.count ?? 0,
+    bewoners_aantal: bewonersAantal,
     laatste_meterstand: meterstandResultaat.data ?? null,
   };
 }

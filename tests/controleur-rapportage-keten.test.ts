@@ -942,3 +942,25 @@ test("werkvoorraad verbergt niet-effectief toegewezen andere rollen", () => {
     /woning_rayon_toewijzingen[\s\S]*standaard_controleur_id = profiel\.id/,
   );
 });
+
+
+test("controleurflow telt bewoners via de actieve verhuurperiode", () => {
+  const service = lees(
+    "src/services/controleurflow-server.ts",
+  );
+
+  assert.match(service, /\.from\("verhuurperiodes"\)/);
+  assert.match(service, /\.eq\("woning_id", sessie\.woning_id\)/);
+  assert.match(service, /\.eq\("status", "actief"\)/);
+  assert.match(
+    service,
+    /\.eq\("verhuurperiode_id", actieveVerhuurperiode\.id\)/,
+  );
+  assert.match(service, /\.is\("uitcheckdatum", null\)/);
+  assert.match(service, /bewoners_aantal: bewonersAantal/);
+
+  assert.doesNotMatch(
+    service,
+    /\.from\("bewoners"\)\s*\.select\("id", \{ count: "exact", head: true \}\)\s*\.eq\("woning_id", sessie\.woning_id\)/,
+  );
+});
