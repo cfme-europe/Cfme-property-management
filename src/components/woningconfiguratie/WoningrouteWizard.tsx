@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { slaVolledigeWoningrouteOp } from "@/services/woningconfiguratie";
 import type {
   RuimteType,
@@ -12,6 +11,7 @@ import type {
 type Props = {
   woningId: number;
   configuratie: WoningConfiguratie;
+  initieleMelding: string;
 };
 
 type WizardStap = "ruimten" | "route" | "details" | "voorbeeld";
@@ -805,8 +805,8 @@ function bestaandeRuimten(
 export default function WoningrouteWizard({
   woningId,
   configuratie,
+  initieleMelding,
 }: Props) {
-  const router = useRouter();
   const bestaandeConfiguratie = configuratie.ruimten.some(
     (ruimte) => ruimte.actief,
   );
@@ -844,7 +844,20 @@ export default function WoningrouteWizard({
   const [vrijeBuitenruimte, setVrijeBuitenruimte] = useState(false);
   const [bezig, setBezig] = useState(false);
   const [fout, setFout] = useState("");
-  const [melding, setMelding] = useState("");
+  const [melding, setMelding] = useState(initieleMelding);
+
+  useEffect(() => {
+    if (!initieleMelding) return;
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete("opgeslagen");
+    window.history.replaceState(
+      window.history.state,
+      "",
+      url.toString(),
+    );
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [initieleMelding]);
 
   const categorieen = useMemo(
     () =>
@@ -1508,28 +1521,20 @@ export default function WoningrouteWizard({
     setMelding("");
 
     try {
-      const resultaat = await slaVolledigeWoningrouteOp(
+      await slaVolledigeWoningrouteOp(
         woningId,
         maakOpslagInvoer(),
       );
 
-      setMelding(
-        `Wijzigingen opgeslagen: ${resultaat.ruimten} ruimten, ` +
-          `${resultaat.slaapkamers} slaapkamers en ` +
-          `${resultaat.controlepunten} controlepunten.`,
-      );
-
-      setStap("details");
-      setBewerkObjectenRuimte(null);
-      setObjectZoektekst("");
-      router.refresh();
+      const herlaadUrl = new URL(window.location.href);
+      herlaadUrl.searchParams.set("opgeslagen", "1");
+      window.location.replace(herlaadUrl.toString());
     } catch (error) {
       setFout(
         error instanceof Error
           ? error.message
           : "Woningroute opslaan mislukt.",
       );
-    } finally {
       setBezig(false);
     }
   }
