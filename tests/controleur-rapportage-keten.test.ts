@@ -921,14 +921,24 @@ test("planning gebruikt uitsluitend planbare controleurs", () => {
   assert.match(migratie, /profiel\.rol = 'controleur'/);
   assert.match(
     migratie,
-    /woning_rayon_toewijzingen[\s\S]*standaard_controleur_id = profiel\.id/,
-  );
-  assert.match(
-    migratie,
-    /rayons[\s\S]*standaard_controleur_id = profiel\.id/,
+    /profiel\.rol = 'controleur'/,
   );
   assert.doesNotMatch(
     migratie,
     /profiel\.rol in \([\s\S]*'admin'[\s\S]*'management'/,
+  );
+});
+
+
+test("werkvoorraad verbergt niet-effectief toegewezen andere rollen", () => {
+  const migratie = lees(
+    "supabase/migrations/20260729001000_planbare_controleurs_effectieve_toewijzing.sql",
+  );
+
+  assert.match(migratie, /profiel\.rol = 'controleur'/);
+  assert.match(migratie, /planning\.woning_id is not null/);
+  assert.doesNotMatch(
+    migratie,
+    /woning_rayon_toewijzingen[\s\S]*standaard_controleur_id = profiel\.id/,
   );
 });
