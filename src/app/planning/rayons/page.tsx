@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Rayonbeheer from "@/components/planning/Rayonbeheer";
 import {
-  getActieveProfielen,
+  getPlanbareControleurs,
   getRayons,
 } from "@/services/planning";
 
@@ -11,7 +11,7 @@ export default async function RayonbeheerPage() {
   const [rayons, profielen] =
     await Promise.all([
       getRayons(),
-      getActieveProfielen(),
+      getPlanbareControleurs(),
     ]);
 
   return (

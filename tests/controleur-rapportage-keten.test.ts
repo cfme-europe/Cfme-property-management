@@ -893,3 +893,42 @@ test("9.0G verlopen controles sturen waarschuwingen zonder toegangsblokkade", ()
     /blokkeer|toegang.*weigeren|actief\s*=\s*false/i,
   );
 });
+
+
+test("planning gebruikt uitsluitend planbare controleurs", () => {
+  const planningService = lees("src/services/planning.ts");
+  const rayonPagina = lees("src/app/planning/rayons/page.tsx");
+  const woningPlanningPagina = lees(
+    "src/app/woningen/[id]/planning/page.tsx",
+  );
+  const migratie = lees(
+    "supabase/migrations/20260728235000_planbare_controleurs.sql",
+  );
+
+  assert.match(
+    planningService,
+    /export async function getPlanbareControleurs/,
+  );
+  assert.match(planningService, /\.eq\("rol", "controleur"\)/);
+  assert.doesNotMatch(
+    planningService,
+    /export async function getActieveProfielen/,
+  );
+
+  assert.match(rayonPagina, /getPlanbareControleurs/);
+  assert.match(woningPlanningPagina, /getPlanbareControleurs/);
+
+  assert.match(migratie, /profiel\.rol = 'controleur'/);
+  assert.match(
+    migratie,
+    /woning_rayon_toewijzingen[\s\S]*standaard_controleur_id = profiel\.id/,
+  );
+  assert.match(
+    migratie,
+    /rayons[\s\S]*standaard_controleur_id = profiel\.id/,
+  );
+  assert.doesNotMatch(
+    migratie,
+    /profiel\.rol in \([\s\S]*'admin'[\s\S]*'management'/,
+  );
+});

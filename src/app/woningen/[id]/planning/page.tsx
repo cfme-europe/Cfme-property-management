@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import WoningPlanningBeheer from "@/components/planning/WoningPlanningBeheer";
 import {
-  getActieveProfielen,
+  getPlanbareControleurs,
   getActieveWoningplanning,
   getActieveWoningRayonToewijzing,
   getRayons,
@@ -32,7 +32,7 @@ export default async function WoningPlanningPage({
   ] = await Promise.all([
     getWoningById(woningId),
     getRayons(true),
-    getActieveProfielen(),
+    getPlanbareControleurs(),
     getActieveWoningplanning(woningId),
     getActieveWoningRayonToewijzing(woningId),
   ]);

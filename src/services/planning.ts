@@ -43,7 +43,7 @@ export async function getRayons(
   return (data ?? []) as Rayon[];
 }
 
-export async function getActieveProfielen(): Promise<
+export async function getPlanbareControleurs(): Promise<
   ProfielSamenvatting[]
 > {
   const supabase = await createClient();
@@ -53,6 +53,7 @@ export async function getActieveProfielen(): Promise<
       "id, email, volledige_naam, rol, actief"
     )
     .eq("actief", true)
+    .eq("rol", "controleur")
     .order("volledige_naam", {
       ascending: true,
       nullsFirst: false,
@@ -64,7 +65,7 @@ export async function getActieveProfielen(): Promise<
 
   if (error) {
     throw new Error(
-      `Actieve profielen ophalen mislukt: ${error.message}`
+      `Planbare controleurs ophalen mislukt: ${error.message}`
     );
   }
 
