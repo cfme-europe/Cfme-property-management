@@ -98,6 +98,7 @@ function valideer(
       invoer.opgenomen_door
     ),
     opmerkingen: schoon(invoer.opmerkingen),
+    meteruitzonderingen: invoer.meteruitzonderingen ?? {},
   };
 }
 
@@ -168,6 +169,10 @@ export type RouteMeterType =
 
 export type RouteMeterwaarden = Partial<
   Record<RouteMeterType, number>
+>;
+
+export type RouteMeterUitzonderingen = Partial<
+  Record<RouteMeterType, { status: string; reden: string }>
 >;
 
 export type RouteMeterstandOpslag = {
@@ -316,11 +321,19 @@ export async function slaRouteMeterstandenOp(invoer: {
   woning_id: number;
   controlesessie_id: number;
   waarden: RouteMeterwaarden;
+  uitzonderingen: RouteMeterUitzonderingen;
   bewoners_aantal: number;
 }): Promise<RouteMeterstandOpslag> {
-  const waarden = valideerRouteMeterwaarden(
-    invoer.waarden,
-  );
+  const heeftWaarden = Object.keys(invoer.waarden).length > 0;
+  const heeftUitzonderingen = Object.keys(invoer.uitzonderingen).length > 0;
+
+  if (!heeftWaarden && !heeftUitzonderingen) {
+    throw new Error("Vul een meterstand in of leg een uitzondering vast.");
+  }
+
+  const waarden = heeftWaarden
+    ? valideerRouteMeterwaarden(invoer.waarden)
+    : {};
 
   const {
     data: { user },
@@ -374,7 +387,10 @@ export async function slaRouteMeterstandenOp(invoer: {
       null,
     opgenomen_door: user.id,
     opmerkingen:
-      "Opgenomen tijdens woningcontrole",
+      heeftUitzonderingen
+        ? "Meteropname bevat één of meer vastgelegde uitzonderingen."
+        : "Opgenomen tijdens woningcontrole",
+    meteruitzonderingen: invoer.uitzonderingen,
   };
 
   const meterstand = bestaand
@@ -411,5 +427,6 @@ export async function slaRouteMeterstandOp(invoer: {
     waarden: {
       [invoer.metertype]: invoer.waarde,
     },
+    uitzonderingen: {},
   });
 }

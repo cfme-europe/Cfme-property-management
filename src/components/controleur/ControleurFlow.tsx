@@ -18,6 +18,7 @@ import {
   slaEnergieVerklaringOp,
   slaRouteMeterstandenOp,
   type RouteMeterType,
+  type RouteMeterUitzonderingen,
   type RouteMeterwaarden,
 } from "@/services/meterstanden";
 import type {
@@ -487,6 +488,7 @@ export default function ControleurFlow({
     }
 
     const waarden: RouteMeterwaarden = {};
+    const uitzonderingen: RouteMeterUitzonderingen = {};
 
     for (const punt of huidigeMeterpunten) {
       if (!punt.object_type) {
@@ -510,6 +512,10 @@ export default function ControleurFlow({
           setFout(`Geef een korte reden voor ${punt.object_naam ?? punt.controlepunt_naam}.`);
           return;
         }
+        uitzonderingen[metertype] = {
+          status: uitzondering,
+          reden: puntInvoer.toelichting.trim(),
+        };
         continue;
       }
 
@@ -526,15 +532,13 @@ export default function ControleurFlow({
     setMeterAnalyse(null);
 
     try {
-      const heeftWaarden = Object.keys(waarden).length > 0;
-      const opslag = heeftWaarden
-        ? await slaRouteMeterstandenOp({
-            woning_id: gegevens.woning.id,
-            controlesessie_id: gegevens.sessie.id,
-            waarden,
-            bewoners_aantal: gegevens.bewoners_aantal,
-          })
-        : null;
+      const opslag = await slaRouteMeterstandenOp({
+        woning_id: gegevens.woning.id,
+        controlesessie_id: gegevens.sessie.id,
+        waarden,
+        uitzonderingen,
+        bewoners_aantal: gegevens.bewoners_aantal,
+      });
 
       const nieuwOpgeslagen =
         new Set(opgeslagen);
@@ -595,7 +599,7 @@ export default function ControleurFlow({
       setEnergieVerklaringOpgeslagen(false);
 
       if (
-        (!opslag || !opslag.analyse.opvolging_nodig) &&
+        !opslag.analyse.opvolging_nodig &&
         ruimteIndex < ruimten.length - 1
       ) {
         setRuimteIndex((huidig) =>

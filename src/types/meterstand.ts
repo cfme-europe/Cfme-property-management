@@ -13,6 +13,7 @@ export type Meterstand = {
   water_m3: number | null;
   opgenomen_door: string | null;
   opmerkingen: string | null;
+  meteruitzonderingen?: Record<string, { status: string; reden: string }>;
   analyse_status?:
     | "onvoldoende_data"
     | "normaal"
@@ -37,6 +38,7 @@ export type MeterstandInvoer = {
   water_m3: number | null;
   opgenomen_door: string | null;
   opmerkingen: string | null;
+  meteruitzonderingen?: Record<string, { status: string; reden: string }>;
 };
 
 

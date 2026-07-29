@@ -156,6 +156,21 @@ export default async function MeterstandDetailPage({
             </div>
           </dl>
 
+
+          {Object.keys(meterstand.meteruitzonderingen ?? {}).length > 0 && (
+            <section className="mt-8 rounded-xl border border-sky-200 bg-sky-50 p-5">
+              <h2 className="text-xl font-bold">Uitzonderingen bij opname</h2>
+              <div className="mt-4 space-y-3">
+                {Object.entries(meterstand.meteruitzonderingen ?? {}).map(([meter, uitzondering]) => (
+                  <div key={meter} className="rounded-lg bg-white p-4">
+                    <p className="font-semibold">{meter.replaceAll("_", " ")}</p>
+                    <p className="mt-1">{uitzondering.status.replaceAll("_", " ")}: {uitzondering.reden}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {correcties.length > 0 && (
             <section className="mt-8 rounded-xl border border-amber-300 bg-amber-50 p-5">
               <h2 className="text-xl font-bold">Correctiehistorie</h2>
