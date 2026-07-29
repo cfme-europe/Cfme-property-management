@@ -964,3 +964,31 @@ test("controleurflow telt bewoners via de actieve verhuurperiode", () => {
     /\.from\("bewoners"\)\s*\.select\("id", \{ count: "exact", head: true \}\)\s*\.eq\("woning_id", sessie\.woning_id\)/,
   );
 });
+
+
+test("meldingen blijven als bewijs bewaard en kunnen niet fysiek worden verwijderd", () => {
+  const detail = lees(
+    "src/app/woningen/[id]/meldingen/[meldingId]/page.tsx",
+  );
+  const service = lees("src/services/meldingen.ts");
+  const migratie = lees(
+    "supabase/migrations/20260729092000_meldingen_historie_beschermen.sql",
+  );
+
+  assert.doesNotMatch(detail, /MeldingVerwijderenButton/);
+  assert.doesNotMatch(detail, /Melding verwijderen/);
+  assert.doesNotMatch(service, /deleteMelding/);
+  assert.doesNotMatch(
+    service,
+    /\.from\("meldingen"\)[\s\S]*?\.delete\(\)/,
+  );
+
+  assert.match(
+    migratie,
+    /tablename = 'meldingen'[\s\S]*cmd = 'DELETE'/,
+  );
+  assert.match(
+    migratie,
+    /revoke delete[\s\S]*public\.meldingen[\s\S]*authenticated/i,
+  );
+});

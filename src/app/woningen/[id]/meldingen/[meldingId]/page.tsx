@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import MeldingVerwijderenButton from "@/components/meldingen/MeldingVerwijderenButton";
 import { getMeldingById } from "@/services/meldingen-server";
 import { getWoningById } from "@/services/woningen-server";
 import type {
@@ -276,12 +275,6 @@ export default async function MeldingDetailPage({
             </p>
           </section>
 
-          <div className="mt-8 border-t border-slate-200 pt-6">
-            <MeldingVerwijderenButton
-              woningId={woning.id}
-              meldingId={melding.id}
-            />
-          </div>
         </div>
       </div>
     </main>

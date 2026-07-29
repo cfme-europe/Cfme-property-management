@@ -274,27 +274,3 @@ export async function updateMelding(
 
   return data as Melding;
 }
-
-export async function deleteMelding(
-  meldingId: number,
-  woningId: number
-): Promise<void> {
-  if (
-    !Number.isInteger(meldingId) ||
-    meldingId <= 0
-  ) {
-    throw new Error("Ongeldige melding.");
-  }
-
-  const { error } = await supabase
-    .from("meldingen")
-    .delete()
-    .eq("id", meldingId)
-    .eq("woning_id", woningId);
-
-  if (error) {
-    throw new Error(
-      `Melding verwijderen mislukt: ${error.message}`
-    );
-  }
-}
