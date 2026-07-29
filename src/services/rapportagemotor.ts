@@ -311,16 +311,20 @@ export function bouwRapportagemotor(
     }
   }
 
-  const vandaag = new Date().toISOString().slice(0, 10);
+  const rapportPeildatum = huidig.tot_en_met;
+
   const achterstalligeTaken = invoer.taken.filter(
     (taak) =>
+      taak.created_at.slice(0, 10) <= rapportPeildatum &&
       ["open", "in_behandeling"].includes(taak.status) &&
       taak.deadline !== null &&
-      taak.deadline < vandaag,
+      taak.deadline < rapportPeildatum,
   );
 
   const openAfwijkingen = invoer.afwijkingen.filter(
-    (item) => openAfwijking(item.status),
+    (item) =>
+      item.created_at.slice(0, 10) <= rapportPeildatum &&
+      openAfwijking(item.status),
   );
   const urgenteAfwijkingen =
     openAfwijkingen.filter((item) =>
