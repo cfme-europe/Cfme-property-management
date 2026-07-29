@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import type { Meterstand } from "@/types/meterstand";
+import type { Meterstand, MeterstandCorrectie } from "@/types/meterstand";
 
 function valideerId(
   waarde: number,
@@ -85,4 +85,19 @@ export async function getLaatsteMeterstandVoorWoning(
   }
 
   return data as Meterstand | null;
+}
+
+
+export async function getMeterstandCorrecties(
+  meterstandId: number,
+): Promise<MeterstandCorrectie[]> {
+  valideerId(meterstandId, "meterstand");
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("meterstand_correcties")
+    .select("*")
+    .eq("meterstand_id", meterstandId)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(`Correctiehistorie ophalen mislukt: ${error.message}`);
+  return (data ?? []) as MeterstandCorrectie[];
 }

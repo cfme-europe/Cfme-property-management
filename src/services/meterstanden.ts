@@ -129,39 +129,32 @@ export async function createMeterstand(
 
 export async function updateMeterstand(
   meterstandId: number,
-  invoer: MeterstandInvoer
+  invoer: MeterstandInvoer,
+  correctiereden?: string,
 ): Promise<Meterstand> {
-  if (
-    !Number.isInteger(meterstandId) ||
-    meterstandId <= 0
-  ) {
+  if (!Number.isInteger(meterstandId) || meterstandId <= 0) {
     throw new Error("Ongeldige meterstand.");
   }
 
   const geldig = valideer(invoer);
-
-  const { data, error } = await supabase
-    .from("meterstanden")
-    .update(geldig)
-    .eq("id", meterstandId)
-    .eq("woning_id", geldig.woning_id)
-    .select("*")
-    .maybeSingle();
-
-  if (error) {
-    if (error.code === "23505") {
-      throw new Error(
-        "Voor deze woning bestaat al een meteropname op deze datum."
-      );
-    }
-
-    throw new Error(
-      `Meterstand wijzigen mislukt: ${error.message}`
-    );
+  const reden = correctiereden?.trim() ?? "";
+  if (!reden) {
+    throw new Error("Een reden voor de correctie is verplicht.");
   }
 
-  if (!data) {
-    throw new Error("Meterstand niet gevonden.");
+  const { data, error } = await supabase.rpc("corrigeer_meterstand", {
+    p_meterstand_id: meterstandId,
+    p_bewoners_aantal: geldig.bewoners_aantal,
+    p_dagstroom_kwh: geldig.dagstroom_kwh,
+    p_nachtstroom_kwh: geldig.nachtstroom_kwh,
+    p_gas_m3: geldig.gas_m3,
+    p_water_m3: geldig.water_m3,
+    p_opmerkingen: geldig.opmerkingen,
+    p_reden: reden,
+  });
+
+  if (error) {
+    throw new Error(`Meterstand corrigeren mislukt: ${error.message}`);
   }
 
   return data as Meterstand;
@@ -388,6 +381,7 @@ export async function slaRouteMeterstandenOp(invoer: {
     ? await updateMeterstand(
         bestaand.id,
         volledig,
+        "Aanvulling tijdens dezelfde woningcontrole",
       )
     : await createMeterstand(volledig);
 

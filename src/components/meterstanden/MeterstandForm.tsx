@@ -74,6 +74,7 @@ export default function MeterstandForm({
   const [opmerkingen, setOpmerkingen] = useState(
     meterstand?.opmerkingen ?? ""
   );
+  const [correctiereden, setCorrectiereden] = useState("");
   const [bezig, setBezig] = useState(false);
   const [fout, setFout] = useState("");
 
@@ -101,7 +102,7 @@ export default function MeterstandForm({
 
     try {
       if (meterstand) {
-        await updateMeterstand(meterstand.id, invoer);
+        await updateMeterstand(meterstand.id, invoer, correctiereden);
       } else {
         await createMeterstand(invoer);
       }
@@ -266,6 +267,23 @@ export default function MeterstandForm({
           </label>
         </div>
       </section>
+
+      {meterstand && (
+        <label className="block rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <span className="mb-1 block font-semibold text-amber-950">
+            Reden van correctie *
+          </span>
+          <textarea
+            required
+            rows={3}
+            value={correctiereden}
+            onChange={(event) => setCorrectiereden(event.target.value)}
+            className={invoerClass}
+            placeholder="Leg uit waarom deze eerdere opname wordt gecorrigeerd."
+          />
+          <p className="mt-2 text-sm text-amber-900">De oorspronkelijke waarden blijven in het auditarchief bewaard.</p>
+        </label>
+      )}
 
       <label className="block">
         <span className="mb-1 block text-sm font-medium">

@@ -5,6 +5,9 @@ export const CONTROLE_RESULTATEN = [
   "niet_aanwezig",
   "niet_van_toepassing",
   "niet_bereikbaar",
+  "niet_afleesbaar",
+  "defect",
+  "overgeslagen",
 ] as const;
 
 export type ControleResultaatWaarde =
@@ -123,6 +126,7 @@ export type ControleurFlowGegevens = {
   resultaten: ControleResultaat[];
   afwijkingen: ControleAfwijking[];
   bewoners_aantal: number;
+  correctiewaarschuwingen: string[];
   laatste_meterstand: {
     dagstroom_kwh: number | null;
     nachtstroom_kwh: number | null;

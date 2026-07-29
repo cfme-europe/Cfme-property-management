@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getMeterstandById } from "@/services/meterstanden-server";
+import { getMeterstandById, getMeterstandCorrecties } from "@/services/meterstanden-server";
 import { getWoningById } from "@/services/woningen-server";
 
 export const dynamic = "force-dynamic";
@@ -45,9 +45,10 @@ export default async function MeterstandDetailPage({
     notFound();
   }
 
-  const [woning, meterstand] = await Promise.all([
+  const [woning, meterstand, correcties] = await Promise.all([
     getWoningById(woningId),
     getMeterstandById(meterstandNummer),
+    getMeterstandCorrecties(meterstandNummer),
   ]);
 
   if (
@@ -154,6 +155,21 @@ export default async function MeterstandDetailPage({
               </dd>
             </div>
           </dl>
+
+          {correcties.length > 0 && (
+            <section className="mt-8 rounded-xl border border-amber-300 bg-amber-50 p-5">
+              <h2 className="text-xl font-bold">Correctiehistorie</h2>
+              <p className="mt-1 text-sm text-amber-900">Oorspronkelijke waarden blijven aantoonbaar bewaard.</p>
+              <div className="mt-4 space-y-3">
+                {correcties.map((correctie) => (
+                  <div key={correctie.id} className="rounded-lg bg-white p-4">
+                    <p className="font-semibold">{new Intl.DateTimeFormat("nl-NL", { dateStyle: "medium", timeStyle: "short" }).format(new Date(correctie.created_at))}</p>
+                    <p className="mt-1">{correctie.reden}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           <section className="mt-8">
             <h2 className="text-xl font-bold">

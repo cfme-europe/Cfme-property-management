@@ -38,3 +38,14 @@ export type MeterstandInvoer = {
   opgenomen_door: string | null;
   opmerkingen: string | null;
 };
+
+
+export type MeterstandCorrectie = {
+  id: number;
+  meterstand_id: number;
+  created_at: string;
+  gecorrigeerd_door: string | null;
+  reden: string;
+  oude_waarden: Record<string, unknown>;
+  nieuwe_waarden: Record<string, unknown>;
+};

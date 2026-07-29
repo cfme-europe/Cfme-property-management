@@ -217,6 +217,17 @@ export async function getControleurFlow(
     bewonersAantal = bewonersResultaat.count ?? 0;
   }
 
+  const correctiesResultaat = await supabase
+    .from("meterstand_correcties")
+    .select("created_at, reden, meterstand_id")
+    .eq("woning_id", sessie.woning_id)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (correctiesResultaat.error) {
+    throw new Error(`Meterstandcorrecties ophalen mislukt: ${correctiesResultaat.error.message}`);
+  }
+
   const meterstandResultaat = await supabase
     .from("meterstanden")
     .select(
@@ -242,6 +253,9 @@ export async function getControleurFlow(
     afwijkingen:
       (afwijkingenResultaat.data ?? []) as ControleAfwijking[],
     bewoners_aantal: bewonersAantal,
+    correctiewaarschuwingen: (correctiesResultaat.data ?? []).map(
+      (correctie) => `Vorige meteropname is achteraf gecorrigeerd: ${correctie.reden}. Controleer de betreffende meter extra.`,
+    ),
     laatste_meterstand: meterstandResultaat.data ?? null,
   };
 }

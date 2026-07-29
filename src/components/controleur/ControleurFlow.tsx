@@ -41,6 +41,7 @@ type Props = {
 type InvoerPerPunt = {
   resultaat: ControleResultaatWaarde | "";
   numeriekeWaarde: string;
+  meterUitzondering: "" | "niet_bereikbaar" | "niet_afleesbaar" | "niet_aanwezig" | "defect" | "overgeslagen";
   gebrekType: GebrekType;
   toelichting: string;
   urgentie: AfwijkingUrgentie;
@@ -149,6 +150,9 @@ function maakBeginInvoer(
       resultaat?.numerieke_waarde != null
         ? String(resultaat.numerieke_waarde)
         : "",
+    meterUitzondering: ["niet_bereikbaar", "niet_afleesbaar", "niet_aanwezig", "defect", "overgeslagen"].includes(resultaat?.resultaat ?? "")
+      ? (resultaat?.resultaat as InvoerPerPunt["meterUitzondering"])
+      : "",
     gebrekType: afwijking?.gebrek_type ?? "overig",
     toelichting: afwijking?.toelichting ?? "",
     urgentie:
@@ -492,38 +496,28 @@ export default function ControleurFlow({
       const metertype =
         METER_TYPE_PER_OBJECT[punt.object_type];
 
-      const ruweWaarde =
-        invoer[
-          punt.woning_controlepunt_id
-        ]?.numeriekeWaarde.trim() ?? "";
+      const puntInvoer = invoer[punt.woning_controlepunt_id];
+      const ruweWaarde = puntInvoer?.numeriekeWaarde.trim() ?? "";
+      const uitzondering = puntInvoer?.meterUitzondering ?? "";
 
-      if (!ruweWaarde) {
-        setFout(
-          `Vul de actuele stand in voor ${
-            punt.object_naam ??
-            punt.controlepunt_naam
-          }.`,
-        );
+      if (!ruweWaarde && !uitzondering) {
+        setFout(`Vul een actuele stand in of kies waarom ${punt.object_naam ?? punt.controlepunt_naam} niet kon worden opgenomen.`);
         return;
       }
 
-      const waarde = Number(
-        ruweWaarde.replace(",", "."),
-      );
-
-      if (
-        !Number.isFinite(waarde) ||
-        waarde < 0
-      ) {
-        setFout(
-          `De meterstand voor ${
-            punt.object_naam ??
-            punt.controlepunt_naam
-          } moet nul of hoger zijn.`,
-        );
-        return;
+      if (uitzondering) {
+        if (!puntInvoer?.toelichting.trim()) {
+          setFout(`Geef een korte reden voor ${punt.object_naam ?? punt.controlepunt_naam}.`);
+          return;
+        }
+        continue;
       }
 
+      const waarde = Number(ruweWaarde.replace(",", "."));
+      if (!Number.isFinite(waarde) || waarde < 0) {
+        setFout(`De meterstand voor ${punt.object_naam ?? punt.controlepunt_naam} moet nul of hoger zijn.`);
+        return;
+      }
       waarden[metertype] = waarde;
     }
 
@@ -532,15 +526,15 @@ export default function ControleurFlow({
     setMeterAnalyse(null);
 
     try {
-      const opslag =
-        await slaRouteMeterstandenOp({
-          woning_id: gegevens.woning.id,
-          controlesessie_id:
-            gegevens.sessie.id,
-          waarden,
-          bewoners_aantal:
-            gegevens.bewoners_aantal,
-        });
+      const heeftWaarden = Object.keys(waarden).length > 0;
+      const opslag = heeftWaarden
+        ? await slaRouteMeterstandenOp({
+            woning_id: gegevens.woning.id,
+            controlesessie_id: gegevens.sessie.id,
+            waarden,
+            bewoners_aantal: gegevens.bewoners_aantal,
+          })
+        : null;
 
       const nieuwOpgeslagen =
         new Set(opgeslagen);
@@ -555,12 +549,9 @@ export default function ControleurFlow({
             punt.object_type
           ];
 
-        const numeriekeWaarde =
-          waarden[metertype];
-
-        if (numeriekeWaarde === undefined) {
-          continue;
-        }
+        const numeriekeWaarde = waarden[metertype];
+        const puntInvoer = invoer[punt.woning_controlepunt_id];
+        const uitzondering = puntInvoer?.meterUitzondering ?? "";
 
         const resultaat =
           await slaControleResultaatOp({
@@ -574,16 +565,17 @@ export default function ControleurFlow({
             object_id: punt.object_id,
             woning_controlepunt_id:
               punt.woning_controlepunt_id,
-            resultaat: "goed",
-            numerieke_waarde:
-              numeriekeWaarde,
+            resultaat: uitzondering || "goed",
+            numerieke_waarde: numeriekeWaarde ?? null,
             ruimte_naam_snapshot:
               punt.ruimte_naam,
             object_naam_snapshot:
               punt.object_naam,
             controlepunt_naam_snapshot:
               punt.controlepunt_naam,
-            opmerkingen: null,
+            opmerkingen: uitzondering
+              ? `Meter niet opgenomen: ${puntInvoer?.toelichting.trim()}`
+              : null,
           });
 
         await markeerAfwijkingNietRelevant(
@@ -596,16 +588,14 @@ export default function ControleurFlow({
       }
 
       setOpgeslagen(nieuwOpgeslagen);
-      setMeterAnalyse(opslag.analyse);
-      setMeterstandAnalyseId(
-        opslag.meterstand.id,
-      );
+      setMeterAnalyse(opslag?.analyse ?? null);
+      setMeterstandAnalyseId(opslag?.meterstand.id ?? null);
       setEnergieVerklaring("");
       setEnergieVerklaringToelichting("");
       setEnergieVerklaringOpgeslagen(false);
 
       if (
-        !opslag.analyse.opvolging_nodig &&
+        (!opslag || !opslag.analyse.opvolging_nodig) &&
         ruimteIndex < ruimten.length - 1
       ) {
         setRuimteIndex((huidig) =>
@@ -985,6 +975,15 @@ export default function ControleurFlow({
           )}
         </section>
 
+        {gegevens.correctiewaarschuwingen.length > 0 && (
+          <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+            <p className="font-bold">Extra controle na eerdere correctie</p>
+            {gegevens.correctiewaarschuwingen.map((waarschuwing) => (
+              <p key={waarschuwing} className="mt-1 text-sm">{waarschuwing}</p>
+            ))}
+          </div>
+        )}
+
         {fout && (
           <p className="mt-5 rounded-xl bg-red-100 p-4 text-red-800">
             {fout}
@@ -1167,16 +1166,45 @@ export default function ControleurFlow({
                                     },
                                   )
                                 }
-                                className="min-w-0 flex-1 rounded-xl border border-blue-300 bg-white px-4 py-4 text-2xl font-bold"
+                                disabled={Boolean(meterPuntInvoer?.meterUitzondering)}
+                                className="min-w-0 flex-1 rounded-xl border border-blue-300 bg-white px-4 py-4 text-2xl font-bold disabled:bg-slate-100"
                                 placeholder="0,000"
                               />
 
                               <span className="shrink-0 text-lg font-bold text-slate-700">
-                                {meterEenheid(
-                                  meterPuntType,
-                                )}
+                                {meterEenheid(meterPuntType)}
                               </span>
                             </div>
+
+                            <select
+                              value={meterPuntInvoer?.meterUitzondering ?? ""}
+                              onChange={(event) =>
+                                wijzigPunt(meterPunt.woning_controlepunt_id, {
+                                  meterUitzondering: event.target.value as InvoerPerPunt["meterUitzondering"],
+                                  numeriekeWaarde: event.target.value ? "" : meterPuntInvoer?.numeriekeWaarde ?? "",
+                                })
+                              }
+                              className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                            >
+                              <option value="">Stand wordt opgenomen</option>
+                              <option value="niet_bereikbaar">Niet bereikbaar</option>
+                              <option value="niet_afleesbaar">Niet afleesbaar</option>
+                              <option value="niet_aanwezig">Niet aanwezig</option>
+                              <option value="defect">Defect</option>
+                              <option value="overgeslagen">Overgeslagen</option>
+                            </select>
+
+                            {meterPuntInvoer?.meterUitzondering && (
+                              <textarea
+                                rows={2}
+                                value={meterPuntInvoer.toelichting}
+                                onChange={(event) =>
+                                  wijzigPunt(meterPunt.woning_controlepunt_id, { toelichting: event.target.value })
+                                }
+                                className="mt-3 w-full rounded-xl border border-amber-300 bg-white px-4 py-3"
+                                placeholder="Verplichte korte reden"
+                              />
+                            )}
                           </label>
                         );
                       },
