@@ -11,5 +11,5 @@ test("uitzonderingen maken ook zonder numerieke stand een meteropname", () => {
   assert.match(flow, /slaRouteMeterstandenOp/);
   assert.doesNotMatch(flow, /const opslag = heeftWaarden/);
   assert.match(service, /meteruitzonderingen/);
-  assert.match(migration, /jsonb_object_length\(meteruitzonderingen\) > 0/);
+  assert.match(migration, /meteruitzonderingen <> '\{\}'::jsonb/);
 });

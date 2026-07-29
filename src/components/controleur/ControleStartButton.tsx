@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createControlesessie, startControlesessie } from "@/services/controlesessies";
+import {
+  createControlesessie,
+  genereerControleIntelligence,
+  startControlesessie,
+} from "@/services/controlesessies";
 import { createInspectie } from "@/services/inspecties";
 import type { ControlesessieLocatieInvoer } from "@/types/controlesessie";
 
@@ -65,7 +69,16 @@ export default function ControleStartButton({ woningId, verhuurperiodeId, contro
         opmerkingen: null,
       });
 
-      await startControlesessie(sessie.id, await bepaalLocatie());
+      await startControlesessie(
+        sessie.id,
+        await bepaalLocatie(),
+      );
+
+      await genereerControleIntelligence(
+        woningId,
+        sessie.id,
+      );
+
       router.push(`/controleur/controle/${sessie.id}`);
       router.refresh();
     } catch (error) {

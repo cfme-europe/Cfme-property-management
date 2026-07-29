@@ -1,6 +1,9 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import {
+  getActieveControlebriefingVoorWoning,
+} from "@/services/intelligence-server";
 import type {
   ControleAfwijking,
   ControleResultaat,
@@ -244,6 +247,11 @@ export async function getControleurFlow(
     );
   }
 
+  const controlebriefing =
+    await getActieveControlebriefingVoorWoning(
+      sessie.woning_id,
+    );
+
   return {
     sessie,
     woning: woningResultaat.data,
@@ -256,6 +264,7 @@ export async function getControleurFlow(
     correctiewaarschuwingen: (correctiesResultaat.data ?? []).map(
       (correctie) => `Vorige meteropname is achteraf gecorrigeerd: ${correctie.reden}. Controleer de betreffende meter extra.`,
     ),
+    controlebriefing,
     laatste_meterstand: meterstandResultaat.data ?? null,
   };
 }

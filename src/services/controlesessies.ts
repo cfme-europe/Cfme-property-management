@@ -180,6 +180,34 @@ export async function rondControlesessieAf(
   return data as Controlesessie;
 }
 
+export async function genereerControleIntelligence(
+  woningId: number,
+  controlesessieId: number,
+): Promise<void> {
+  valideerId(woningId, "woning");
+  valideerId(
+    controlesessieId,
+    "controlesessie",
+  );
+
+  const { error } = await supabase.rpc(
+    "genereer_intelligence_pakket",
+    {
+      p_woning_id: woningId,
+      p_controlesessie_id:
+        controlesessieId,
+      p_peildatum:
+        new Date().toISOString().slice(0, 10),
+    },
+  );
+
+  if (error) {
+    throw new Error(
+      `Controlebriefing voorbereiden mislukt: ${error.message}`,
+    );
+  }
+}
+
 export async function annuleerControlesessie(
   controlesessieId: number
 ): Promise<Controlesessie> {

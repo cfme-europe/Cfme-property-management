@@ -1,3 +1,7 @@
+import type {
+  ControlebriefingMetWerkpunten,
+} from "@/types/intelligence";
+
 export const CONTROLE_RESULTATEN = [
   "goed",
   "voldoende",
@@ -127,6 +131,8 @@ export type ControleurFlowGegevens = {
   afwijkingen: ControleAfwijking[];
   bewoners_aantal: number;
   correctiewaarschuwingen: string[];
+  controlebriefing:
+    ControlebriefingMetWerkpunten | null;
   laatste_meterstand: {
     dagstroom_kwh: number | null;
     nachtstroom_kwh: number | null;

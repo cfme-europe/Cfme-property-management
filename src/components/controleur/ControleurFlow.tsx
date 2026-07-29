@@ -961,6 +961,86 @@ export default function ControleurFlow({
           </div>
         </header>
 
+        {gegevens.controlebriefing && (
+          <details
+            open={ruimteIndex === 0}
+            className="mt-5 rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow"
+          >
+            <summary className="cursor-pointer list-none">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold uppercase tracking-wide text-amber-800">
+                    Aandacht vóór de controle
+                  </p>
+                  <h2 className="mt-1 text-xl font-bold text-amber-950">
+                    Risico{" "}
+                    {label(
+                      gegevens.controlebriefing
+                        .briefing.risiconiveau,
+                    )}{" "}
+                    · score{" "}
+                    {
+                      gegevens.controlebriefing
+                        .briefing.risicoscore
+                    }
+                  </h2>
+                </div>
+                <span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-amber-900">
+                  {
+                    gegevens.controlebriefing
+                      .werkpunten.length
+                  }{" "}
+                  aandachtspunt(en)
+                </span>
+              </div>
+            </summary>
+
+            <p className="mt-4 text-amber-950">
+              {
+                gegevens.controlebriefing
+                  .briefing.samenvatting
+              }
+            </p>
+
+            {gegevens.controlebriefing
+              .briefing.advies && (
+              <p className="mt-3 rounded-xl bg-white p-4 font-semibold text-slate-900">
+                {
+                  gegevens.controlebriefing
+                    .briefing.advies
+                }
+              </p>
+            )}
+
+            {gegevens.controlebriefing
+              .werkpunten.length > 0 && (
+              <div className="mt-4 space-y-3">
+                {gegevens.controlebriefing
+                  .werkpunten.map((werkpunt) => (
+                  <article
+                    key={werkpunt.id}
+                    className="rounded-xl border border-amber-200 bg-white p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="font-bold text-slate-950">
+                        {werkpunt.titel}
+                      </p>
+                      <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900">
+                        {label(
+                          werkpunt.prioriteit,
+                        )}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-700">
+                      {werkpunt.omschrijving}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            )}
+          </details>
+        )}
+
         <section className="mt-5 rounded-2xl bg-white p-5 shadow">
           <p className="text-sm font-semibold text-emerald-700">
             Stap {ruimteIndex + 1} van {ruimten.length}
