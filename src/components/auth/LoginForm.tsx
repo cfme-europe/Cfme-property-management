@@ -69,6 +69,15 @@ export default function LoginForm({
         </p>
       )}
 
+      <div className="text-right">
+        <a
+          href="/wachtwoord-vergeten"
+          className="text-sm font-semibold text-emerald-700 hover:text-emerald-600"
+        >
+          Wachtwoord vergeten?
+        </a>
+      </div>
+
       <button
         type="submit"
         disabled={bezig}

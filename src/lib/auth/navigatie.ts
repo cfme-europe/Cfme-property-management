@@ -1,5 +1,8 @@
 const PUBLIEKE_ROUTES = [
   "/login",
+  "/wachtwoord-vergeten",
+  "/wachtwoord-herstellen",
+  "/auth/herstel",
   "/api/cron/controletermijnen",
 ] as const;
 
