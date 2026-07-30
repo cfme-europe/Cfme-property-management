@@ -193,6 +193,12 @@ export default async function Home() {
 
             <div className="flex flex-wrap gap-2">
               <Link
+                href="/bedrijven"
+                className="rounded-xl px-4 py-2 text-sm font-medium hover:bg-slate-800"
+              >
+                Bedrijven
+              </Link>
+              <Link
                 href="/woningen"
                 className="rounded-xl px-4 py-2 text-sm font-medium hover:bg-slate-800"
               >
