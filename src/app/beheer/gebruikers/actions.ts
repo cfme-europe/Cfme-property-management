@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  huidigeGebruikerIsAdmin,
+  huidigeGebruikerMagGebruikersBeheren,
   wijzigGebruikersprofiel,
 } from "@/services/gebruikersbeheer";
 
@@ -17,9 +17,9 @@ export async function wijzigGebruiker(
 ): Promise<GebruikerWijzigenState> {
   void vorigeState;
 
-  if (!(await huidigeGebruikerIsAdmin())) {
+  if (!(await huidigeGebruikerMagGebruikersBeheren())) {
     return {
-      fout: "Alleen een admin mag gebruikers beheren.",
+      fout: "Alleen admin of management mag gebruikers beheren.",
       succes: "",
     };
   }

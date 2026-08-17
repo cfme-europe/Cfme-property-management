@@ -90,7 +90,7 @@ export default function GebruikerBeheerForm({
             <input
               type="hidden"
               name="rol"
-              value="admin"
+              value={profiel.rol}
             />
           )}
         </label>

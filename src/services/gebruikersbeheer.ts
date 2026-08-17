@@ -1,5 +1,8 @@
 import "server-only";
 
+import {
+  rolMagGebruikersBeheren,
+} from "@/lib/auth/rollen";
 import { createClient } from "@/lib/supabase/server";
 import type {
   Gebruikersprofiel,
@@ -16,6 +19,15 @@ const toegestaneRollen: Gebruikersrol[] = [
   "lezen",
 ];
 
+type SupabaseServerClient =
+  Awaited<ReturnType<typeof createClient>>;
+
+type HuidigeGebruikersbeheerder = {
+  supabase: SupabaseServerClient;
+  id: string;
+  rol: Gebruikersrol;
+};
+
 function isGebruikersrol(
   waarde: string
 ): waarde is Gebruikersrol {
@@ -24,7 +36,8 @@ function isGebruikersrol(
   );
 }
 
-export async function huidigeGebruikerIsAdmin(): Promise<boolean> {
+async function getHuidigeGebruikersbeheerder():
+  Promise<HuidigeGebruikersbeheerder | null> {
   const supabase = await createClient();
 
   const {
@@ -33,7 +46,7 @@ export async function huidigeGebruikerIsAdmin(): Promise<boolean> {
   } = await supabase.auth.getUser();
 
   if (gebruikerFout || !user) {
-    return false;
+    return null;
   }
 
   const { data, error } = await supabase
@@ -42,19 +55,41 @@ export async function huidigeGebruikerIsAdmin(): Promise<boolean> {
     .eq("id", user.id)
     .maybeSingle();
 
+  if (
+    error ||
+    !data?.actief ||
+    !rolMagGebruikersBeheren(data.rol)
+  ) {
+    return null;
+  }
+
+  return {
+    supabase,
+    id: user.id,
+    rol: data.rol,
+  };
+}
+
+export async function huidigeGebruikerMagGebruikersBeheren():
+  Promise<boolean> {
   return Boolean(
-    !error &&
-      data?.actief &&
-      data.rol === "admin"
+    await getHuidigeGebruikersbeheerder()
   );
 }
 
 export async function getGebruikersprofielen(): Promise<
   Gebruikersprofiel[]
 > {
-  const supabase = await createClient();
+  const beheerder =
+    await getHuidigeGebruikersbeheerder();
 
-  const { data, error } = await supabase
+  if (!beheerder) {
+    throw new Error(
+      "Alleen admin of management mag gebruikers beheren."
+    );
+  }
+
+  const { data, error } = await beheerder.supabase
     .from("profiles")
     .select(
       "id, created_at, updated_at, email, volledige_naam, rol, actief"
@@ -92,35 +127,34 @@ export async function wijzigGebruikersprofiel(
     throw new Error("Ongeldige gebruikersrol.");
   }
 
-  const supabase = await createClient();
+  const beheerder =
+    await getHuidigeGebruikersbeheerder();
 
-  const {
-    data: { user },
-    error: gebruikerFout,
-  } = await supabase.auth.getUser();
-
-  if (gebruikerFout || !user) {
+  if (!beheerder) {
     throw new Error(
-      "Geen aangemelde gebruiker gevonden."
+      "Alleen admin of management mag gebruikers beheren."
     );
   }
 
-  if (user.id === profielId && !actief) {
+  if (
+    beheerder.id === profielId &&
+    !actief
+  ) {
     throw new Error(
       "Je kunt je eigen account niet deactiveren."
     );
   }
 
   if (
-    user.id === profielId &&
-    rol !== "admin"
+    beheerder.id === profielId &&
+    rol !== beheerder.rol
   ) {
     throw new Error(
-      "Je kunt je eigen adminrol niet verwijderen."
+      "Je kunt je eigen rol niet wijzigen."
     );
   }
 
-  const { error } = await supabase
+  const { error } = await beheerder.supabase
     .from("profiles")
     .update({
       rol,

@@ -3,14 +3,14 @@ import { notFound } from "next/navigation";
 import GebruikerBeheerForm from "@/components/beheer/GebruikerBeheerForm";
 import {
   getGebruikersprofielen,
-  huidigeGebruikerIsAdmin,
+  huidigeGebruikerMagGebruikersBeheren,
 } from "@/services/gebruikersbeheer";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function GebruikersbeheerPage() {
-  if (!(await huidigeGebruikerIsAdmin())) {
+  if (!(await huidigeGebruikerMagGebruikersBeheren())) {
     notFound();
   }
 
