@@ -150,6 +150,13 @@ export default async function WoningDossierPage({
             </Link>
 
             <Link
+              href={`/woningen/${woning.id}/bewerken`}
+              className="rounded-xl border border-slate-500 px-5 py-3 font-medium text-slate-800"
+            >
+              Woninggegevens bewerken
+            </Link>
+
+            <Link
               href={`/woningen/${woning.id}/configuratie`}
               className="rounded-xl border border-blue-700 px-5 py-3 font-medium text-blue-800"
             >
@@ -162,6 +169,15 @@ export default async function WoningDossierPage({
             >
               Controleafwijkingen
             </Link>
+
+          {actieveVerhuur && (
+            <Link
+              href={`/woningen/${woning.id}/verhuur/bewerken`}
+              className="rounded-xl border border-amber-600 px-5 py-3 font-medium text-amber-800"
+            >
+              Verhuurperiode bewerken
+            </Link>
+          )}
 
           {actieveVerhuur ? (
             <Link

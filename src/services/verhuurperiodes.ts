@@ -352,3 +352,185 @@ export async function beeindigVerhuurperiode(
 
   return verhuurperiode;
 }
+
+
+export type VerhuurperiodeWijziging = {
+  verhuurperiode_id: number;
+  woning_id: number;
+  bedrijf_id: number;
+  startdatum: string;
+  geplande_einddatum: string | null;
+  maandhuur: number;
+  borg: number | null;
+  facturatie_dag: number;
+  referentie: string | null;
+  opmerkingen: string | null;
+};
+
+export async function updateVerhuurperiode(
+  invoer: VerhuurperiodeWijziging
+): Promise<Verhuurperiode> {
+  if (
+    !Number.isInteger(invoer.verhuurperiode_id) ||
+    invoer.verhuurperiode_id <= 0
+  ) {
+    throw new Error("Ongeldige verhuurperiode.");
+  }
+
+  if (
+    !Number.isInteger(invoer.woning_id) ||
+    invoer.woning_id <= 0
+  ) {
+    throw new Error("Ongeldige woning.");
+  }
+
+  if (
+    !Number.isInteger(invoer.bedrijf_id) ||
+    invoer.bedrijf_id <= 0
+  ) {
+    throw new Error("Selecteer een bedrijf.");
+  }
+
+  if (!invoer.startdatum) {
+    throw new Error("Startdatum is verplicht.");
+  }
+
+  if (
+    invoer.geplande_einddatum &&
+    invoer.geplande_einddatum < invoer.startdatum
+  ) {
+    throw new Error(
+      "Geplande einddatum mag niet vóór de startdatum liggen."
+    );
+  }
+
+  if (
+    !Number.isFinite(invoer.maandhuur) ||
+    invoer.maandhuur < 0
+  ) {
+    throw new Error("Maandhuur is ongeldig.");
+  }
+
+  if (
+    invoer.borg !== null &&
+    (!Number.isFinite(invoer.borg) || invoer.borg < 0)
+  ) {
+    throw new Error("Borg is ongeldig.");
+  }
+
+  if (
+    !Number.isInteger(invoer.facturatie_dag) ||
+    invoer.facturatie_dag < 1 ||
+    invoer.facturatie_dag > 28
+  ) {
+    throw new Error(
+      "Facturatiedag moet tussen 1 en 28 liggen."
+    );
+  }
+
+  const { data: huidigePeriode, error: huidigeFout } =
+    await supabase
+      .from("verhuurperiodes")
+      .select("id, woning_id, status")
+      .eq("id", invoer.verhuurperiode_id)
+      .eq("woning_id", invoer.woning_id)
+      .maybeSingle();
+
+  if (huidigeFout) {
+    throw new Error(
+      `Verhuurperiode controleren mislukt: ${huidigeFout.message}`
+    );
+  }
+
+  if (!huidigePeriode) {
+    throw new Error("Verhuurperiode niet gevonden.");
+  }
+
+  if (huidigePeriode.status !== "actief") {
+    throw new Error(
+      "Alleen een actieve verhuurperiode kan hier worden gecorrigeerd."
+    );
+  }
+
+  /*
+   * Voorkom dat een gecorrigeerde start/einddatum
+   * bestaande feitelijke verhuurhistorie overlapt.
+   */
+  const { data: anderePeriodes, error: historieFout } =
+    await supabase
+      .from("verhuurperiodes")
+      .select(
+        "id, startdatum, geplande_einddatum, werkelijke_einddatum, status"
+      )
+      .eq("woning_id", invoer.woning_id)
+      .neq("id", invoer.verhuurperiode_id)
+      .in("status", [
+        "actief",
+        "opgezegd",
+        "beëindigd",
+      ]);
+
+  if (historieFout) {
+    throw new Error(
+      `Verhuurhistorie controleren mislukt: ${historieFout.message}`
+    );
+  }
+
+  const nieuwEinde =
+    invoer.geplande_einddatum ?? "9999-12-31";
+
+  const overlap = (anderePeriodes ?? []).some(
+    (periode) => {
+      const bestaandEinde =
+        periode.werkelijke_einddatum ??
+        periode.geplande_einddatum ??
+        "9999-12-31";
+
+      return (
+        periode.startdatum <= nieuwEinde &&
+        invoer.startdatum <= bestaandEinde
+      );
+    }
+  );
+
+  if (overlap) {
+    throw new Error(
+      "Deze correctie overlapt een andere verhuurperiode van de woning."
+    );
+  }
+
+  const { data, error } = await supabase
+    .from("verhuurperiodes")
+    .update({
+      bedrijf_id: invoer.bedrijf_id,
+      startdatum: invoer.startdatum,
+      geplande_einddatum: invoer.geplande_einddatum,
+      maandhuur: invoer.maandhuur,
+      borg: invoer.borg,
+      facturatie_dag: invoer.facturatie_dag,
+      referentie: invoer.referentie?.trim() || null,
+      opmerkingen: invoer.opmerkingen?.trim() || null,
+    })
+    .eq("id", invoer.verhuurperiode_id)
+    .eq("woning_id", invoer.woning_id)
+    .eq("status", "actief")
+    .select(`
+      *,
+      bedrijf:bedrijven(*)
+    `)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Verhuurperiode wijzigen mislukt: ${error.message}`
+    );
+  }
+
+  if (!data) {
+    throw new Error(
+      "De verhuurperiode kon niet worden gewijzigd. Vernieuw de pagina."
+    );
+  }
+
+  return data as Verhuurperiode;
+}
