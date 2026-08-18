@@ -25,6 +25,8 @@ import { RUIMTE_TYPEN } from "@/types/woningconfiguratie";
 type Props = {
   woningId: number;
   configuratie: WoningConfiguratie;
+  alleenControlepunten?: boolean;
+  ruimteFilterId?: number | null;
 };
 
 const invoerClass =
@@ -44,11 +46,15 @@ function label(waarde: string): string {
 export default function WoningconfiguratieBeheer({
   woningId,
   configuratie,
+  alleenControlepunten = false,
+  ruimteFilterId = null,
 }: Props) {
   const router = useRouter();
   const [sectie, setSectie] = useState<
     "verdiepingen" | "ruimten" | "objecten" | "controlepunten"
-  >("verdiepingen");
+  >(
+    alleenControlepunten ? "controlepunten" : "verdiepingen",
+  );
   const [bezig, setBezig] = useState(false);
   const [fout, setFout] = useState("");
 
@@ -79,7 +85,9 @@ export default function WoningconfiguratieBeheer({
 
   const [controlepunt, setControlepunt] =
     useState<WoningControlepunt | null>(null);
-  const [controleRuimteId, setControleRuimteId] = useState("");
+  const [controleRuimteId, setControleRuimteId] = useState(
+    ruimteFilterId === null ? "" : String(ruimteFilterId),
+  );
   const [controleObjectId, setControleObjectId] = useState("");
   const [definitieId, setDefinitieId] = useState("");
   const [controleNaam, setControleNaam] = useState("");
@@ -251,7 +259,7 @@ export default function WoningconfiguratieBeheer({
 
   function leegControlepunt() {
     setControlepunt(null);
-    setControleRuimteId("");
+    setControleRuimteId(ruimteFilterId === null ? "" : String(ruimteFilterId));
     setControleObjectId("");
     setDefinitieId("");
     setControleNaam("");
@@ -298,12 +306,14 @@ export default function WoningconfiguratieBeheer({
     });
   }
 
-  const tabs = [
-    ["verdiepingen", "Verdiepingen"],
-    ["ruimten", "Ruimten"],
-    ["objecten", "Objecten"],
-    ["controlepunten", "Controlepunten"],
-  ] as const;
+  const tabs = alleenControlepunten
+    ? ([["controlepunten", "Controlepunten"]] as const)
+    : ([
+        ["verdiepingen", "Verdiepingen"],
+        ["ruimten", "Ruimten"],
+        ["objecten", "Objecten"],
+        ["controlepunten", "Controlepunten"],
+      ] as const);
 
   return (
     <div className="space-y-6">
@@ -546,7 +556,17 @@ export default function WoningconfiguratieBeheer({
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <select required value={objectRuimteId} onChange={(e) => setObjectRuimteId(e.target.value)} className={invoerClass}>
                 <option value="">Selecteer ruimte</option>
-                {actieveRuimten.map((item) => <option key={item.id} value={item.id}>{item.naam}</option>)}
+                {actieveRuimten
+                  .filter(
+                    (item) =>
+                      ruimteFilterId === null ||
+                      item.id === ruimteFilterId,
+                  )
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.naam}
+                    </option>
+                  ))}
               </select>
               <input required value={objectType} onChange={(e) => setObjectType(e.target.value)} className={invoerClass} placeholder="Objecttype, bijvoorbeeld rookmelder" />
               <input required value={objectNaam} onChange={(e) => setObjectNaam(e.target.value)} className={invoerClass} placeholder="Naam" />
@@ -599,7 +619,13 @@ export default function WoningconfiguratieBeheer({
           </form>
           <Lijst
             leegTekst="Nog geen controlepunten gekoppeld."
-            items={configuratie.controlepunten}
+            items={
+              ruimteFilterId === null
+                ? configuratie.controlepunten
+                : configuratie.controlepunten.filter(
+                    (item) => item.ruimte_id === ruimteFilterId,
+                  )
+            }
             render={(item) => (
               <Rij
                 key={item.id}
@@ -608,9 +634,13 @@ export default function WoningconfiguratieBeheer({
                   item.definitie?.naam ||
                   "Controlepunt"
                 }`}
-                subtitel={`${item.definitie?.categorie || "algemeen"} · ${
-                  item.actief ? "Actief" : "Inactief"
-                }`}
+                subtitel={`${
+                  configuratie.ruimten.find(
+                    (ruimte) => ruimte.id === item.ruimte_id,
+                  )?.naam || "Onbekende ruimte"
+                } · ${item.definitie?.categorie || "algemeen"} · ${
+                  item.verplicht ? "Verplicht" : "Optioneel"
+                } · ${item.actief ? "Actief" : "Inactief"}`}
                 onBewerken={() => bewerkControlepunt(item)}
               />
             )}

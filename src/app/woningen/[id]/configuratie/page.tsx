@@ -70,7 +70,16 @@ export default async function WoningconfiguratiePage({
           </p>
         </header>
 
-        <WoningrouteWizard
+        <div className="mb-6 flex justify-end">
+        <a
+          href={`/woningen/${woning.id}/configuratie/controlepunten`}
+          className="rounded-xl bg-slate-950 px-5 py-3 font-semibold text-white hover:bg-slate-800"
+        >
+          Alle controlepunten
+        </a>
+      </div>
+
+      <WoningrouteWizard
           woningId={woning.id}
           configuratie={configuratie}
           initieleMelding={initieleMelding}

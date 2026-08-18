@@ -1857,6 +1857,18 @@ export default function WoningrouteWizard({
 
           {ruimten.map((ruimte, index) => {
             const open = openRuimte === ruimte.sleutel;
+            const actieveControlepunten =
+              configuratie.controlepunten
+                .filter(
+                  (punt) =>
+                    punt.ruimte_id === ruimte.id &&
+                    punt.actief,
+                )
+                .sort(
+                  (a, b) =>
+                    a.loopvolgorde - b.loopvolgorde ||
+                    a.id - b.id,
+                );
 
             return (
               <article
@@ -1877,7 +1889,7 @@ export default function WoningrouteWizard({
                     <h3 className="text-xl font-bold">{ruimte.naam}</h3>
                     <p className="mt-1 text-sm text-slate-600">
                       {ruimte.objecten.length} objecten ·{" "}
-                      {ruimte.controles.length} controlepunten
+                      {actieveControlepunten.length} controlepunten
                       {ruimte.ruimteType === "slaapkamer"
                         ? ` · capaciteit ${ruimte.capaciteit ?? 1}`
                         : ""}
@@ -1888,6 +1900,71 @@ export default function WoningrouteWizard({
 
                 {open && (
                   <div className="space-y-6 border-t p-6">
+                    <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h4 className="font-bold text-slate-950">
+                            Controlepunten
+                          </h4>
+                          <p className="mt-1 text-sm text-slate-600">
+                            {actieveControlepunten.length} actieve controlepunten in deze ruimte
+                          </p>
+                        </div>
+
+                        <a
+                          href={`/woningen/${woningId}/configuratie/controlepunten?ruimte=${ruimte.id}`}
+                          className="rounded-xl border border-emerald-700 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
+                        >
+                          Aanpassen
+                        </a>
+                      </div>
+
+                      {actieveControlepunten.length === 0 ? (
+                        <p className="mt-4 text-sm text-slate-600">
+                          Geen actieve controlepunten.
+                        </p>
+                      ) : (
+                        <div className="mt-4 grid gap-2">
+                          {actieveControlepunten.map((punt) => {
+                            const gekoppeldObject =
+                              punt.object_id === null
+                                ? null
+                                : configuratie.objecten.find(
+                                    (object) =>
+                                      object.id === punt.object_id,
+                                  );
+
+                            return (
+                              <div
+                                key={punt.id}
+                                className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-4 py-3"
+                              >
+                                <div>
+                                  <p className="font-medium text-slate-950">
+                                    {punt.loopvolgorde}.{" "}
+                                    {punt.naam_override ||
+                                      punt.definitie?.naam ||
+                                      "Controlepunt"}
+                                  </p>
+
+                                  <p className="mt-1 text-xs text-slate-600">
+                                    {gekoppeldObject
+                                      ? `Object: ${gekoppeldObject.naam}`
+                                      : "Ruimtegebonden"}
+                                  </p>
+                                </div>
+
+                                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">
+                                  {punt.verplicht
+                                    ? "Verplicht"
+                                    : "Optioneel"}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </section>
                     {ruimte.ruimteType === "slaapkamer" && (
                       <section className="rounded-2xl bg-slate-100 p-5">
                         <h4 className="font-bold">
@@ -2297,7 +2374,11 @@ export default function WoningrouteWizard({
                   {ruimte.buiten
                     ? "Buitenroute"
                     : verdieping?.naam ?? "Geen verdieping"}{" "}
-                  · {ruimte.controles.length} controlepunten ·{" "}
+                  · {configuratie.controlepunten.filter(
+                    (punt) =>
+                      punt.ruimte_id === ruimte.id &&
+                      punt.actief,
+                  ).length} controlepunten ·{" "}
                   {ruimte.objecten.length} objecten
                   {ruimte.ruimteType === "slaapkamer"
                     ? ` · capaciteit ${ruimte.capaciteit ?? 1}`
