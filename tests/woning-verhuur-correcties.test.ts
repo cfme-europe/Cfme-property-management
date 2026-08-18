@@ -40,6 +40,11 @@ test(
 
     assert.match(
       woningen,
+      /\.rpc\(\s*"corrigeer_woninggegevens"/,
+    );
+
+    assert.doesNotMatch(
+      woningen,
       /\.from\("woningen"\)[\s\S]*\.update/,
     );
 

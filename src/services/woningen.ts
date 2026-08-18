@@ -53,18 +53,15 @@ export async function updateWoningGegevens(
     );
   }
 
-  const { data, error } = await supabase
-    .from("woningen")
-    .update({
-      adres,
-      postcode,
-      plaats,
-    })
-    .eq("id", invoer.id)
-    .select(
-      "id, created_at, dossiernummer, adres, postcode, plaats"
-    )
-    .maybeSingle();
+  const { data, error } = await supabase.rpc(
+    "corrigeer_woninggegevens",
+    {
+      p_woning_id: invoer.id,
+      p_adres: adres,
+      p_postcode: postcode,
+      p_plaats: plaats,
+    }
+  );
 
   if (error) {
     throw new Error(
@@ -72,9 +69,13 @@ export async function updateWoningGegevens(
     );
   }
 
-  if (!data) {
+  const woning = Array.isArray(data)
+    ? data[0]
+    : data;
+
+  if (!woning) {
     throw new Error("Woning niet gevonden.");
   }
 
-  return data as Woning;
+  return woning as Woning;
 }
