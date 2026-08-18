@@ -17,6 +17,21 @@ test(
 
     assert.match(
       service,
+      /from "@\/lib\/supabase\/client"/,
+    );
+
+    assert.match(
+      service,
+      /const supabase = createClient\(\)/,
+    );
+
+    assert.doesNotMatch(
+      service,
+      /from "@\/lib\/supabase";/,
+    );
+
+    assert.match(
+      service,
       /\.rpc\(\s*"corrigeer_woninggegevens"/,
     );
 
