@@ -43,6 +43,8 @@ function label(waarde: string): string {
   return waarde.replaceAll("_", " ");
 }
 
+const VRIJ_CONTROLEPUNT_CODE = "VRIJ_CONTROLEPUNT";
+
 export default function WoningconfiguratieBeheer({
   woningId,
   configuratie,
@@ -305,6 +307,15 @@ export default function WoningconfiguratieBeheer({
       leegControlepunt();
     });
   }
+
+  const geselecteerdeControlepuntDefinitie =
+    configuratie.definities.find(
+      (item) => item.id === Number(definitieId),
+    );
+
+  const vrijControlepunt =
+    geselecteerdeControlepuntDefinitie?.code ===
+    VRIJ_CONTROLEPUNT_CODE;
 
   const tabs = alleenControlepunten
     ? ([["controlepunten", "Controlepunten"]] as const)
@@ -603,9 +614,27 @@ export default function WoningconfiguratieBeheer({
               </select>
               <select required value={definitieId} onChange={(e) => setDefinitieId(e.target.value)} className={invoerClass}>
                 <option value="">Selecteer controlepunt</option>
-                {configuratie.definities.map((item: ControlepuntDefinitie) => <option key={item.id} value={item.id}>{item.naam} · {item.categorie}</option>)}
+                {configuratie.definities.map(
+                  (item: ControlepuntDefinitie) => (
+                    <option key={item.id} value={item.id}>
+                      {item.code === VRIJ_CONTROLEPUNT_CODE
+                        ? "+ Vrij controlepunt"
+                        : `${item.naam} · ${item.categorie}`}
+                    </option>
+                  ),
+                )}
               </select>
-              <input value={controleNaam} onChange={(e) => setControleNaam(e.target.value)} className={invoerClass} placeholder="Afwijkende naam (optioneel)" />
+              <input
+                value={controleNaam}
+                onChange={(e) => setControleNaam(e.target.value)}
+                required={vrijControlepunt}
+                className={invoerClass}
+                placeholder={
+                  vrijControlepunt
+                    ? "Naam van het vrije controlepunt"
+                    : "Afwijkende naam (optioneel)"
+                }
+              />
               <input required type="number" min="0" step="1" value={controleVolgorde} onChange={(e) => setControleVolgorde(e.target.value)} className={invoerClass} placeholder="Loopvolgorde" />
             </div>
             <div className="mt-4 flex flex-wrap gap-6">
