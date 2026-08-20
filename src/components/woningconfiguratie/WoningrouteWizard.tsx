@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { slaVolledigeWoningrouteOp } from "@/services/woningconfiguratie";
+import {
+  getHerbruikbareEigenObjecten,
+  slaVolledigeWoningrouteOp,
+} from "@/services/woningconfiguratie";
 import type {
   RuimteType,
   WoningConfiguratie,
@@ -825,6 +828,68 @@ export default function WoningrouteWizard({
     useState<string | null>(null);
   const [objectZoektekst, setObjectZoektekst] =
     useState("");
+
+
+  const [
+    eigenObjectSjablonen,
+    setEigenObjectSjablonen,
+  ] = useState<ObjectSjabloon[]>([]);
+
+  useEffect(() => {
+    let actief = true;
+
+    void getHerbruikbareEigenObjecten()
+      .then((objecten) => {
+        if (!actief) {
+          return;
+        }
+
+        const vasteCodesEnTypen = new Set(
+          Object.values(OBJECTEN).flatMap(
+            (object) => [
+              object.code,
+              object.objectType,
+            ],
+          ),
+        );
+
+        const eigenObjecten =
+          objecten
+            .filter(
+              (object) =>
+                !vasteCodesEnTypen.has(
+                  object.code,
+                ) &&
+                !vasteCodesEnTypen.has(
+                  object.objectType,
+                ),
+            )
+            .map((object) => ({
+              code: object.code,
+              naam: object.naam,
+              objectType: object.objectType,
+            }))
+            .sort((a, b) =>
+              a.naam.localeCompare(
+                b.naam,
+                "nl-NL",
+              ),
+            );
+
+        setEigenObjectSjablonen(
+          eigenObjecten,
+        );
+      })
+      .catch(() => {
+        if (actief) {
+          setEigenObjectSjablonen([]);
+        }
+      });
+
+    return () => {
+      actief = false;
+    };
+  }, []);
   const [capaciteitInvoer, setCapaciteitInvoer] =
     useState<Record<string, string>>(() =>
       Object.fromEntries(
@@ -1147,6 +1212,27 @@ export default function WoningrouteWizard({
       );
   }
 
+  function alleObjectSjablonen(): ObjectSjabloon[] {
+    const perCode = new Map<
+      string,
+      ObjectSjabloon
+    >();
+
+    for (const object of [
+      ...Object.values(OBJECTEN),
+      ...eigenObjectSjablonen,
+    ]) {
+      if (!perCode.has(object.code)) {
+        perCode.set(
+          object.code,
+          object,
+        );
+      }
+    }
+
+    return Array.from(perCode.values());
+  }
+
   function zoekObjectSjabloon(
     zoektekst: string,
   ): ObjectSjabloon | null {
@@ -1161,7 +1247,7 @@ export default function WoningrouteWizard({
       normaliseerObjectType(zoekwaarde);
 
     return (
-      Object.values(OBJECTEN).find(
+      alleObjectSjablonen().find(
         (object) =>
           object.code === genormaliseerd ||
           object.objectType === genormaliseerd ||
@@ -1246,7 +1332,18 @@ export default function WoningrouteWizard({
         index += 1
       ) {
         const nieuwObject =
-          maakObject(sjabloon.code);
+          OBJECTEN[sjabloon.code]
+            ? maakObject(sjabloon.code)
+            : {
+                sleutel: uniekeSleutel(
+                  sjabloon.code,
+                ),
+                id: null,
+                code: sjabloon.code,
+                naam: sjabloon.naam,
+                objectType:
+                  sjabloon.objectType,
+              };
 
         nieuwObject.naam =
           volgendeObjectNaam(
@@ -1317,6 +1414,29 @@ export default function WoningrouteWizard({
           ),
       ),
     });
+  }
+
+  function verwijderObjectUitRuimte(
+    ruimteSleutel: string,
+    objectSleutel: string,
+  ) {
+    const ruimte = ruimten.find(
+      (item) =>
+        item.sleutel === ruimteSleutel,
+    );
+
+    if (!ruimte) {
+      return;
+    }
+
+    wijzigRuimte(ruimteSleutel, {
+      objecten: ruimte.objecten.filter(
+        (object) =>
+          object.sleutel !== objectSleutel,
+      ),
+    });
+
+    setFout("");
   }
 
   function normaliseerObjectType(
@@ -1392,6 +1512,35 @@ export default function WoningrouteWizard({
               }`,
         objectType: type,
       };
+
+      // Nieuw vrij object direct
+      // herbruikbaar maken.
+      setEigenObjectSjablonen(
+        (huidig) => {
+          if (
+            huidig.some(
+              (object) =>
+                object.code === type,
+            )
+          ) {
+            return huidig;
+          }
+
+          return [
+            ...huidig,
+            {
+              code: type,
+              naam: basisNaam,
+              objectType: type,
+            },
+          ].sort((a, b) =>
+            a.naam.localeCompare(
+              b.naam,
+              "nl-NL",
+            ),
+          );
+        },
+      );
 
       wijzigRuimte(ruimteSleutel, {
         objecten: [
@@ -2155,12 +2304,32 @@ export default function WoningrouteWizard({
                           <div className="mt-3 flex flex-wrap gap-2">
                             {ruimte.objecten.map(
                               (object) => (
-                                <span
+                                <div
                                   key={object.sleutel}
-                                  className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold"
+                                  className="flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold"
                                 >
-                                  {object.naam}
-                                </span>
+                                  <span>
+                                    {object.naam}
+                                  </span>
+
+                                  {bewerkObjectenRuimte ===
+                                    ruimte.sleutel && (
+                                      <button
+                                        type="button"
+                                        title="Uit ruimte verwijderen"
+                                        aria-label={`Verwijder ${object.naam} uit deze ruimte`}
+                                        onClick={() =>
+                                          verwijderObjectUitRuimte(
+                                            ruimte.sleutel,
+                                            object.sleutel,
+                                          )
+                                        }
+                                        className="rounded-full bg-red-100 px-2 py-1 text-xs font-bold text-red-800 hover:bg-red-200"
+                                      >
+                                        Verwijderen
+                                      </button>
+                                    )}
+                                </div>
                               ),
                             )}
                           </div>
@@ -2242,6 +2411,78 @@ export default function WoningrouteWizard({
                             </div>
                           </section>
 
+                          {eigenObjectSjablonen.length > 0 && (
+                            <section>
+                              <h5 className="font-bold">
+                                Eigen objecten
+                              </h5>
+
+                              <p className="mt-1 text-sm text-slate-600">
+                                Automatisch beschikbaar uit eerder opgeslagen woningen. De vaste CFME-presets blijven ongewijzigd.
+                              </p>
+
+                              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                                {eigenObjectSjablonen
+                                  .slice(0, 12)
+                                  .map((sjabloon) => {
+                                    const aantal =
+                                      objectAantal(
+                                        ruimte,
+                                        sjabloon.code,
+                                      );
+
+                                    return (
+                                      <div
+                                        key={sjabloon.code}
+                                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4"
+                                      >
+                                        <span className="font-semibold">
+                                          {sjabloon.naam}
+                                        </span>
+
+                                        <div className="flex items-center gap-3">
+                                          <button
+                                            type="button"
+                                            disabled={
+                                              aantal === 0
+                                            }
+                                            onClick={() =>
+                                              wijzigObjectAantal(
+                                                ruimte.sleutel,
+                                                sjabloon,
+                                                aantal - 1,
+                                              )
+                                            }
+                                            className="h-10 w-10 rounded-xl border border-slate-300 font-bold disabled:opacity-30"
+                                          >
+                                            −
+                                          </button>
+
+                                          <span className="min-w-5 text-center font-bold">
+                                            {aantal}
+                                          </span>
+
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              wijzigObjectAantal(
+                                                ruimte.sleutel,
+                                                sjabloon,
+                                                aantal + 1,
+                                              )
+                                            }
+                                            className="h-10 w-10 rounded-xl bg-emerald-700 font-bold text-white"
+                                          >
+                                            +
+                                          </button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                            </section>
+                          )}
+
                           <section className="rounded-2xl bg-slate-100 p-5">
                             <h5 className="font-bold">
                               Zoek of typ een object
@@ -2278,7 +2519,7 @@ export default function WoningrouteWizard({
                               <datalist
                                 id={`objectkeuzes-${ruimte.sleutel}`}
                               >
-                                {Object.values(OBJECTEN)
+                                {alleObjectSjablonen()
                                   .sort((a, b) =>
                                     a.naam.localeCompare(
                                       b.naam,

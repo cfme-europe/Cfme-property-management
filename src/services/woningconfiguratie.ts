@@ -320,3 +320,136 @@ export async function slaVolledigeWoningrouteOp(
 
   return data as WoningrouteOpslagResultaat;
 }
+
+
+export type HerbruikbaarEigenObject = {
+  code: string;
+  naam: string;
+  objectType: string;
+  gebruiksaantal: number;
+};
+
+function leesbareEigenObjectNaam(
+  objectType: string
+): string {
+  return objectType
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^./, (letter) =>
+      letter.toUpperCase()
+    );
+}
+
+export async function getHerbruikbareEigenObjecten(): Promise<
+  HerbruikbaarEigenObject[]
+> {
+  const regels: Array<{
+    object_type: string;
+    naam: string;
+  }> = [];
+
+  const batchgrootte = 1000;
+  let vanaf = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("woning_objecten")
+      .select("object_type, naam")
+      .eq("actief", true)
+      .range(
+        vanaf,
+        vanaf + batchgrootte - 1
+      );
+
+    if (error) {
+      throw new Error(
+        `Eigen objecten ophalen mislukt: ${error.message}`
+      );
+    }
+
+    const batch = (data ?? []) as Array<{
+      object_type: string;
+      naam: string;
+    }>;
+
+    regels.push(...batch);
+
+    if (batch.length < batchgrootte) {
+      break;
+    }
+
+    vanaf += batchgrootte;
+  }
+
+  const perType = new Map<
+    string,
+    {
+      aantal: number;
+      namen: Map<string, number>;
+    }
+  >();
+
+  for (const regel of regels) {
+    const objectType =
+      typeof regel.object_type === "string"
+        ? regel.object_type.trim()
+        : "";
+
+    if (!objectType) {
+      continue;
+    }
+
+    const naam =
+      typeof regel.naam === "string"
+        ? regel.naam.trim()
+        : "";
+
+    const huidig = perType.get(objectType) ?? {
+      aantal: 0,
+      namen: new Map<string, number>(),
+    };
+
+    huidig.aantal += 1;
+
+    if (naam) {
+      huidig.namen.set(
+        naam,
+        (huidig.namen.get(naam) ?? 0) + 1
+      );
+    }
+
+    perType.set(objectType, huidig);
+  }
+
+  return Array.from(perType.entries())
+    .map(([objectType, gegevens]) => {
+      const meestGebruikteNaam =
+        Array.from(gegevens.namen.entries())
+          .sort(
+            ([naamA, aantalA], [naamB, aantalB]) =>
+              aantalB - aantalA ||
+              naamA.length - naamB.length ||
+              naamA.localeCompare(
+                naamB,
+                "nl-NL"
+              )
+          )[0]?.[0] ??
+        leesbareEigenObjectNaam(objectType);
+
+      return {
+        code: objectType,
+        naam: meestGebruikteNaam,
+        objectType,
+        gebruiksaantal: gegevens.aantal,
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.gebruiksaantal - a.gebruiksaantal ||
+        a.naam.localeCompare(
+          b.naam,
+          "nl-NL"
+        )
+    );
+}
