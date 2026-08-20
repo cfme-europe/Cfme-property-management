@@ -150,6 +150,8 @@ export async function updateMeterstand(
     p_nachtstroom_kwh: geldig.nachtstroom_kwh,
     p_gas_m3: geldig.gas_m3,
     p_water_m3: geldig.water_m3,
+    p_opgenomen_door:
+      geldig.opgenomen_door,
     p_opmerkingen: geldig.opmerkingen,
     p_reden: reden,
   });
