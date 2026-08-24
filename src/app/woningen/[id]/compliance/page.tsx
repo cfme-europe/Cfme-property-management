@@ -7,6 +7,7 @@ import {
   getObjectComplianceVoorWoning,
   getWoningComplianceSamenvatting,
 } from "@/services/compliance";
+import { getWoningById } from "@/services/woningen-server";
 import type {
   ComplianceStatus,
 } from "@/types/compliance";
@@ -52,22 +53,28 @@ export default async function CompliancePage({
   }
 
   const [
+    woning,
     regels,
     samenvatting,
     objecten,
     werkpunten,
   ] = await Promise.all([
+    getWoningById(woningId),
     getObjectComplianceVoorWoning(woningId),
     getWoningComplianceSamenvatting(woningId),
     getComplianceObjectOpties(woningId),
     getComplianceWerkpuntenVoorWoning(woningId),
   ]);
 
+  if (!woning) {
+    notFound();
+  }
+
   const documentAanmakenVoorWoning =
     documentAanmaken.bind(null, woningId);
 
   return (
-    <main className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
+    <main className="mx-auto max-w-7xl space-y-6 p-4 text-slate-950 dark:text-white md:p-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link
@@ -77,11 +84,11 @@ export default async function CompliancePage({
             ← Terug naar woning
           </Link>
 
-          <h1 className="mt-2 text-3xl font-bold">
-            Compliance Intelligence
+          <h1 className="mt-2 text-3xl font-bold text-slate-950 dark:text-white">
+            Compliance — {woning.adres}
           </h1>
 
-          <p className="mt-1 text-slate-600">
+          <p className="mt-1 text-slate-600 dark:text-slate-300">
             Verplichtingen, certificeringen en bewijs
             per object.
           </p>
@@ -120,21 +127,21 @@ export default async function CompliancePage({
         ].map(([label, waarde]) => (
           <div
             key={String(label)}
-            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+            className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-950 shadow-sm"
           >
             <div className="text-sm text-slate-600">
               {label}
             </div>
-            <div className="mt-1 text-3xl font-bold">
+            <div className="mt-1 text-3xl font-bold text-slate-950">
               {waarde}
             </div>
           </div>
         ))}
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-sm">
         <div className="border-b border-slate-200 p-5">
-          <h2 className="text-xl font-semibold">
+          <h2 className="text-xl font-semibold text-slate-950">
             Objectverplichtingen
           </h2>
         </div>
@@ -155,19 +162,32 @@ export default async function CompliancePage({
                   <div className="text-sm text-slate-500">
                     {regel.ruimte_naam}
                   </div>
-                  <div className="font-semibold">
+                  <div className="font-semibold text-slate-950">
                     {regel.object_naam}
                   </div>
                   <div className="text-sm text-slate-600">
                     {regel.object_type}
-                    {regel.objectnummer
-                      ? ` · ${regel.objectnummer}`
-                      : ""}
                   </div>
+                  {regel.objectnummer && (
+                    <div
+                      className="mt-2 text-sm text-slate-600"
+                      aria-label={`Objectcode ${regel.objectnummer}. Interne identificatie van dit object; dit is geen aantal.`}
+                    >
+                      <div>
+                        <span className="font-semibold text-slate-800">
+                          Objectcode:
+                        </span>{" "}
+                        {regel.objectnummer}
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        Interne identificatie van dit object; dit is geen aantal.
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
-                  <div className="font-medium">
+                  <div className="font-medium text-slate-950">
                     {regel.verplichting_naam}
                   </div>
                   <div className="text-sm text-slate-600">
@@ -203,7 +223,7 @@ export default async function CompliancePage({
                   "certificering" ? (
                     <Link
                       href={`/woningen/${woningId}/certificeringen/nieuw?objectId=${regel.object_id}`}
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium"
+                      className="rounded-lg border border-slate-400 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
                     >
                       {regel.certificering_id
                         ? "Herkeuring registreren"
@@ -217,9 +237,9 @@ export default async function CompliancePage({
         )}
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-sm">
         <div className="border-b border-slate-200 p-5">
-          <h2 className="text-xl font-semibold">
+          <h2 className="text-xl font-semibold text-slate-950">
             Open compliancewerkpunten
           </h2>
           <p className="mt-1 text-sm text-slate-600">
@@ -244,7 +264,7 @@ export default async function CompliancePage({
                   <div className="text-sm text-slate-500">
                     {werkpunt.ruimte_naam}
                   </div>
-                  <div className="font-semibold">
+                  <div className="font-semibold text-slate-950">
                     {werkpunt.titel}
                   </div>
                   {werkpunt.omschrijving && (
@@ -281,7 +301,7 @@ export default async function CompliancePage({
                   {werkpunt.taak_id ? (
                     <Link
                       href={`/woningen/${woningId}/taken/${werkpunt.taak_id}/bewerken`}
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium"
+                      className="rounded-lg border border-slate-400 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
                     >
                       Taak openen
                     </Link>
@@ -297,8 +317,8 @@ export default async function CompliancePage({
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-xl font-semibold">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-950 shadow-sm">
+        <h2 className="text-xl font-semibold text-slate-950">
           Objectdocument toevoegen
         </h2>
 
@@ -313,7 +333,7 @@ export default async function CompliancePage({
             <select
               name="object_id"
               required
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950"
             >
               <option value="">
                 Selecteer een object
@@ -337,7 +357,7 @@ export default async function CompliancePage({
               name="document_type"
               required
               defaultValue="keuring"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950"
             >
               <option value="certificering">
                 Certificering
@@ -360,7 +380,7 @@ export default async function CompliancePage({
             <input
               name="titel"
               required
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950"
             />
           </label>
 
@@ -372,7 +392,7 @@ export default async function CompliancePage({
               name="vertrouwelijkheid"
               defaultValue="intern"
               required
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950"
             >
               <option value="intern">Intern</option>
               <option value="vertrouwelijk">
@@ -391,7 +411,7 @@ export default async function CompliancePage({
             <textarea
               name="omschrijving"
               rows={3}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950"
             />
           </label>
 
@@ -403,7 +423,7 @@ export default async function CompliancePage({
               name="bestand"
               type="file"
               required
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950 file:text-slate-700"
             />
           </label>
 
@@ -413,7 +433,7 @@ export default async function CompliancePage({
             </span>
             <input
               name="versie_opmerking"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-950"
             />
           </label>
 
