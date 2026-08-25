@@ -1,6 +1,10 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import {
+  verrijkMeterstandMetOpnemer,
+  verrijkMeterstandenMetOpnemers,
+} from "@/services/meterstand-opnemers-server";
 import type { Meterstand, MeterstandCorrectie } from "@/types/meterstand";
 
 function valideerId(
@@ -36,7 +40,9 @@ export async function getMeterstandenVoorWoning(
     );
   }
 
-  return (data ?? []) as Meterstand[];
+  return verrijkMeterstandenMetOpnemers(
+    (data ?? []) as Meterstand[],
+  );
 }
 
 export async function getMeterstandById(
@@ -58,7 +64,9 @@ export async function getMeterstandById(
     );
   }
 
-  return data as Meterstand | null;
+  return verrijkMeterstandMetOpnemer(
+    data as Meterstand | null,
+  );
 }
 
 export async function getLaatsteMeterstandVoorWoning(
@@ -84,7 +92,9 @@ export async function getLaatsteMeterstandVoorWoning(
     );
   }
 
-  return data as Meterstand | null;
+  return verrijkMeterstandMetOpnemer(
+    data as Meterstand | null,
+  );
 }
 
 

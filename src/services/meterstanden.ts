@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { bepaalOpnemerNaam } from "@/lib/meterstanden/opgenomen-door";
 import {
   analyseerMeterstanden,
   type EnergieAnalyseResultaat,
@@ -347,6 +348,23 @@ export async function slaRouteMeterstandenOp(invoer: {
     );
   }
 
+  const { data: profiel, error: profielFout } =
+    await supabase
+      .from("profiles")
+      .select("volledige_naam, email")
+      .eq("id", user.id)
+      .maybeSingle();
+
+  if (profielFout) {
+    throw new Error(
+      `Naam van controleur ophalen mislukt: ${profielFout.message}`,
+    );
+  }
+
+  const opnemerNaam =
+    bepaalOpnemerNaam(profiel) ??
+    (user.email?.trim() || "Controleur");
+
   const opnamedatum =
     new Date().toISOString().slice(0, 10);
 
@@ -387,7 +405,7 @@ export async function slaRouteMeterstandenOp(invoer: {
       waarden.water_m3 ??
       bestaand?.water_m3 ??
       null,
-    opgenomen_door: user.id,
+    opgenomen_door: opnemerNaam,
     opmerkingen:
       heeftUitzonderingen
         ? "Meteropname bevat één of meer vastgelegde uitzonderingen."

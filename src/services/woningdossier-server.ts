@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { verrijkMeterstandenMetOpnemers } from "@/services/meterstand-opnemers-server";
 import type { Huurder } from "@/types/huurder";
 import type { Kamer } from "@/types/kamer";
 import type { Bewoner } from "@/types/bewoner";
@@ -138,7 +139,9 @@ export async function getMeterstandenVoorWoning(
     );
   }
 
-  return (data ?? []) as Meterstand[];
+  return verrijkMeterstandenMetOpnemers(
+    (data ?? []) as Meterstand[],
+  );
 }
 
 export async function getLaatsteWoningDnaVoorWoning(
