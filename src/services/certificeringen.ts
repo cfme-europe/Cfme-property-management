@@ -86,9 +86,22 @@ function valideer(
     );
   }
 
+  if (
+    invoer.type === "brandblusser" &&
+    (!Number.isInteger(invoer.object_id) ||
+      (invoer.object_id ?? 0) <= 0)
+  ) {
+    throw new Error(
+      "Kies de afzonderlijke brandblusser waarop deze keuring betrekking heeft."
+    );
+  }
+
   return {
     woning_id: invoer.woning_id,
-    object_id: invoer.object_id,
+    object_id:
+      invoer.type === "rookmelder"
+        ? null
+        : invoer.object_id,
     type: invoer.type,
     naam,
     installatie_omschrijving: schoon(
@@ -183,7 +196,9 @@ export async function createCertificering(
   if (error) {
     if (error.code === "23505") {
       throw new Error(
-        "Voor dit object bestaat al een actieve certificering van hetzelfde type."
+        geldig.type === "rookmelder"
+          ? "Voor deze woning bestaat al een actieve rookmeldercertificering. Wijzig de bestaande woningbrede registratie."
+          : "Voor dit object bestaat al een actieve certificering van hetzelfde type."
       );
     }
 
@@ -228,7 +243,9 @@ export async function updateCertificering(
   if (error) {
     if (error.code === "23505") {
       throw new Error(
-        "Voor dit object bestaat al een actieve certificering van hetzelfde type."
+        geldig.type === "rookmelder"
+          ? "Voor deze woning bestaat al een actieve rookmeldercertificering. Wijzig de bestaande woningbrede registratie."
+          : "Voor dit object bestaat al een actieve certificering van hetzelfde type."
       );
     }
 

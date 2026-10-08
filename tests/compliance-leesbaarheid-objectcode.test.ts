@@ -39,7 +39,7 @@ test("complianceacties blijven met expliciet contrast leesbaar", () => {
   const pagina = lees(paginaPad);
 
   for (const actie of [
-    "Herkeuring registreren",
+    "Certificering wijzigen",
     "Certificering toevoegen",
     "Taak openen",
   ]) {
