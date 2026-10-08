@@ -3,6 +3,7 @@ import "server-only";
 import {
   isTechnischeGebruikersId,
   vervangTechnischeOpnemers,
+  type ControlesessieOpnemer,
   type InspectieOpnemer,
   type OpnemerProfiel,
 } from "@/lib/meterstanden/opgenomen-door";
@@ -43,21 +44,50 @@ export async function verrijkMeterstandenMetOpnemers(
   ];
   const supabase = await createClient();
 
+  let controlesessies: ControlesessieOpnemer[] = [];
   let inspecties: InspectieOpnemer[] = [];
 
   if (controlesessieIds.length > 0) {
     const { data, error } = await supabase
-      .from("inspecties")
-      .select("controlesessie_id, uitgevoerd_door")
-      .in("controlesessie_id", controlesessieIds);
+      .from("controlesessies")
+      .select("id, inspectie_id")
+      .in("id", controlesessieIds);
 
     if (error) {
       throw new Error(
-        `Naam van controleur ophalen mislukt: ${error.message}`,
+        `Controlesessie voor controleurnaam ophalen mislukt: ${error.message}`,
       );
     }
 
-    inspecties = (data ?? []) as InspectieOpnemer[];
+    controlesessies =
+      (data ?? []) as ControlesessieOpnemer[];
+
+    const inspectieIds = [
+      ...new Set(
+        controlesessies.flatMap((sessie) =>
+          sessie.inspectie_id !== null
+            ? [sessie.inspectie_id]
+            : [],
+        ),
+      ),
+    ];
+
+    if (inspectieIds.length > 0) {
+      const { data: inspectiesData, error: inspectiesFout } =
+        await supabase
+          .from("inspecties")
+          .select("id, uitgevoerd_door")
+          .in("id", inspectieIds);
+
+      if (inspectiesFout) {
+        throw new Error(
+          `Naam van controleur ophalen mislukt: ${inspectiesFout.message}`,
+        );
+      }
+
+      inspecties =
+        (inspectiesData ?? []) as InspectieOpnemer[];
+    }
   }
 
   const { data: profielenData, error: profielenFout } =
@@ -74,6 +104,7 @@ export async function verrijkMeterstandenMetOpnemers(
 
   return vervangTechnischeOpnemers(
     meterstanden,
+    controlesessies,
     inspecties,
     (profielenData ?? []) as OpnemerProfiel[],
   );
