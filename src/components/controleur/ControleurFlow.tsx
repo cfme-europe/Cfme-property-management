@@ -21,6 +21,13 @@ import {
   type RouteMeterUitzonderingen,
   type RouteMeterwaarden,
 } from "@/services/meterstanden";
+import {
+  energieVerbruiksnaam,
+  onverklaardeEnergieDragers,
+} from "@/lib/meterstanden/afwijkingsverklaringen";
+import type {
+  EnergieAfwijkingsverklaringen,
+} from "@/types/meterstand";
 import type {
   EnergieAnalyseResultaat,
 } from "@/services/energy-intelligence";
@@ -257,6 +264,8 @@ export default function ControleurFlow({
     useState<number | null>(null);
   const [energieVerklaring, setEnergieVerklaring] =
     useState("");
+  const [energieVerklaringen, setEnergieVerklaringen] =
+    useState<EnergieAfwijkingsverklaringen>({});
   const [
     energieVerklaringToelichting,
     setEnergieVerklaringToelichting,
@@ -265,11 +274,6 @@ export default function ControleurFlow({
     energieVerklaringOpslaanBezig,
     setEnergieVerklaringOpslaanBezig,
   ] = useState(false);
-  const [
-    energieVerklaringOpgeslagen,
-    setEnergieVerklaringOpgeslagen,
-  ] = useState(false);
-
   const huidigeRuimte = ruimten[ruimteIndex] ?? null;
 
   const huidigeMeterpunten =
@@ -282,6 +286,15 @@ export default function ControleurFlow({
     huidigeRuimte?.punten.filter(
       (punt) => !isMeterpunt(punt),
     ) ?? [];
+
+  const onverklaardeDragers =
+    onverklaardeEnergieDragers(
+      meterAnalyse,
+      energieVerklaringen,
+    );
+
+  const huidigeEnergieDrager =
+    onverklaardeDragers[0] ?? null;
 
   const huidigeOntbrekendeVerplichtePunten =
     huidigeRuimte?.punten.filter(
@@ -594,9 +607,11 @@ export default function ControleurFlow({
       setOpgeslagen(nieuwOpgeslagen);
       setMeterAnalyse(opslag?.analyse ?? null);
       setMeterstandAnalyseId(opslag?.meterstand.id ?? null);
+      setEnergieVerklaringen(
+        opslag?.meterstand.afwijkingsverklaringen ?? {},
+      );
       setEnergieVerklaring("");
       setEnergieVerklaringToelichting("");
-      setEnergieVerklaringOpgeslagen(false);
 
       if (
         !opslag.analyse.opvolging_nodig &&
@@ -633,6 +648,13 @@ export default function ControleurFlow({
       return;
     }
 
+    if (!huidigeEnergieDrager) {
+      setFout(
+        "Er is geen onverklaarde energieafwijking.",
+      );
+      return;
+    }
+
     if (!energieVerklaring) {
       setFout(
         "Kies eerst een verklaring voor het afwijkende verbruik.",
@@ -644,14 +666,19 @@ export default function ControleurFlow({
     setFout("");
 
     try {
-      await slaEnergieVerklaringOp({
+      const meterstand = await slaEnergieVerklaringOp({
         meterstand_id: meterstandAnalyseId,
+        drager: huidigeEnergieDrager,
         verklaring_code: energieVerklaring,
         verklaring_toelichting:
           energieVerklaringToelichting,
       });
 
-      setEnergieVerklaringOpgeslagen(true);
+      setEnergieVerklaringen(
+        meterstand.afwijkingsverklaringen ?? {},
+      );
+      setEnergieVerklaring("");
+      setEnergieVerklaringToelichting("");
     } catch (error) {
       setFout(
         error instanceof Error
@@ -1330,10 +1357,10 @@ export default function ControleurFlow({
                           }
                         </p>
 
-                        {meterAnalyse.opvolging_nodig && (
+                        {huidigeEnergieDrager && (
                           <div className="mt-5 rounded-xl border border-amber-300 bg-white p-4">
                             <p className="font-bold">
-                              Verklaring afwijkend verbruik
+                              Verklaring afwijkend {energieVerbruiksnaam(huidigeEnergieDrager)}
                             </p>
                             <p className="mt-1 text-sm text-slate-600">
                               Kies alleen wat werkelijk is vastgesteld. De uitkomst wordt automatisch meegenomen in opvolging en rapportage.
@@ -1344,9 +1371,6 @@ export default function ControleurFlow({
                               onChange={(event) => {
                                 setEnergieVerklaring(
                                   event.target.value,
-                                );
-                                setEnergieVerklaringOpgeslagen(
-                                  false,
                                 );
                               }}
                               className="mt-4 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
@@ -1392,9 +1416,6 @@ export default function ControleurFlow({
                                 setEnergieVerklaringToelichting(
                                   event.target.value,
                                 );
-                                setEnergieVerklaringOpgeslagen(
-                                  false,
-                                );
                               }}
                               className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
                               placeholder="Korte toelichting, indien nodig"
@@ -1403,8 +1424,7 @@ export default function ControleurFlow({
                             <button
                               type="button"
                               disabled={
-                                energieVerklaringOpslaanBezig ||
-                                energieVerklaringOpgeslagen
+                                energieVerklaringOpslaanBezig
                               }
                               onClick={() =>
                                 void slaAfwijkendeEnergieVerklaringOp()
@@ -1413,17 +1433,16 @@ export default function ControleurFlow({
                             >
                               {energieVerklaringOpslaanBezig
                                 ? "Verklaring opslaan..."
-                                : energieVerklaringOpgeslagen
-                                  ? "Verklaring opgeslagen"
-                                  : "Verklaring opslaan"}
+                                : "Verklaring opslaan"}
                             </button>
-
-                            {energieVerklaringOpgeslagen && (
-                              <p className="mt-3 rounded-lg bg-emerald-100 p-3 font-semibold text-emerald-900">
-                                De verklaring is opgeslagen en gemarkeerd voor opvolging.
-                              </p>
-                            )}
                           </div>
+                        )}
+
+                        {meterAnalyse.opvolging_nodig &&
+                          !huidigeEnergieDrager && (
+                          <p className="mt-5 rounded-lg bg-emerald-100 p-3 font-semibold text-emerald-900">
+                            Alle afwijkende verbruiken zijn verklaard en gemarkeerd voor opvolging.
+                          </p>
                         )}
 
                         {meterAnalyse.dragers.length >

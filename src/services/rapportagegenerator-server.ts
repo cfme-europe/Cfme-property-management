@@ -2,6 +2,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { berekenVerbruiksperiodes } from "@/services/energieverbruik";
+import { verrijkMeterstandenMetOpnemers } from "@/services/meterstand-opnemers-server";
 import { bouwRapportagemotor } from "@/services/rapportagemotor";
 import type { Bewoner } from "@/types/bewoner";
 import type { Inspectie } from "@/types/inspectie";
@@ -232,7 +233,9 @@ export async function genereerMaandrapportageData(
     (meldingenResultaat.data ?? []) as Melding[];
 
   const meterstanden =
-    (meterstandenResultaat.data ?? []) as Meterstand[];
+    await verrijkMeterstandenMetOpnemers(
+      (meterstandenResultaat.data ?? []) as Meterstand[],
+    );
 
   const bewoners =
     (bewonersResultaat.data ?? []) as Bewoner[];
