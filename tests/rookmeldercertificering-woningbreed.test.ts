@@ -92,3 +92,25 @@ test("iedere brandblusser behoudt een eigen actieve certificering", () => {
     /type === "brandblusser"[\s\S]*Kies de afzonderlijke brandblusser/
   );
 });
+
+test("een bestaande woningbrede rookmeldercertificering wordt geopend", () => {
+  const nieuwePagina = lees(
+    "src/app/woningen/[id]/certificeringen/nieuw/page.tsx"
+  );
+  const formulier = lees(
+    "src/components/certificeringen/CertificeringForm.tsx"
+  );
+
+  assert.match(
+    nieuwePagina,
+    /certificering\.type === "rookmelder" &&[\s\S]*certificering\.actief/
+  );
+  assert.match(
+    nieuwePagina,
+    /zoekparameters\.type === "rookmelder"[\s\S]*redirect\([\s\S]*actieveRookmeldercertificering\.id[\s\S]*bewerken/
+  );
+  assert.match(
+    formulier,
+    /nieuwType === "rookmelder"[\s\S]*actieveRookmeldercertificeringId[\s\S]*router\.push\([\s\S]*bewerken/
+  );
+});

@@ -1,26 +1,53 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import CertificeringForm from "@/components/certificeringen/CertificeringForm";
+import { getCertificeringenVoorWoning } from "@/services/certificeringen";
 import { getWoningById } from "@/services/woningen-server";
 
 type Props = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{
+    type?: string | string[];
+  }>;
 };
 
 export default async function NieuweCertificeringPage({
   params,
+  searchParams,
 }: Props) {
-  const { id } = await params;
+  const [{ id }, zoekparameters] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const woningId = Number(id);
 
   if (!Number.isInteger(woningId) || woningId <= 0) {
     notFound();
   }
 
-  const woning = await getWoningById(woningId);
+  const [woning, certificeringen] = await Promise.all([
+    getWoningById(woningId),
+    getCertificeringenVoorWoning(woningId),
+  ]);
 
   if (!woning) {
     notFound();
+  }
+
+  const actieveRookmeldercertificering =
+    certificeringen.find(
+      (certificering) =>
+        certificering.type === "rookmelder" &&
+        certificering.actief
+    );
+
+  if (
+    zoekparameters.type === "rookmelder" &&
+    actieveRookmeldercertificering
+  ) {
+    redirect(
+      `/woningen/${woningId}/certificeringen/${actieveRookmeldercertificering.id}/bewerken`
+    );
   }
 
   return (
@@ -48,7 +75,12 @@ export default async function NieuweCertificeringPage({
           </p>
 
           <div className="mt-8">
-            <CertificeringForm woningId={woning.id} />
+            <CertificeringForm
+              woningId={woning.id}
+              actieveRookmeldercertificeringId={
+                actieveRookmeldercertificering?.id ?? null
+              }
+            />
           </div>
         </section>
       </div>

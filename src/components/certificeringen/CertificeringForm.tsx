@@ -22,6 +22,7 @@ import type {
 type Props = {
   woningId: number;
   certificering?: Certificering;
+  actieveRookmeldercertificeringId?: number | null;
 };
 
 const typeLabels: Record<CertificeringType, string> = {
@@ -43,6 +44,7 @@ function isCertificeringType(
 export default function CertificeringForm({
   woningId,
   certificering,
+  actieveRookmeldercertificeringId = null,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -273,6 +275,16 @@ export default function CertificeringForm({
               const nieuwType = event.target
                 .value as CertificeringType;
 
+              if (
+                nieuwType === "rookmelder" &&
+                actieveRookmeldercertificeringId
+              ) {
+                router.push(
+                  `/woningen/${woningId}/certificeringen/${actieveRookmeldercertificeringId}/bewerken`
+                );
+                return;
+              }
+
               setType(nieuwType);
 
               if (nieuwType === "rookmelder") {
@@ -284,7 +296,10 @@ export default function CertificeringForm({
             {Object.entries(typeLabels).map(
               ([waarde, label]) => (
                 <option key={waarde} value={waarde}>
-                  {label}
+                  {waarde === "rookmelder" &&
+                  actieveRookmeldercertificeringId
+                    ? `${label} — bestaande bewerken`
+                    : label}
                 </option>
               )
             )}
