@@ -74,7 +74,13 @@ test(
       [maakMeterstand({})],
       [
         {
-          controlesessie_id: 42,
+          id: 42,
+          inspectie_id: 7,
+        },
+      ],
+      [
+        {
+          id: 7,
           uitgevoerd_door: "Jos Jansen",
         },
       ],
@@ -112,6 +118,7 @@ test(
             opgenomen_door: "Bob Gerits",
           }),
         ],
+        [],
         [],
         [
           {
@@ -156,6 +163,10 @@ test(
       "src/services/rapportagegenerator-server.ts",
       "utf8",
     );
+    const opnemers = readFileSync(
+      "src/services/meterstand-opnemers-server.ts",
+      "utf8",
+    );
 
     assert.match(opslag, /\.from\("profiles"\)/);
     assert.match(
@@ -173,5 +184,14 @@ test(
         /verrijkMeterstand(?:en)?MetOpnemer/,
       );
     }
+
+    assert.match(
+      opnemers,
+      /\.from\("controlesessies"\)[\s\S]*\.select\("id, inspectie_id"\)/,
+    );
+    assert.doesNotMatch(
+      opnemers,
+      /\.from\("inspecties"\)[\s\S]*\.select\("controlesessie_id/,
+    );
   },
 );

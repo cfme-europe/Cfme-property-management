@@ -10,8 +10,13 @@ export type OpnemerProfiel = {
 };
 
 export type InspectieOpnemer = {
-  controlesessie_id: number | null;
+  id: number;
   uitgevoerd_door: string | null;
+};
+
+export type ControlesessieOpnemer = {
+  id: number;
+  inspectie_id: number | null;
 };
 
 function leesbareTekst(
@@ -51,19 +56,25 @@ export function bepaalOpnemerNaam(
 
 export function vervangTechnischeOpnemers(
   meterstanden: Meterstand[],
+  controlesessies: ControlesessieOpnemer[],
   inspecties: InspectieOpnemer[],
   profielen: OpnemerProfiel[],
 ): Meterstand[] {
-  const inspectienaamPerSessie = new Map(
+  const inspectienaamPerId = new Map(
     inspecties.flatMap((inspectie) => {
       const naam = leesbareTekst(
         inspectie.uitgevoerd_door,
       );
 
-      return inspectie.controlesessie_id !== null && naam
-        ? [[inspectie.controlesessie_id, naam] as const]
-        : [];
+      return naam ? [[inspectie.id, naam] as const] : [];
     }),
+  );
+  const inspectieIdPerSessie = new Map(
+    controlesessies.flatMap((sessie) =>
+      sessie.inspectie_id !== null
+        ? [[sessie.id, sessie.inspectie_id] as const]
+        : [],
+    ),
   );
 
   const profielnaamPerId = new Map(
@@ -91,8 +102,10 @@ export function vervangTechnischeOpnemers(
     const inspectienaam =
       meterstand.controlesessie_id !== null &&
       meterstand.controlesessie_id !== undefined
-        ? inspectienaamPerSessie.get(
-            meterstand.controlesessie_id,
+        ? inspectienaamPerId.get(
+            inspectieIdPerSessie.get(
+              meterstand.controlesessie_id,
+            ) ?? 0,
           )
         : null;
     const profielnaam =
