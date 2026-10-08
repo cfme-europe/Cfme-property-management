@@ -107,6 +107,12 @@ export type ControleAfwijking = {
   melding_maken: boolean;
   taak_maken: boolean;
   status: string;
+  opgelost_at: string | null;
+  oplossing: string | null;
+  werkelijke_kosten: number | null;
+  ter_plaatse_hersteld: boolean;
+  gebruikte_materialen: string | null;
+  arbeid_minuten: number | null;
 };
 
 export type ControleurFlowGegevens = {

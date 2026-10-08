@@ -535,6 +535,27 @@ export default function ControleAfwijkingenBeheer({
                   </span>
                 </div>
 
+                {afwijking.ter_plaatse_hersteld && (
+                  <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
+                    <p className="font-bold">Ter plaatse hersteld tijdens de controle</p>
+                    {afwijking.oplossing && (
+                      <p className="mt-1 text-sm">
+                        <strong>Reparatie:</strong> {afwijking.oplossing}
+                      </p>
+                    )}
+                    {afwijking.gebruikte_materialen && (
+                      <p className="mt-1 text-sm">
+                        <strong>Materialen:</strong> {afwijking.gebruikte_materialen}
+                      </p>
+                    )}
+                    {afwijking.arbeid_minuten !== null && (
+                      <p className="mt-1 text-sm">
+                        <strong>Arbeid:</strong> {afwijking.arbeid_minuten} minuten
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <p>
                     <span className="text-sm text-slate-500">

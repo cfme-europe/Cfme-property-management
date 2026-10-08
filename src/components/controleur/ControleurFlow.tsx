@@ -53,7 +53,14 @@ type InvoerPerPunt = {
   gebrekType: GebrekType;
   toelichting: string;
   urgentie: AfwijkingUrgentie;
-  foto: File | null;
+  opmerking: string;
+  situatieFotos: File[];
+  naHerstelFotos: File[];
+  terPlaatseHersteld: boolean;
+  oplossing: string;
+  gebruikteMaterialen: string;
+  arbeidMinuten: string;
+  werkelijkeKosten: string;
 };
 
 const afwijkendeResultaten =
@@ -165,7 +172,22 @@ function maakBeginInvoer(
     toelichting: afwijking?.toelichting ?? "",
     urgentie:
       afwijking?.urgentie ?? punt.standaard_prioriteit,
-    foto: null,
+    opmerking: resultaat?.opmerkingen ?? "",
+    situatieFotos: [],
+    naHerstelFotos: [],
+    terPlaatseHersteld:
+      afwijking?.ter_plaatse_hersteld ?? false,
+    oplossing: afwijking?.oplossing ?? "",
+    gebruikteMaterialen:
+      afwijking?.gebruikte_materialen ?? "",
+    arbeidMinuten:
+      afwijking?.arbeid_minuten != null
+        ? String(afwijking.arbeid_minuten)
+        : "",
+    werkelijkeKosten:
+      afwijking?.werkelijke_kosten != null
+        ? String(afwijking.werkelijke_kosten)
+        : "",
   };
 }
 
@@ -345,12 +367,13 @@ export default function ControleurFlow({
     setFout("");
   }
 
-  function kiesFoto(
+  function kiesFotos(
     puntId: number,
+    veld: "situatieFotos" | "naHerstelFotos",
     event: ChangeEvent<HTMLInputElement>,
   ) {
     wijzigPunt(puntId, {
-      foto: event.target.files?.[0] ?? null,
+      [veld]: Array.from(event.target.files ?? []).slice(0, 10),
     });
   }
 
@@ -376,7 +399,9 @@ export default function ControleurFlow({
           !opgeslagen.has(
             punt.woning_controlepunt_id,
           ) &&
-          !afwijkingGekozen
+          !afwijkingGekozen &&
+          !puntInvoer?.opmerking.trim() &&
+          (puntInvoer?.situatieFotos.length ?? 0) === 0
         );
       },
     );
@@ -423,7 +448,8 @@ export default function ControleurFlow({
           {
             resultaat: "goed",
             toelichting: "",
-            foto: null,
+            situatieFotos: [],
+            naHerstelFotos: [],
           },
         );
       }
@@ -590,18 +616,39 @@ export default function ControleurFlow({
               punt.object_naam,
             controlepunt_naam_snapshot:
               punt.controlepunt_naam,
-            opmerkingen: uitzondering
-              ? `Meter niet opgenomen: ${puntInvoer?.toelichting.trim()}`
-              : null,
+            opmerkingen: [
+              uitzondering
+                ? `Meter niet opgenomen: ${puntInvoer?.toelichting.trim()}`
+                : "",
+              puntInvoer?.opmerking.trim() ?? "",
+            ].filter(Boolean).join("\n") || null,
           });
 
         await markeerAfwijkingNietRelevant(
           resultaat.id,
         );
 
+        if (gegevens.sessie.inspectie_id) {
+          for (const foto of puntInvoer?.situatieFotos ?? []) {
+            await uploadControleFoto({
+              inspectie_id: gegevens.sessie.inspectie_id,
+              controle_resultaat_id: resultaat.id,
+              controle_afwijking_id: null,
+              bestand: foto,
+              omschrijving:
+                puntInvoer?.opmerking || punt.controlepunt_naam,
+              foto_type: "situatie",
+            });
+          }
+        }
+
         nieuwOpgeslagen.add(
           punt.woning_controlepunt_id,
         );
+
+        wijzigPunt(punt.woning_controlepunt_id, {
+          situatieFotos: [],
+        });
       }
 
       setOpgeslagen(nieuwOpgeslagen);
@@ -776,9 +823,41 @@ export default function ControleurFlow({
     if (
       heeftAfwijking &&
       punt.foto_verplicht_bij_afwijking &&
-      !puntInvoer.foto
+      puntInvoer.situatieFotos.length === 0
     ) {
       setFout("Een foto bij deze afwijking is verplicht.");
+      return;
+    }
+
+    if (
+      heeftAfwijking &&
+      puntInvoer.terPlaatseHersteld &&
+      !puntInvoer.oplossing.trim()
+    ) {
+      setFout("Beschrijf welke reparatie ter plaatse is uitgevoerd.");
+      return;
+    }
+
+    const arbeidMinuten = puntInvoer.arbeidMinuten.trim()
+      ? Number(puntInvoer.arbeidMinuten)
+      : null;
+    const werkelijkeKosten = puntInvoer.werkelijkeKosten.trim()
+      ? Number(puntInvoer.werkelijkeKosten.replace(",", "."))
+      : null;
+
+    if (
+      arbeidMinuten !== null &&
+      (!Number.isInteger(arbeidMinuten) || arbeidMinuten < 0)
+    ) {
+      setFout("Arbeidstijd moet een geheel aantal minuten van nul of hoger zijn.");
+      return;
+    }
+
+    if (
+      werkelijkeKosten !== null &&
+      (!Number.isFinite(werkelijkeKosten) || werkelijkeKosten < 0)
+    ) {
+      setFout("Werkelijke kosten moeten nul of hoger zijn.");
       return;
     }
 
@@ -803,7 +882,7 @@ export default function ControleurFlow({
         object_naam_snapshot: punt.object_naam,
         controlepunt_naam_snapshot:
           punt.controlepunt_naam,
-        opmerkingen: null,
+        opmerkingen: puntInvoer.opmerking,
       });
 
       if (heeftAfwijking) {
@@ -817,6 +896,13 @@ export default function ControleurFlow({
             gebrek_type: puntInvoer.gebrekType,
             toelichting: puntInvoer.toelichting,
             urgentie: puntInvoer.urgentie,
+            ter_plaatse_hersteld:
+              puntInvoer.terPlaatseHersteld,
+            oplossing: puntInvoer.oplossing,
+            gebruikte_materialen:
+              puntInvoer.gebruikteMaterialen,
+            arbeid_minuten: arbeidMinuten,
+            werkelijke_kosten: werkelijkeKosten,
           });
 
         setAfwijkendePuntIds((huidig) => {
@@ -827,20 +913,32 @@ export default function ControleurFlow({
           return nieuw;
         });
 
-        if (
-          puntInvoer.foto &&
-          gegevens.sessie.inspectie_id
-        ) {
-          await uploadControleFoto({
-            inspectie_id:
-              gegevens.sessie.inspectie_id,
-            controle_resultaat_id: resultaat.id,
-            controle_afwijking_id: afwijking.id,
-            bestand: puntInvoer.foto,
-            omschrijving:
-              puntInvoer.toelichting ||
-              punt.controlepunt_naam,
-          });
+        if (gegevens.sessie.inspectie_id) {
+          for (const foto of puntInvoer.situatieFotos) {
+            await uploadControleFoto({
+              inspectie_id: gegevens.sessie.inspectie_id,
+              controle_resultaat_id: resultaat.id,
+              controle_afwijking_id: afwijking.id,
+              bestand: foto,
+              omschrijving:
+                puntInvoer.toelichting || punt.controlepunt_naam,
+              foto_type: puntInvoer.terPlaatseHersteld
+                ? "voor_herstel"
+                : "situatie",
+            });
+          }
+
+          for (const foto of puntInvoer.naHerstelFotos) {
+            await uploadControleFoto({
+              inspectie_id: gegevens.sessie.inspectie_id,
+              controle_resultaat_id: resultaat.id,
+              controle_afwijking_id: afwijking.id,
+              bestand: foto,
+              omschrijving:
+                puntInvoer.oplossing || "Situatie na herstel",
+              foto_type: "na_herstel",
+            });
+          }
         }
       } else {
         await markeerAfwijkingNietRelevant(resultaat.id);
@@ -852,6 +950,20 @@ export default function ControleurFlow({
           );
           return nieuw;
         });
+
+        if (gegevens.sessie.inspectie_id) {
+          for (const foto of puntInvoer.situatieFotos) {
+            await uploadControleFoto({
+              inspectie_id: gegevens.sessie.inspectie_id,
+              controle_resultaat_id: resultaat.id,
+              controle_afwijking_id: null,
+              bestand: foto,
+              omschrijving:
+                puntInvoer.opmerking || punt.controlepunt_naam,
+              foto_type: "situatie",
+            });
+          }
+        }
       }
 
       const nieuwOpgeslagen = new Set(
@@ -869,7 +981,8 @@ export default function ControleurFlow({
         {
           resultaat:
             resultaatWaarde || "goed",
-          foto: null,
+          situatieFotos: [],
+          naHerstelFotos: [],
         },
       );
 
@@ -1226,7 +1339,7 @@ export default function ControleurFlow({
                           );
 
                         return (
-                          <label
+                          <div
                             key={
                               meterPunt
                                 .woning_controlepunt_id
@@ -1316,7 +1429,42 @@ export default function ControleurFlow({
                                 placeholder="Verplichte korte reden"
                               />
                             )}
-                          </label>
+
+                            <textarea
+                              rows={2}
+                              value={meterPuntInvoer?.opmerking ?? ""}
+                              onChange={(event) =>
+                                wijzigPunt(
+                                  meterPunt.woning_controlepunt_id,
+                                  { opmerking: event.target.value },
+                                )
+                              }
+                              className="mt-3 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                              placeholder="Optionele opmerking bij deze meter"
+                            />
+
+                            <label className="mt-3 block text-sm font-medium text-slate-700">
+                              Optionele foto’s bij deze meter (maximaal 10)
+                              <input
+                                type="file"
+                                multiple
+                                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                                onChange={(event) =>
+                                  kiesFotos(
+                                    meterPunt.woning_controlepunt_id,
+                                    "situatieFotos",
+                                    event,
+                                  )
+                                }
+                                className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3"
+                              />
+                              {(meterPuntInvoer?.situatieFotos.length ?? 0) > 0 && (
+                                <span className="mt-1 block">
+                                  {meterPuntInvoer?.situatieFotos.length} foto’s geselecteerd
+                                </span>
+                              )}
+                            </label>
+                          </div>
                         );
                       },
                     )}
@@ -1494,7 +1642,7 @@ export default function ControleurFlow({
                         tekst: "Werkt",
                         stijl:
                           "border-emerald-700 bg-emerald-700 text-white",
-                        directOpslaan: true,
+                        directOpslaan: false,
                       },
                       {
                         resultaat:
@@ -1585,6 +1733,52 @@ export default function ControleurFlow({
                   </div>
                 )}
 
+                {!meterpunt && (
+                  <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <textarea
+                      rows={2}
+                      value={puntInvoer?.opmerking ?? ""}
+                      onChange={(event) =>
+                        wijzigPunt(
+                          punt.woning_controlepunt_id,
+                          { opmerking: event.target.value },
+                        )
+                      }
+                      className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                      placeholder="Optionele opmerking bij dit controlepunt"
+                    />
+
+                    <label className="block">
+                      <span className="mb-1 block text-sm font-medium">
+                        {heeftAfwijking
+                          ? "Foto's van de afwijking"
+                          : "Optionele situatiefoto's"}
+                        {heeftAfwijking && punt.foto_verplicht_bij_afwijking
+                          ? " *"
+                          : ""}
+                      </span>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                        onChange={(event) =>
+                          kiesFotos(
+                            punt.woning_controlepunt_id,
+                            "situatieFotos",
+                            event,
+                          )
+                        }
+                        className="block w-full rounded-xl border border-slate-300 bg-white px-3 py-3"
+                      />
+                      {(puntInvoer?.situatieFotos.length ?? 0) > 0 && (
+                        <span className="mt-1 block text-sm text-slate-600">
+                          {puntInvoer?.situatieFotos.length} foto’s geselecteerd
+                        </span>
+                      )}
+                    </label>
+                  </div>
+                )}
+
                 {heeftAfwijking && (
                   <div className="mt-5 space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
                     <select
@@ -1648,32 +1842,112 @@ export default function ControleurFlow({
                       )}
                     </select>
 
-                    <label className="block">
-                      <span className="mb-1 block text-sm font-medium">
-                        Foto
-                        {punt.foto_verplicht_bij_afwijking
-                          ? " *"
-                          : ""}
-                      </span>
+                    <label className="flex items-start gap-3 rounded-xl border border-emerald-300 bg-white p-4">
                       <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                        type="checkbox"
+                        checked={puntInvoer.terPlaatseHersteld}
                         onChange={(event) =>
-                          kiesFoto(
+                          wijzigPunt(
                             punt.woning_controlepunt_id,
-                            event,
+                            { terPlaatseHersteld: event.target.checked },
                           )
                         }
-                        className="block w-full rounded-xl border border-slate-300 bg-white px-3 py-3"
+                        className="mt-1 h-5 w-5"
                       />
+                      <span>
+                        <span className="block font-bold text-emerald-950">
+                          Reparatie ter plaatse uitgevoerd
+                        </span>
+                        <span className="mt-1 block text-sm text-slate-600">
+                          De afwijking wordt direct als opgelost vastgelegd; er ontstaat geen open taak.
+                        </span>
+                      </span>
                     </label>
+
+                    {puntInvoer.terPlaatseHersteld && (
+                      <div className="space-y-3 rounded-xl border border-emerald-300 bg-emerald-50 p-4">
+                        <textarea
+                          rows={3}
+                          required
+                          value={puntInvoer.oplossing}
+                          onChange={(event) =>
+                            wijzigPunt(punt.woning_controlepunt_id, {
+                              oplossing: event.target.value,
+                            })
+                          }
+                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                          placeholder="Welke reparatie is uitgevoerd? *"
+                        />
+                        <textarea
+                          rows={2}
+                          value={puntInvoer.gebruikteMaterialen}
+                          onChange={(event) =>
+                            wijzigPunt(punt.woning_controlepunt_id, {
+                              gebruikteMaterialen: event.target.value,
+                            })
+                          }
+                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                          placeholder="Gebruikte materialen (optioneel)"
+                        />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={puntInvoer.arbeidMinuten}
+                            onChange={(event) =>
+                              wijzigPunt(punt.woning_controlepunt_id, {
+                                arbeidMinuten: event.target.value,
+                              })
+                            }
+                            className="rounded-xl border border-slate-300 bg-white px-4 py-3"
+                            placeholder="Arbeid in minuten"
+                          />
+                          <input
+                            inputMode="decimal"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={puntInvoer.werkelijkeKosten}
+                            onChange={(event) =>
+                              wijzigPunt(punt.woning_controlepunt_id, {
+                                werkelijkeKosten: event.target.value,
+                              })
+                            }
+                            className="rounded-xl border border-slate-300 bg-white px-4 py-3"
+                            placeholder="Werkelijke kosten in euro"
+                          />
+                        </div>
+                        <label className="block text-sm font-medium">
+                          Foto’s na herstel (optioneel, maximaal 10)
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                            onChange={(event) =>
+                              kiesFotos(
+                                punt.woning_controlepunt_id,
+                                "naHerstelFotos",
+                                event,
+                              )
+                            }
+                            className="mt-1 block w-full rounded-xl border border-slate-300 bg-white px-3 py-3"
+                          />
+                          {puntInvoer.naHerstelFotos.length > 0 && (
+                            <span className="mt-1 block text-slate-600">
+                              {puntInvoer.naHerstelFotos.length} foto’s geselecteerd
+                            </span>
+                          )}
+                        </label>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {!meterpunt &&
                   (
                     !internetpunt ||
-                    Boolean(heeftAfwijking)
+                    Boolean(puntInvoer?.resultaat)
                   ) && (
                   <button
                     type="button"
@@ -1692,7 +1966,7 @@ export default function ControleurFlow({
                       : meterpunt
                         ? "Meterstand opslaan en verder"
                         : internetpunt
-                          ? "Afwijking opslaan en verder"
+                          ? "Internetcontrole opslaan en verder"
                           : "Controlepunt opslaan"}
                   </button>
                 )}

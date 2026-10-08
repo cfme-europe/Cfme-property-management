@@ -53,6 +53,9 @@ export type ControleAfwijkingBeheer = {
   factuur_naar: FactuurOntvanger | null;
   financieel_gevolg: string | null;
   operationeel_gevolg: string | null;
+  ter_plaatse_hersteld: boolean;
+  gebruikte_materialen: string | null;
+  arbeid_minuten: number | null;
   resultaat: {
     ruimte_naam_snapshot: string;
     object_naam_snapshot: string | null;
