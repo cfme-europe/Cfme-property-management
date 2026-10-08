@@ -222,11 +222,18 @@ export default async function CompliancePage({
                   {regel.verplichting_type ===
                   "certificering" ? (
                     <Link
-                      href={`/woningen/${woningId}/certificeringen/nieuw?objectId=${regel.object_id}`}
+                      href={
+                        regel.certificering_id
+                          ? `/woningen/${woningId}/certificeringen/${regel.certificering_id}/bewerken`
+                          : regel.certificering_type ===
+                              "rookmelder"
+                            ? `/woningen/${woningId}/certificeringen/nieuw?type=rookmelder`
+                            : `/woningen/${woningId}/certificeringen/nieuw?objectId=${regel.object_id}&type=${regel.certificering_type}`
+                      }
                       className="rounded-lg border border-slate-400 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
                     >
                       {regel.certificering_id
-                        ? "Herkeuring registreren"
+                        ? "Certificering wijzigen"
                         : "Certificering toevoegen"}
                     </Link>
                   ) : null}

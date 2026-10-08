@@ -32,6 +32,14 @@ const typeLabels: Record<CertificeringType, string> = {
   overig: "Overige keuring",
 };
 
+function isCertificeringType(
+  waarde: string | null
+): waarde is CertificeringType {
+  return Boolean(
+    waarde && waarde in typeLabels
+  );
+}
+
 export default function CertificeringForm({
   woningId,
   certificering,
@@ -41,6 +49,12 @@ export default function CertificeringForm({
   const objectIdUitUrl = Number(
     searchParams.get("objectId") ?? ""
   );
+  const typeUitUrl = searchParams.get("type");
+  const beginType: CertificeringType =
+    certificering?.type ??
+    (isCertificeringType(typeUitUrl)
+      ? typeUitUrl
+      : "scope");
 
   const [objecten, setObjecten] = useState<
     ComplianceObjectOptie[]
@@ -49,17 +63,17 @@ export default function CertificeringForm({
     useState(true);
   const [objectId, setObjectId] = useState(
     String(
-      certificering?.object_id ??
-        (
-          Number.isInteger(objectIdUitUrl) &&
+      beginType === "rookmelder"
+        ? ""
+        : certificering?.object_id ??
+          (Number.isInteger(objectIdUitUrl) &&
           objectIdUitUrl > 0
             ? objectIdUitUrl
-            : ""
-        )
+            : "")
     )
   );
   const [type, setType] = useState<CertificeringType>(
-    certificering?.type ?? "scope"
+    beginType
   );
   const [naam, setNaam] = useState(
     certificering?.naam ?? ""
@@ -155,7 +169,12 @@ export default function CertificeringForm({
 
     const invoer: CertificeringInvoer = {
       woning_id: woningId,
-      object_id: objectId ? Number(objectId) : null,
+      object_id:
+        type === "rookmelder"
+          ? null
+          : objectId
+            ? Number(objectId)
+            : null,
       type,
       naam,
       installatie_omschrijving:
@@ -210,25 +229,37 @@ export default function CertificeringForm({
 
           <select
             value={objectId}
-            disabled={objectenLaden}
+            disabled={
+              objectenLaden || type === "rookmelder"
+            }
             onChange={(event) =>
               setObjectId(event.target.value)
             }
             className={invoerClass}
           >
             <option value="">
-              Woningbrede certificering
+              {type === "rookmelder"
+                ? "Alle rookmelders in deze woning"
+                : "Woningbrede certificering"}
             </option>
 
-            {objecten.map((object) => (
-              <option key={object.id} value={object.id}>
-                {object.ruimte_naam} — {object.naam}
-                {object.objectnummer
-                  ? ` (${object.objectnummer})`
-                  : ""}
-              </option>
-            ))}
+            {type !== "rookmelder" &&
+              objecten.map((object) => (
+                <option key={object.id} value={object.id}>
+                  {object.ruimte_naam} — {object.naam}
+                  {object.objectnummer
+                    ? ` (${object.objectnummer})`
+                    : ""}
+                </option>
+              ))}
           </select>
+
+          {type === "rookmelder" && (
+            <span className="mt-2 block text-sm text-slate-600">
+              Eén registratie geldt voor alle rookmelders
+              in deze woning.
+            </span>
+          )}
         </label>
 
         <label>
@@ -238,11 +269,16 @@ export default function CertificeringForm({
 
           <select
             value={type}
-            onChange={(event) =>
-              setType(
-                event.target.value as CertificeringType
-              )
-            }
+            onChange={(event) => {
+              const nieuwType = event.target
+                .value as CertificeringType;
+
+              setType(nieuwType);
+
+              if (nieuwType === "rookmelder") {
+                setObjectId("");
+              }
+            }}
             className={invoerClass}
           >
             {Object.entries(typeLabels).map(
