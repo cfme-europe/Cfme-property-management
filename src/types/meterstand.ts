@@ -1,3 +1,23 @@
+export type MeterstandEnergieDrager =
+  | "elektriciteit"
+  | "gas"
+  | "water";
+
+export type EnergieAfwijkingsverklaring = {
+  verklaring_code: string;
+  verklaring_toelichting?: string | null;
+  opgeslagen_at?: string;
+  opgeslagen_door?: string;
+  bron?: string;
+};
+
+export type EnergieAfwijkingsverklaringen = Partial<
+  Record<
+    MeterstandEnergieDrager | "algemeen",
+    EnergieAfwijkingsverklaring
+  >
+>;
+
 export type Meterstand = {
   id: number;
   created_at: string;
@@ -23,6 +43,7 @@ export type Meterstand = {
   analyse_resultaat?: Record<string, unknown>;
   verklaring_code?: string | null;
   verklaring_toelichting?: string | null;
+  afwijkingsverklaringen?: EnergieAfwijkingsverklaringen;
   opvolging_nodig?: boolean;
   geanalyseerd_at?: string | null;
 };

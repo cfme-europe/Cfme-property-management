@@ -6,6 +6,7 @@ import {
 } from "@/services/energy-intelligence";
 import type {
   Meterstand,
+  MeterstandEnergieDrager,
   MeterstandInvoer,
 } from "@/types/meterstand";
 
@@ -185,6 +186,7 @@ export type RouteMeterstandOpslag = {
 
 export type EnergieVerklaringInvoer = {
   meterstand_id: number;
+  drager: MeterstandEnergieDrager;
   verklaring_code: string;
   verklaring_toelichting?: string | null;
 };
@@ -197,6 +199,14 @@ export async function slaEnergieVerklaringOp(
     invoer.meterstand_id <= 0
   ) {
     throw new Error("Ongeldige meteropname.");
+  }
+
+  if (
+    !["elektriciteit", "gas", "water"].includes(
+      invoer.drager,
+    )
+  ) {
+    throw new Error("Ongeldige energiedrager.");
   }
 
   const verklaringCode =
@@ -222,16 +232,15 @@ export async function slaEnergieVerklaringOp(
     );
   }
 
-  const { data, error } = await supabase
-    .from("meterstanden")
-    .update({
-      verklaring_code: verklaringCode,
-      verklaring_toelichting: toelichting,
-      opvolging_nodig: true,
-    })
-    .eq("id", invoer.meterstand_id)
-    .select("*")
-    .single();
+  const { data, error } = await supabase.rpc(
+    "sla_energieverklaring_per_drager",
+    {
+      p_meterstand_id: invoer.meterstand_id,
+      p_drager: invoer.drager,
+      p_verklaring_code: verklaringCode,
+      p_verklaring_toelichting: toelichting,
+    },
+  );
 
   if (error) {
     throw new Error(
@@ -239,7 +248,17 @@ export async function slaEnergieVerklaringOp(
     );
   }
 
-  return data as Meterstand;
+  const resultaat = Array.isArray(data)
+    ? data[0]
+    : data;
+
+  if (!resultaat) {
+    throw new Error(
+      "Energieverklaring opslaan gaf geen meteropname terug.",
+    );
+  }
+
+  return resultaat as Meterstand;
 }
 
 async function analyseerEnBewaarMeterstand(
