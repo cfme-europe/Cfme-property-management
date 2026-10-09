@@ -116,6 +116,10 @@ export default async function WoningDossierPage({
     notFound();
   }
 
+  const meetellendeInspecties = inspecties.filter(
+    (inspectie) => inspectie.status !== "geannuleerd",
+  );
+
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-10 text-slate-900">
       <div className="mx-auto max-w-6xl">
@@ -1342,7 +1346,7 @@ export default async function WoningDossierPage({
                     Totaal
                   </p>
                   <p className="mt-1 text-2xl font-bold">
-                    {inspecties.length}
+                    {meetellendeInspecties.length}
                   </p>
                 </div>
 
@@ -1352,7 +1356,7 @@ export default async function WoningDossierPage({
                   </p>
                   <p className="mt-1 text-2xl font-bold text-amber-900">
                     {
-                      inspecties.filter(
+                      meetellendeInspecties.filter(
                         (inspectie) =>
                           inspectie.status === "open"
                       ).length
@@ -1366,7 +1370,7 @@ export default async function WoningDossierPage({
                   </p>
                   <p className="mt-1 text-2xl font-bold text-red-900">
                     {
-                      inspecties.filter(
+                      meetellendeInspecties.filter(
                         (inspectie) =>
                           inspectie.schade_aanwezig
                       ).length
@@ -1473,13 +1477,16 @@ export default async function WoningDossierPage({
                                 inspectie.status ===
                                 "afgerond"
                                   ? "bg-emerald-100 text-emerald-800"
-                                  : "bg-amber-100 text-amber-800"
+                                  : inspectie.status === "geannuleerd"
+                                    ? "bg-slate-200 text-slate-800"
+                                    : "bg-amber-100 text-amber-800"
                               }`}
                             >
-                              {inspectie.status ===
-                              "afgerond"
+                              {inspectie.status === "afgerond"
                                 ? "Afgerond"
-                                : "Open"}
+                                : inspectie.status === "geannuleerd"
+                                  ? "Geannuleerd"
+                                  : "Open"}
                             </span>
                           </td>
                         </tr>

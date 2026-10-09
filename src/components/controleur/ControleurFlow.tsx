@@ -8,6 +8,7 @@ import {
 import { useRouter } from "next/navigation";
 import ControleurWerkpuntTerugmelding from "@/components/controleur/ControleurWerkpuntTerugmelding";
 import {
+  annuleerControleflow,
   markeerAfwijkingNietRelevant,
   rondControleflowAf,
   slaControleAfwijkingOp,
@@ -278,6 +279,10 @@ export default function ControleurFlow({
     );
   const [afrondenBezig, setAfrondenBezig] =
     useState(false);
+  const [annulerenBezig, setAnnulerenBezig] =
+    useState(false);
+  const [annuleringsreden, setAnnuleringsreden] =
+    useState("");
   const [fout, setFout] = useState("");
   const [meterOpslaanBezig, setMeterOpslaanBezig] =
     useState(false);
@@ -1056,6 +1061,44 @@ export default function ControleurFlow({
     }
   }
 
+  async function annuleren() {
+    const reden = annuleringsreden.trim();
+
+    if (reden.length < 5) {
+      setFout(
+        "Geef aan waarom deze controle per ongeluk is gestart.",
+      );
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "Deze controle annuleren? De registratie blijft zichtbaar als geannuleerd en telt niet mee als inspectie.",
+      )
+    ) {
+      return;
+    }
+
+    setAnnulerenBezig(true);
+    setFout("");
+
+    try {
+      await annuleerControleflow(
+        gegevens.sessie.id,
+        reden,
+      );
+      router.push("/controleur");
+      router.refresh();
+    } catch (error) {
+      setFout(
+        error instanceof Error
+          ? error.message
+          : "Controle annuleren mislukt.",
+      );
+      setAnnulerenBezig(false);
+    }
+  }
+
   if (!huidigeRuimte) {
     return (
       <main className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900">
@@ -1101,6 +1144,44 @@ export default function ControleurFlow({
             </div>
           </div>
         </header>
+
+        <details className="mt-5 rounded-2xl border border-red-200 bg-white p-5 shadow">
+          <summary className="cursor-pointer font-bold text-red-800">
+            Verkeerde controle gestart?
+          </summary>
+          <p className="mt-3 text-sm text-slate-700">
+            Annuleer alleen wanneer deze controle per ongeluk is gestart en
+            nog niets is vastgelegd. De annulering blijft aantoonbaar bewaard.
+          </p>
+          <label className="mt-4 block">
+            <span className="mb-1 block text-sm font-medium">
+              Reden van annulering *
+            </span>
+            <textarea
+              rows={3}
+              maxLength={1000}
+              value={annuleringsreden}
+              onChange={(event) =>
+                setAnnuleringsreden(event.target.value)
+              }
+              className="w-full rounded-xl border border-red-200 bg-white px-4 py-3"
+              placeholder="Bijvoorbeeld: verkeerde woning geselecteerd."
+            />
+          </label>
+          <button
+            type="button"
+            disabled={
+              annulerenBezig ||
+              annuleringsreden.trim().length < 5
+            }
+            onClick={() => void annuleren()}
+            className="mt-3 w-full rounded-xl bg-red-700 px-5 py-4 font-bold text-white disabled:opacity-50"
+          >
+            {annulerenBezig
+              ? "Controle annuleren..."
+              : "Controle annuleren"}
+          </button>
+        </details>
 
         {gegevens.controlebriefing && (
           <details

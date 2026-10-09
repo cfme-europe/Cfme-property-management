@@ -52,6 +52,7 @@ export async function getPredictiveIntelligence(): Promise<PredictiveIntelligenc
     supabase
       .from("inspecties")
       .select("*")
+      .neq("status", "geannuleerd")
       .order("inspectiedatum"),
 
     supabase
@@ -67,6 +68,7 @@ export async function getPredictiveIntelligence(): Promise<PredictiveIntelligenc
     supabase
       .from("controlesessies")
       .select("*")
+      .neq("status", "geannuleerd")
       .order("created_at"),
 
     supabase

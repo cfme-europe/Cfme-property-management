@@ -96,7 +96,7 @@ export async function getControleurWerkplek(): Promise<ControleurWerkplek> {
   if (woningIds.length === 0) return { profiel: profiel as Gebruikersprofiel, woningen: [] };
 
   const [inspectiesResultaat, sessiesResultaat, verhuurResultaat, meldingenResultaat] = await Promise.all([
-    supabase.from("inspecties").select("id, woning_id, inspectiedatum, status").in("woning_id", woningIds).order("inspectiedatum", { ascending: false }).order("created_at", { ascending: false }),
+    supabase.from("inspecties").select("id, woning_id, inspectiedatum, status").in("woning_id", woningIds).neq("status", "geannuleerd").order("inspectiedatum", { ascending: false }).order("created_at", { ascending: false }),
     supabase.from("controlesessies").select("id, woning_id, inspectie_id, controleur_id, status, gestart_at, locatie_status").in("woning_id", woningIds).in("status", ["gepland", "bezig"]).order("created_at", { ascending: false }),
     supabase.from("verhuurperiodes").select("id, woning_id").in("woning_id", woningIds).eq("status", "actief"),
     supabase.from("meldingen").select("id, woning_id").in("woning_id", woningIds).in("status", ["open", "in_behandeling"]).in("prioriteit", ["hoog", "spoed"]),
