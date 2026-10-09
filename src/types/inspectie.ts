@@ -6,7 +6,8 @@ export type InspectieType =
 
 export type InspectieStatus =
   | "open"
-  | "afgerond";
+  | "afgerond"
+  | "geannuleerd";
 
 export type AlgemeneToestand =
   | "goed"
@@ -29,6 +30,10 @@ export type Inspectie = {
   uitgevoerd_door: string | null;
   opmerkingen: string | null;
   afgerond_at: string | null;
+  geannuleerd_at: string | null;
+  annuleringsreden: string | null;
+  geannuleerd_door: string | null;
+  geannuleerd_door_naam: string | null;
 };
 
 export type InspectieInvoer = {

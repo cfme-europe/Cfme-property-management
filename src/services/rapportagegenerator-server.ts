@@ -89,6 +89,7 @@ export async function genereerMaandrapportageData(
       .from("inspecties")
       .select("*")
       .eq("woning_id", rapportage.woning_id)
+      .neq("status", "geannuleerd")
       .order("inspectiedatum", { ascending: false }),
 
     supabase

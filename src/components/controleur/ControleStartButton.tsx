@@ -12,10 +12,12 @@ import type { ControlesessieLocatieInvoer } from "@/types/controlesessie";
 
 type Props = {
   woningId: number;
+  woningAdres: string;
   verhuurperiodeId: number | null;
   controleurId: string;
   controleurNaam: string;
   openInspectieId: number | null;
+  laatsteInspectiedatum: string | null;
 };
 
 async function bepaalLocatie(): Promise<ControlesessieLocatieInvoer> {
@@ -30,12 +32,21 @@ async function bepaalLocatie(): Promise<ControlesessieLocatieInvoer> {
   ));
 }
 
-export default function ControleStartButton({ woningId, verhuurperiodeId, controleurId, controleurNaam, openInspectieId }: Props) {
+export default function ControleStartButton({ woningId, woningAdres, verhuurperiodeId, controleurId, controleurNaam, openInspectieId, laatsteInspectiedatum }: Props) {
   const router = useRouter();
   const [bezig, setBezig] = useState(false);
   const [fout, setFout] = useState("");
 
   async function starten() {
+    if (bezig) return;
+
+    const vandaag = new Date().toISOString().slice(0, 10);
+    const waarschuwing = laatsteInspectiedatum === vandaag
+      ? `Vandaag is voor ${woningAdres} al een inspectie afgerond. Toch een nieuwe controle starten?`
+      : `Nieuwe controle starten voor ${woningAdres}?`;
+
+    if (!window.confirm(waarschuwing)) return;
+
     setBezig(true);
     setFout("");
 

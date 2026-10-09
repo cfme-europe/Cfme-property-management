@@ -35,7 +35,8 @@ export default async function InspectieBewerkenPage({
   if (
     !woning ||
     !inspectie ||
-    inspectie.woning_id !== woningId
+    inspectie.woning_id !== woningId ||
+    inspectie.status === "geannuleerd"
   ) {
     notFound();
   }

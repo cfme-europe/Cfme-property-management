@@ -281,6 +281,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase
       .from("inspecties")
       .select("*")
+      .neq("status", "geannuleerd")
       .order("inspectiedatum", {
         ascending: false,
       })

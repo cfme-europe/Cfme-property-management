@@ -328,6 +328,43 @@ export async function rondControleflowAf(
   }
 }
 
+export async function annuleerControleflow(
+  sessieId: number,
+  reden: string,
+): Promise<void> {
+  if (!Number.isInteger(sessieId) || sessieId <= 0) {
+    throw new Error("Ongeldige controlesessie.");
+  }
+
+  const schoneReden = reden.trim();
+
+  if (schoneReden.length < 5) {
+    throw new Error(
+      "Geef een annuleringsreden van minimaal 5 tekens.",
+    );
+  }
+
+  if (schoneReden.length > 1000) {
+    throw new Error(
+      "De annuleringsreden mag maximaal 1000 tekens bevatten.",
+    );
+  }
+
+  const { error } = await supabase.rpc(
+    "annuleer_controleurinspectie",
+    {
+      p_controlesessie_id: sessieId,
+      p_reden: schoneReden,
+    },
+  );
+
+  if (error) {
+    throw new Error(
+      `Controle annuleren mislukt: ${error.message}`,
+    );
+  }
+}
+
 export async function registreerWerkpuntTerugmelding(invoer: {
   werkpunt_id: number;
   controlesessie_id: number;

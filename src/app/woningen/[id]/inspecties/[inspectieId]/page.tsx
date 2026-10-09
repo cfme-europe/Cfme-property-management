@@ -51,7 +51,13 @@ function typeLabel(type: InspectieType): string {
 }
 
 function statusLabel(status: InspectieStatus): string {
-  return status === "afgerond" ? "Afgerond" : "Open";
+  const labels: Record<InspectieStatus, string> = {
+    open: "Open",
+    afgerond: "Afgerond",
+    geannuleerd: "Geannuleerd",
+  };
+
+  return labels[status];
 }
 
 function toestandLabel(
@@ -151,12 +157,14 @@ export default async function InspectieDetailPage({
               </p>
             </div>
 
-            <Link
-              href={`/woningen/${woning.id}/inspecties/${inspectie.id}/bewerken`}
-              className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
-            >
-              Bewerken
-            </Link>
+            {inspectie.status !== "geannuleerd" && (
+              <Link
+                href={`/woningen/${woning.id}/inspecties/${inspectie.id}/bewerken`}
+                className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
+              >
+                Bewerken
+              </Link>
+            )}
           </div>
 
           <dl className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -178,13 +186,32 @@ export default async function InspectieDetailPage({
                   className={`rounded-full px-3 py-1 text-sm font-semibold ${
                     inspectie.status === "afgerond"
                       ? "bg-emerald-100 text-emerald-800"
-                      : "bg-amber-100 text-amber-800"
+                      : inspectie.status === "geannuleerd"
+                        ? "bg-slate-200 text-slate-800"
+                        : "bg-amber-100 text-amber-800"
                   }`}
                 >
                   {statusLabel(inspectie.status)}
                 </span>
               </dd>
             </div>
+
+            {inspectie.status === "geannuleerd" && (
+              <div>
+                <dt className="text-sm text-slate-500">
+                  Annulering
+                </dt>
+                <dd className="mt-1 font-semibold">
+                  {inspectie.annuleringsreden || "—"}
+                </dd>
+                <dd className="mt-1 text-sm text-slate-600">
+                  {inspectie.geannuleerd_door_naam || "Onbekend"}
+                  {inspectie.geannuleerd_at
+                    ? ` · ${datumTijd(inspectie.geannuleerd_at)}`
+                    : ""}
+                </dd>
+              </div>
+            )}
 
             <div>
               <dt className="text-sm text-slate-500">
@@ -464,12 +491,14 @@ export default async function InspectieDetailPage({
             )}
           </section>
 
-          <div className="mt-8 border-t border-slate-200 pt-6">
-            <InspectieVerwijderenButton
-              woningId={woning.id}
-              inspectieId={inspectie.id}
-            />
-          </div>
+          {inspectie.status !== "geannuleerd" && (
+            <div className="mt-8 border-t border-slate-200 pt-6">
+              <InspectieVerwijderenButton
+                woningId={woning.id}
+                inspectieId={inspectie.id}
+              />
+            </div>
+          )}
         </div>
       </div>
     </main>
