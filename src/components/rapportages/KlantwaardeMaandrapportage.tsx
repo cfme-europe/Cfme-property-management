@@ -5,6 +5,10 @@ import {
 import {
   bouwKlantwaardeRapportage,
 } from "@/lib/rapportages/klantwaarde-rapportage";
+import {
+  alleKlantversieOnderdelen,
+  type KlantversieOnderdeel,
+} from "@/lib/rapportages/klantversie-onderdelen";
 import type { Maandrapportage } from "@/types/maandrapportage";
 
 function korteDatum(waarde: string): string {
@@ -26,9 +30,11 @@ function verbruiksgetal(waarde: number | null): string {
 function RapportKop({
   rapportage,
   pagina,
+  totaalPaginas,
 }: {
   rapportage: Maandrapportage;
   pagina: number;
+  totaalPaginas: number;
 }) {
   const data = rapportage.rapport_data;
   const woning = alsObject(data.woning);
@@ -48,7 +54,7 @@ function RapportKop({
         </p>
       </div>
       <span className="rounded-full bg-slate-950 px-4 py-2 text-xs font-bold text-white">
-        Pagina {pagina} van 2
+        Pagina {pagina} van {totaalPaginas}
       </span>
     </header>
   );
@@ -56,41 +62,62 @@ function RapportKop({
 
 export default function KlantwaardeMaandrapportage({
   rapportage,
+  onderdelen = alleKlantversieOnderdelen(),
 }: {
   rapportage: Maandrapportage;
+  onderdelen?: ReadonlySet<KlantversieOnderdeel>;
 }) {
   const waarde = bouwKlantwaardeRapportage(
     rapportage.rapport_data,
   );
 
+  const toon = (onderdeel: KlantversieOnderdeel) =>
+    onderdelen.has(onderdeel);
+  const heeftTweedePagina = toon("reparaties");
+  const totaalPaginas = heeftTweedePagina ? 2 : 1;
+
   const kpis = [
-    ["Inspecties", waarde.inspecties, "Preventieve controle"],
-    ["Opgelost", waarde.opgelost, "In deze rapportmaand"],
-    [
+    toon("inspecties")
+      ? ["Inspecties", waarde.inspecties, "Preventieve controle"]
+      : null,
+    toon("reparaties")
+      ? ["Opgelost", waarde.opgelost, "In deze rapportmaand"]
+      : null,
+    toon("opvolging") ? [
       "Gemiddelde oplostijd",
       waarde.gemiddelde_oplostijd_dagen === null
         ? "—"
         : `${waarde.gemiddelde_oplostijd_dagen} dag${waarde.gemiddelde_oplostijd_dagen === 1 ? "" : "en"}`,
       "Van melding tot oplossing",
-    ],
-    ["Nog open", waarde.open_einde_periode, "Stand einde maand"],
-  ] as const;
+    ] : null,
+    toon("aandachtspunten")
+      ? ["Nog open", waarde.open_einde_periode, "Stand einde maand"]
+      : null,
+  ].filter((kpi): kpi is [string, string | number, string] => kpi !== null);
 
   return (
     <div className="mt-8 space-y-8 print:space-y-0">
       <section className="mx-auto min-h-[900px] max-w-5xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm print:min-h-0 print:break-after-page print:rounded-none print:border-0 print:shadow-none">
-        <RapportKop rapportage={rapportage} pagina={1} />
+        <RapportKop
+          rapportage={rapportage}
+          pagina={1}
+          totaalPaginas={totaalPaginas}
+        />
 
         <div className="mt-8 rounded-2xl bg-slate-950 p-7 text-white">
           <p className="text-sm font-bold uppercase tracking-wider text-emerald-300">
-            CFME-meerwaarde in één oogopslag
+            {toon("meerwaarde")
+              ? "CFME-meerwaarde in één oogopslag"
+              : "Maandrapportage in één oogopslag"}
           </p>
           <h3 className="mt-2 text-3xl font-black">
-            Problemen zichtbaar, opgevolgd en aantoonbaar opgelost
+            {toon("meerwaarde")
+              ? "Problemen zichtbaar, opgevolgd en aantoonbaar opgelost"
+              : "De geselecteerde resultaten helder in beeld"}
           </h3>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {kpis.length > 0 && <div className={`mt-6 grid gap-4 sm:grid-cols-2 ${kpis.length >= 3 ? "lg:grid-cols-4" : "lg:grid-cols-2"}`}>
           {kpis.map(([label, getal, toelichting]) => (
             <article key={label} className="rounded-xl border border-slate-200 p-5">
               <p className="text-xs font-bold uppercase text-slate-500">{label}</p>
@@ -98,10 +125,11 @@ export default function KlantwaardeMaandrapportage({
               <p className="mt-1 text-xs text-slate-500">{toelichting}</p>
             </article>
           ))}
-        </div>
+        </div>}
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-2">
-          <section className="rounded-2xl bg-emerald-50 p-6">
+        {(toon("meerwaarde") || toon("opvolging")) && (
+        <div className={`mt-8 grid gap-6 ${toon("meerwaarde") && toon("opvolging") ? "lg:grid-cols-2" : ""}`}>
+          {toon("meerwaarde") && <section className="rounded-2xl bg-emerald-50 p-6">
             <h3 className="text-xl font-black text-slate-950">
               Wat CFME deze maand bereikte
             </h3>
@@ -113,9 +141,9 @@ export default function KlantwaardeMaandrapportage({
                 </li>
               ))}
             </ul>
-          </section>
+          </section>}
 
-          <section className="rounded-2xl border border-slate-200 p-6">
+          {toon("opvolging") && <section className="rounded-2xl border border-slate-200 p-6">
             <h3 className="text-xl font-black text-slate-950">Opvolging</h3>
             <dl className="mt-4 space-y-4 text-sm">
               <div className="flex justify-between gap-4"><dt>Nieuwe meldingen</dt><dd className="font-bold">{waarde.ontvangen}</dd></div>
@@ -123,10 +151,23 @@ export default function KlantwaardeMaandrapportage({
               <div className="flex justify-between gap-4"><dt>Dezelfde dag opgelost</dt><dd className="font-bold">{waarde.dezelfde_dag_opgelost}</dd></div>
               <div className="flex justify-between gap-4 border-t pt-4"><dt>Oplossingspercentage</dt><dd className="font-black text-emerald-700">{waarde.oplossingspercentage === null ? "—" : `${waarde.oplossingspercentage}%`}</dd></div>
             </dl>
-          </section>
-        </div>
+          </section>}
+        </div>)}
 
-        <section className="mt-8 rounded-2xl border border-slate-200 p-6">
+        {toon("aandachtspunten") && (
+          <section className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-6">
+            <h3 className="text-xl font-black text-slate-950">
+              Openstaande aandachtspunten
+            </h3>
+            <p className="mt-3 text-sm text-slate-700">
+              {waarde.open_einde_periode === 0
+                ? "Aan het einde van deze rapportmaand stonden geen problemen meer open."
+                : `${waarde.open_einde_periode} probleem${waarde.open_einde_periode === 1 ? "" : "en"} vraagt nog aantoonbare opvolging.`}
+            </p>
+          </section>
+        )}
+
+        {toon("energie") && <section className="mt-8 rounded-2xl border border-slate-200 p-6">
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
               <h3 className="text-xl font-black text-slate-950">
@@ -168,11 +209,15 @@ export default function KlantwaardeMaandrapportage({
               );
             })}
           </div>
-        </section>
+        </section>}
       </section>
 
-      <section className="mx-auto min-h-[900px] max-w-5xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm print:min-h-0 print:rounded-none print:border-0 print:shadow-none">
-        <RapportKop rapportage={rapportage} pagina={2} />
+      {heeftTweedePagina && <section className="mx-auto min-h-[900px] max-w-5xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm print:min-h-0 print:rounded-none print:border-0 print:shadow-none">
+        <RapportKop
+          rapportage={rapportage}
+          pagina={2}
+          totaalPaginas={totaalPaginas}
+        />
         <h3 className="mt-8 text-2xl font-black text-slate-950">
           Probleem → actie → oplossing
         </h3>
@@ -211,7 +256,7 @@ export default function KlantwaardeMaandrapportage({
             CFME maakte deze maand {waarde.ontvangen} nieuwe melding{waarde.ontvangen === 1 ? "" : "en"} zichtbaar, rondde {waarde.opgelost} probleem{waarde.opgelost === 1 ? "" : "en"} aantoonbaar af en bewaakte de resterende werkvoorraad. De getoonde oplostijd is gemeten van melddatum tot geregistreerde oplossing.
           </p>
         </div>
-      </section>
+      </section>}
     </div>
   );
 }

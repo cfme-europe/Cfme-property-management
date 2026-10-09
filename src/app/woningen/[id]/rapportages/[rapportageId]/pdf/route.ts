@@ -14,6 +14,11 @@ import {
   bouwKlantwaardeRapportage,
   isKlantwaardeRapportage,
 } from "@/lib/rapportages/klantwaarde-rapportage";
+import {
+  alleKlantversieOnderdelen,
+  leesKlantversieOnderdelen,
+  type KlantversieOnderdeel,
+} from "@/lib/rapportages/klantversie-onderdelen";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +26,7 @@ function tekenKlantwaardePdf(
   document: jsPDF,
   rapportage: Maandrapportage,
   woning: Woning,
-  onderdelen: Set<string>,
+  onderdelen: ReadonlySet<KlantversieOnderdeel>,
 ) {
   const waarde = bouwKlantwaardeRapportage(
     rapportage.rapport_data,
@@ -29,24 +34,97 @@ function tekenKlantwaardePdf(
   const breedte = document.internal.pageSize.getWidth();
   const marge = 16;
   const inhoud = breedte - marge * 2;
+  const toon = (onderdeel: KlantversieOnderdeel) =>
+    onderdelen.has(onderdeel);
+  const heeftTweedePagina = toon("reparaties");
+  const totaalPaginas = heeftTweedePagina ? 2 : 1;
 
   function kop(pagina: number) {
-    document.setFillColor(6, 78, 59);
-    document.rect(0, 0, breedte, 42, "F");
-    document.setTextColor(255, 255, 255);
+    document.setTextColor(4, 120, 87);
     document.setFont("helvetica", "bold");
-    document.setFontSize(20);
-    document.text("CFME Control", marge, 17);
-    document.setFontSize(13);
-    document.text("Managementrapportage klant", marge, 27);
+    document.setFontSize(8);
+    document.text("CFME CONTROL", marge, 13);
+    document.setTextColor(15, 23, 42);
+    document.setFontSize(18);
+    document.text("Managementrapportage klant", marge, 24);
     document.setFont("helvetica", "normal");
-    document.setFontSize(9);
+    document.setTextColor(71, 85, 105);
+    document.setFontSize(8);
     document.text(
       `${woning.adres} · ${rapportage.rapportmaand}-${rapportage.rapportjaar}`,
       marge,
-      35,
+      32,
     );
-    document.text(`Pagina ${pagina} van 2`, breedte - marge, 17, {
+    document.setFillColor(15, 23, 42);
+    document.roundedRect(breedte - marge - 31, 10, 31, 10, 5, 5, "F");
+    document.setTextColor(255, 255, 255);
+    document.setFont("helvetica", "bold");
+    document.setFontSize(7);
+    document.text(`Pagina ${pagina} van ${totaalPaginas}`, breedte - marge - 15.5, 16.4, {
+      align: "center",
+    });
+    document.setDrawColor(110, 231, 183);
+    document.line(marge, 39, breedte - marge, 39);
+  }
+
+  function kaart(
+    x: number,
+    y: number,
+    kaartBreedte: number,
+    label: string,
+    getal: string,
+  ) {
+    document.setFillColor(255, 255, 255);
+    document.setDrawColor(226, 232, 240);
+    document.roundedRect(x, y, kaartBreedte, 30, 2, 2, "FD");
+    document.setTextColor(100, 116, 139);
+    document.setFontSize(7);
+    document.setFont("helvetica", "bold");
+    document.text(label.toUpperCase(), x + 4, y + 9);
+    document.setTextColor(4, 120, 87);
+    document.setFontSize(17);
+    document.text(getal, x + 4, y + 23);
+  }
+
+  function sectieKader(
+    x: number,
+    y: number,
+    kaderBreedte: number,
+    hoogte: number,
+    gevuld = false,
+  ) {
+    if (gevuld) {
+      document.setFillColor(236, 253, 245);
+    } else {
+      document.setFillColor(255, 255, 255);
+    }
+    document.setDrawColor(226, 232, 240);
+    document.roundedRect(x, y, kaderBreedte, hoogte, 3, 3, "FD");
+  }
+
+  function kleineTitel(tekst: string, x: number, y: number) {
+    document.setTextColor(15, 23, 42);
+    document.setFont("helvetica", "bold");
+    document.setFontSize(11);
+    document.text(tekst, x, y);
+  }
+
+  function percentageBreedte(
+    waarde: number | null,
+    maximum: number,
+    beschikbareBreedte: number,
+  ) {
+    return Math.max(
+      0,
+      Math.min(beschikbareBreedte, ((waarde ?? 0) / maximum) * beschikbareBreedte),
+    );
+  }
+
+  function labelRechts(tekst: string, x: number, y: number) {
+    document.setTextColor(71, 85, 105);
+    document.setFont("helvetica", "normal");
+    document.setFontSize(7);
+    document.text(tekst, x, y, {
       align: "right",
     });
   }
@@ -75,10 +153,6 @@ function tekenKlantwaardePdf(
     ) as string[];
     document.text(gesplitst.slice(0, maxRegels), x, y);
   }
-
-  const toon = (onderdeel: string) => onderdelen.has(onderdeel);
-  const heeftTweedePagina = toon("reparaties") ||
-    (toon("energie") && onderdelen.size > 2);
 
   kop(1);
   document.setFillColor(15, 23, 42);
@@ -113,60 +187,84 @@ function tekenKlantwaardePdf(
     Math.max(kaarten.length, 1);
   kaarten.forEach(([label, getal], index) => {
     const x = marge + index * (kaartBreedte + 3);
-    document.setFillColor(236, 253, 245);
-    document.roundedRect(x, 96, kaartBreedte, 34, 2, 2, "F");
-    document.setTextColor(71, 85, 105);
-    document.setFontSize(8);
-    document.setFont("helvetica", "bold");
-    document.text(label.toUpperCase(), x + 4, 106);
-    document.setTextColor(4, 120, 87);
-    document.setFontSize(18);
-    document.text(getal, x + 4, 121);
+    kaart(x, 96, kaartBreedte, label, getal);
   });
 
-  let paginaEenY = kaarten.length > 0 ? 146 : 102;
+  const informatieY = kaarten.length > 0 ? 137 : 96;
+  const tweeKolommen = toon("meerwaarde") && toon("opvolging");
+  const kolomBreedte = tweeKolommen ? (inhoud - 5) / 2 : inhoud;
 
   if (toon("meerwaarde")) {
-    titel("Wat CFME deze maand bereikte", paginaEenY);
-    waarde.meerwaarde.slice(0, 5).forEach((regel, index) => {
-    document.setFillColor(4, 120, 87);
-      document.circle(marge + 2, paginaEenY + 13 + index * 14, 1.5, "F");
-      regels(regel, marge + 7, paginaEenY + 15 + index * 14, inhoud - 8, 10, 2);
+    sectieKader(marge, informatieY, kolomBreedte, 63, true);
+    kleineTitel("Wat CFME deze maand bereikte", marge + 6, informatieY + 11);
+    waarde.meerwaarde.slice(0, 4).forEach((regel, index) => {
+      document.setFillColor(4, 120, 87);
+      document.circle(marge + 7, informatieY + 22 + index * 10, 1.2, "F");
+      regels(
+        regel,
+        marge + 11,
+        informatieY + 24 + index * 10,
+        kolomBreedte - 17,
+        7.5,
+        1,
+      );
     });
-    paginaEenY += Math.min(waarde.meerwaarde.length, 5) * 14 + 22;
   }
 
   if (toon("opvolging")) {
-    titel("Opvolging in cijfers", paginaEenY);
+    const opvolgingX = tweeKolommen ? marge + kolomBreedte + 5 : marge;
+    sectieKader(opvolgingX, informatieY, kolomBreedte, 63);
+    kleineTitel("Opvolging", opvolgingX + 6, informatieY + 11);
     const percentage = waarde.oplossingspercentage === null
-      ? "Niet berekenbaar"
-      : `${waarde.oplossingspercentage}% opgelost`;
-    regels(
-      `${waarde.ontvangen} nieuwe meldingen · ${waarde.dezelfde_dag_opgelost} dezelfde dag opgelost · ${percentage}.`,
-      marge, paginaEenY + 12, inhoud, 10, 3,
-    );
-    paginaEenY += 34;
+      ? "-"
+      : `${waarde.oplossingspercentage}%`;
+    const regelsOpvolging = [
+      ["Nieuwe meldingen", String(waarde.ontvangen)],
+      ["Opgelost in de maand", String(waarde.opgelost)],
+      ["Dezelfde dag opgelost", String(waarde.dezelfde_dag_opgelost)],
+      ["Oplossingspercentage", percentage],
+    ];
+    regelsOpvolging.forEach(([label, getal], index) => {
+      const y = informatieY + 23 + index * 9;
+      regels(label, opvolgingX + 6, y, kolomBreedte - 25, 7.5, 1);
+      document.setTextColor(index === 3 ? 4 : 15, index === 3 ? 120 : 23, index === 3 ? 87 : 42);
+      document.setFont("helvetica", "bold");
+      document.setFontSize(8);
+      document.text(getal, opvolgingX + kolomBreedte - 6, y, { align: "right" });
+    });
   }
+
+  let vervolgY = (toon("meerwaarde") || toon("opvolging"))
+    ? informatieY + 71
+    : informatieY;
 
   if (toon("aandachtspunten")) {
-    titel("Openstaande aandachtspunten", paginaEenY);
+    document.setFillColor(255, 251, 235);
+    document.setDrawColor(253, 230, 138);
+    document.roundedRect(marge, vervolgY, inhoud, 25, 3, 3, "FD");
+    kleineTitel("Openstaande aandachtspunten", marge + 6, vervolgY + 10);
     regels(
       waarde.open_einde_periode === 0
-        ? "Geen openstaande problemen aan het einde van de rapportmaand."
-        : `${waarde.open_einde_periode} probleem${waarde.open_einde_periode === 1 ? "" : "en"} vraagt nog opvolging.`,
-      marge, paginaEenY + 12, inhoud, 10, 2,
+        ? "Aan het einde van deze rapportmaand stonden geen problemen meer open."
+        : `${waarde.open_einde_periode} probleem${waarde.open_einde_periode === 1 ? "" : "en"} vraagt nog aantoonbare opvolging.`,
+      marge + 6,
+      vervolgY + 19,
+      inhoud - 12,
+      7.5,
+      1,
     );
+    vervolgY += 33;
   }
 
-  if (toon("energie") && !heeftTweedePagina) {
-    tekenEnergie(Math.max(paginaEenY + 32, 150));
+  if (toon("energie")) {
+    tekenEnergie(vervolgY);
   }
 
   if (!heeftTweedePagina) return;
 
   document.addPage();
   kop(2);
-  let paginaTweeY = 57;
+  const paginaTweeY = 55;
 
   if (toon("reparaties")) {
     titel("Probleem - actie - oplossing", paginaTweeY);
@@ -211,40 +309,86 @@ function tekenKlantwaardePdf(
       );
     });
   }
-    paginaTweeY += 128;
-  }
-
-  if (toon("energie")) {
-    tekenEnergie(Math.max(paginaTweeY, 190));
   }
 
   function tekenEnergie(yStart: number) {
-    titel("Energieverbruik versus vorige periode", yStart);
+    sectieKader(marge, yStart, inhoud, 68);
+    kleineTitel("Energieverbruik versus vorige periode", marge + 6, yStart + 11);
     regels(
       "Verbruik per persoon per week; hierdoor blijft de kostenontwikkeling meetbaar en vergelijkbaar.",
-      marge, yStart + 8, inhoud, 8, 1,
+      marge + 6, yStart + 19, inhoud - 12, 7, 1,
     );
     waarde.energie.forEach((item, index) => {
-      const y = yStart + 18 + index * 11;
-    const huidig =
-      item.huidig === null ? "-" : item.huidig.toFixed(2);
-    const vorig =
-      item.vorig === null ? "-" : item.vorig.toFixed(2);
-    const verschil =
-      item.verschil_percentage === null
-        ? "geen vergelijking"
+      const y = yStart + 29 + index * 12;
+      const huidig = item.huidig === null ? "-" : item.huidig.toFixed(2);
+      const vorig = item.vorig === null ? "-" : item.vorig.toFixed(2);
+      const maximum = Math.max(item.huidig ?? 0, item.vorig ?? 0, 1);
+      const balkX = marge + 43;
+      const balkBreedte = inhoud - 92;
+
+      document.setTextColor(15, 23, 42);
+      document.setFont("helvetica", "bold");
+      document.setFontSize(7.5);
+      document.text(item.label, marge + 6, y + 3);
+
+      document.setFillColor(241, 245, 249);
+      document.roundedRect(balkX, y - 1, balkBreedte, 3, 1.5, 1.5, "F");
+      document.setFillColor(203, 213, 225);
+      document.roundedRect(
+        balkX,
+        y - 1,
+        percentageBreedte(item.vorig, maximum, balkBreedte),
+        3,
+        1.5,
+        1.5,
+        "F",
+      );
+      document.setFillColor(209, 250, 229);
+      document.roundedRect(balkX, y + 4, balkBreedte, 3, 1.5, 1.5, "F");
+      document.setFillColor(5, 150, 105);
+      document.roundedRect(
+        balkX,
+        y + 4,
+        percentageBreedte(item.huidig, maximum, balkBreedte),
+        3,
+        1.5,
+        1.5,
+        "F",
+      );
+      labelRechts(
+        `${vorig} > ${huidig} ${item.eenheid}`,
+        breedte - marge - 25,
+        y + 3,
+      );
+      const verschil = item.verschil_percentage === null
+        ? "-"
         : `${item.verschil_percentage >= 0 ? "+" : ""}${item.verschil_percentage}%`;
-    document.setTextColor(15, 23, 42);
-    document.setFont("helvetica", "bold");
-    document.setFontSize(8);
-    document.text(item.label, marge, y);
-    document.setFont("helvetica", "normal");
-    document.text(
-      `vorig ${vorig} > huidig ${huidig} ${item.eenheid} · ${verschil}`,
-      breedte - marge,
-      y,
-      { align: "right" },
-    );
+      document.setFillColor(
+        item.verschil_percentage !== null && item.verschil_percentage > 0
+          ? 254
+          : 209,
+        item.verschil_percentage !== null && item.verschil_percentage > 0
+          ? 243
+          : 250,
+        item.verschil_percentage !== null && item.verschil_percentage > 0
+          ? 199
+          : 229,
+      );
+      document.roundedRect(breedte - marge - 21, y - 2, 17, 9, 4.5, 4.5, "F");
+      document.setTextColor(
+        item.verschil_percentage !== null && item.verschil_percentage > 0
+          ? 146
+          : 6,
+        item.verschil_percentage !== null && item.verschil_percentage > 0
+          ? 64
+          : 95,
+        item.verschil_percentage !== null && item.verschil_percentage > 0
+          ? 14
+          : 70,
+      );
+      document.setFont("helvetica", "bold");
+      document.setFontSize(7);
+      document.text(verschil, breedte - marge - 12.5, y + 3.5, { align: "center" });
     });
   }
 
@@ -305,13 +449,8 @@ export async function GET(
   const zoekparameters = new URL(request.url).searchParams;
   const preview = zoekparameters.get("preview") === "1";
   const klantversie = zoekparameters.get("variant") === "klantwaarde";
-  const geldigeOnderdelen = new Set([
-    "meerwaarde", "opvolging", "reparaties", "energie", "inspecties", "aandachtspunten",
-  ]);
-  const onderdelen = new Set(
-    (zoekparameters.get("onderdelen") ?? "")
-      .split(",")
-      .filter((onderdeel) => geldigeOnderdelen.has(onderdeel)),
+  const onderdelen = leesKlantversieOnderdelen(
+    zoekparameters.get("onderdelen"),
   );
 
   if (klantversie && onderdelen.size === 0) {
@@ -580,7 +719,7 @@ export async function GET(
         woning,
         klantversie
           ? onderdelen
-          : new Set(["meerwaarde", "opvolging", "reparaties", "energie", "inspecties", "aandachtspunten"]),
+          : alleKlantversieOnderdelen(),
       );
     } else {
     document.setFillColor(6, 78, 59);

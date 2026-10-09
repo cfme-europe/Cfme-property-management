@@ -1,18 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  alleKlantversieOnderdelen,
+  klantversieOnderdelen,
+  type KlantversieOnderdeel,
+} from "@/lib/rapportages/klantversie-onderdelen";
 import type { Maandrapportage } from "@/types/maandrapportage";
-
-const onderdelen = [
-  ["meerwaarde", "CFME-resultaten"],
-  ["opvolging", "Meldingen en opvolgsnelheid"],
-  ["reparaties", "Reparaties en oplossingen"],
-  ["energie", "Energieverbruik en vergelijking"],
-  ["inspecties", "Inspecties"],
-  ["aandachtspunten", "Openstaande aandachtspunten"],
-] as const;
-
-type Onderdeel = (typeof onderdelen)[number][0];
 
 export default function KlantversieButton({
   rapportage,
@@ -22,8 +16,8 @@ export default function KlantversieButton({
   const [open, setOpen] = useState(false);
   const [bezig, setBezig] = useState(false);
   const [fout, setFout] = useState("");
-  const [selectie, setSelectie] = useState<Set<Onderdeel>>(
-    () => new Set(onderdelen.map(([sleutel]) => sleutel)),
+  const [selectie, setSelectie] = useState<Set<KlantversieOnderdeel>>(
+    alleKlantversieOnderdelen,
   );
 
   const samengesteld = Boolean(
@@ -37,9 +31,11 @@ export default function KlantversieButton({
       }).toString(),
     [selectie],
   );
-  const basis = `/woningen/${rapportage.woning_id}/rapportages/${rapportage.id}/pdf`;
+  const rapportBasis = `/woningen/${rapportage.woning_id}/rapportages/${rapportage.id}`;
+  const pdfUrl = `${rapportBasis}/pdf`;
+  const voorbeeldUrl = `${rapportBasis}/klantversie`;
 
-  function wissel(onderdeel: Onderdeel) {
+  function wissel(onderdeel: KlantversieOnderdeel) {
     setSelectie((actueel) => {
       const volgende = new Set(actueel);
       if (volgende.has(onderdeel)) {
@@ -57,7 +53,7 @@ export default function KlantversieButton({
     setFout("");
 
     try {
-      const response = await fetch(`${basis}?${query}`, {
+      const response = await fetch(`${pdfUrl}?${query}`, {
         credentials: "same-origin",
         cache: "no-store",
       });
@@ -117,7 +113,7 @@ export default function KlantversieButton({
 
           <fieldset className="mt-4 space-y-3">
             <legend className="sr-only">Te rapporteren gegevens</legend>
-            {onderdelen.map(([sleutel, label]) => (
+            {klantversieOnderdelen.map(([sleutel, label]) => (
               <label key={sleutel} className="flex items-center gap-3 text-sm">
                 <input
                   type="checkbox"
@@ -139,7 +135,7 @@ export default function KlantversieButton({
 
           <div className="mt-5 flex flex-wrap gap-3">
             <a
-              href={`${basis}?${query}&preview=1`}
+              href={`${voorbeeldUrl}?${query}`}
               target="_blank"
               rel="noopener noreferrer"
               aria-disabled={!samengesteld || selectie.size === 0}
