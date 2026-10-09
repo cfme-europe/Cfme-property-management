@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { documentAanmaken } from "@/app/woningen/[id]/documenten/actions";
+import DocumentFormulier from "@/components/documenten/DocumentFormulier";
 import {
   getComplianceObjectOpties,
   getComplianceWerkpuntenVoorWoning,
@@ -329,8 +330,9 @@ export default async function CompliancePage({
           Objectdocument toevoegen
         </h2>
 
-        <form
+        <DocumentFormulier
           action={documentAanmakenVoorWoning}
+          uploadSleutel={crypto.randomUUID()}
           className="mt-5 grid gap-4 md:grid-cols-2"
         >
           <label>
@@ -452,7 +454,7 @@ export default async function CompliancePage({
               Document uploaden
             </button>
           </div>
-        </form>
+        </DocumentFormulier>
       </section>
     </main>
   );
