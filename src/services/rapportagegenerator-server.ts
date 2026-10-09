@@ -292,6 +292,9 @@ export async function genereerMaandrapportageData(
       .sort((a, b) => a.volgorde - b.volgorde),
   };
 
+  const templateConfiguratie =
+    templateversie.configuratie ?? {};
+
   const periodeInspecties = inspecties.filter(
     (inspectie) =>
       binnenPeriode(
@@ -379,6 +382,14 @@ export async function genereerMaandrapportageData(
       templateversie_id: templateversie.id,
       template_id: templateversie.template_id,
       versienummer: templateversie.versienummer,
+      weergave:
+        typeof templateConfiguratie.weergave === "string"
+          ? templateConfiguratie.weergave
+          : "standaard",
+      max_paginas:
+        typeof templateConfiguratie.max_paginas === "number"
+          ? templateConfiguratie.max_paginas
+          : null,
       blokken: zichtbareBlokken,
     },
 

@@ -10,8 +10,223 @@ import {
   zakelijkLabel,
 } from "@/lib/rapportages/zakelijke-rapportage";
 import { bouwRapportageEindvorm } from "@/lib/rapportages/rapportage-eindvorm";
+import {
+  bouwKlantwaardeRapportage,
+  isKlantwaardeRapportage,
+} from "@/lib/rapportages/klantwaarde-rapportage";
 
 export const dynamic = "force-dynamic";
+
+function tekenKlantwaardePdf(
+  document: jsPDF,
+  rapportage: Maandrapportage,
+  woning: Woning,
+) {
+  const waarde = bouwKlantwaardeRapportage(
+    rapportage.rapport_data,
+  );
+  const breedte = document.internal.pageSize.getWidth();
+  const marge = 16;
+  const inhoud = breedte - marge * 2;
+
+  function kop(pagina: number) {
+    document.setFillColor(6, 78, 59);
+    document.rect(0, 0, breedte, 42, "F");
+    document.setTextColor(255, 255, 255);
+    document.setFont("helvetica", "bold");
+    document.setFontSize(20);
+    document.text("CFME Control", marge, 17);
+    document.setFontSize(13);
+    document.text("Managementrapportage klant", marge, 27);
+    document.setFont("helvetica", "normal");
+    document.setFontSize(9);
+    document.text(
+      `${woning.adres} · ${rapportage.rapportmaand}-${rapportage.rapportjaar}`,
+      marge,
+      35,
+    );
+    document.text(`Pagina ${pagina} van 2`, breedte - marge, 17, {
+      align: "right",
+    });
+  }
+
+  function titel(tekst: string, y: number) {
+    document.setTextColor(15, 23, 42);
+    document.setFont("helvetica", "bold");
+    document.setFontSize(15);
+    document.text(tekst, marge, y);
+  }
+
+  function regels(
+    tekst: string,
+    x: number,
+    y: number,
+    maxBreedte: number,
+    grootte = 9,
+    maxRegels = 3,
+  ) {
+    document.setTextColor(51, 65, 85);
+    document.setFont("helvetica", "normal");
+    document.setFontSize(grootte);
+    const gesplitst = document.splitTextToSize(
+      tekst,
+      maxBreedte,
+    ) as string[];
+    document.text(gesplitst.slice(0, maxRegels), x, y);
+  }
+
+  kop(1);
+  document.setFillColor(15, 23, 42);
+  document.roundedRect(marge, 51, inhoud, 37, 3, 3, "F");
+  document.setTextColor(110, 231, 183);
+  document.setFont("helvetica", "bold");
+  document.setFontSize(10);
+  document.text("CFME-MEERWAARDE IN EEN OOGOPSLAG", marge + 6, 63);
+  document.setTextColor(255, 255, 255);
+  document.setFontSize(17);
+  document.text("Zichtbaar, opgevolgd en opgelost", marge + 6, 77);
+
+  const kaarten = [
+    ["Inspecties", String(waarde.inspecties)],
+    ["Opgelost", String(waarde.opgelost)],
+    [
+      "Gem. oplostijd",
+      waarde.gemiddelde_oplostijd_dagen === null
+        ? "-"
+        : `${waarde.gemiddelde_oplostijd_dagen} d`,
+    ],
+    ["Nog open", String(waarde.open_einde_periode)],
+  ];
+  const kaartBreedte = (inhoud - 9) / 4;
+  kaarten.forEach(([label, getal], index) => {
+    const x = marge + index * (kaartBreedte + 3);
+    document.setFillColor(236, 253, 245);
+    document.roundedRect(x, 96, kaartBreedte, 34, 2, 2, "F");
+    document.setTextColor(71, 85, 105);
+    document.setFontSize(8);
+    document.setFont("helvetica", "bold");
+    document.text(label.toUpperCase(), x + 4, 106);
+    document.setTextColor(4, 120, 87);
+    document.setFontSize(18);
+    document.text(getal, x + 4, 121);
+  });
+
+  titel("Wat CFME deze maand bereikte", 146);
+  waarde.meerwaarde.slice(0, 5).forEach((regel, index) => {
+    document.setFillColor(4, 120, 87);
+    document.circle(marge + 2, 159 + index * 14, 1.5, "F");
+    regels(regel, marge + 7, 161 + index * 14, inhoud - 8, 10, 2);
+  });
+
+  titel("Opvolging in cijfers", 232);
+  const percentage =
+    waarde.oplossingspercentage === null
+      ? "Niet berekenbaar"
+      : `${waarde.oplossingspercentage}% opgelost`;
+  regels(
+    `${waarde.ontvangen} nieuwe meldingen · ${waarde.dezelfde_dag_opgelost} dezelfde dag opgelost · ${percentage}.`,
+    marge,
+    244,
+    inhoud,
+    10,
+    3,
+  );
+
+  document.addPage();
+  kop(2);
+  titel("Probleem - actie - oplossing", 57);
+  regels(
+    "Herleidbare voorbeelden uit de rapportmaand. De doorlooptijd loopt van melddatum tot geregistreerde oplossing.",
+    marge,
+    66,
+    inhoud,
+    9,
+    2,
+  );
+
+  if (waarde.oplossingen.length === 0) {
+    regels(
+      "Geen afgeronde problemen in deze rapportmaand.",
+      marge,
+      86,
+      inhoud,
+      10,
+      2,
+    );
+  } else {
+    waarde.oplossingen.slice(0, 4).forEach((item, index) => {
+      const y = 82 + index * 25;
+      document.setDrawColor(203, 213, 225);
+      document.line(marge, y - 5, breedte - marge, y - 5);
+      document.setTextColor(15, 23, 42);
+      document.setFont("helvetica", "bold");
+      document.setFontSize(9);
+      document.text(item.titel.slice(0, 48), marge, y);
+      document.setTextColor(4, 120, 87);
+      document.text(
+        `${item.doorlooptijd_dagen} dag${item.doorlooptijd_dagen === 1 ? "" : "en"}`,
+        breedte - marge,
+        y,
+        { align: "right" },
+      );
+      regels(item.oplossing, marge, y + 6, inhoud - 35, 8, 2);
+      regels(
+        `${item.melddatum} > ${item.oplosdatum}`,
+        breedte - marge - 33,
+        y + 6,
+        33,
+        7,
+        1,
+      );
+    });
+  }
+
+  titel("Energieverbruik versus vorige periode", 190);
+  regels(
+    "Verbruik per persoon per week; hierdoor blijft de kostenontwikkeling meetbaar en vergelijkbaar.",
+    marge,
+    198,
+    inhoud,
+    8,
+    1,
+  );
+  waarde.energie.forEach((item, index) => {
+    const y = 208 + index * 11;
+    const huidig =
+      item.huidig === null ? "-" : item.huidig.toFixed(2);
+    const vorig =
+      item.vorig === null ? "-" : item.vorig.toFixed(2);
+    const verschil =
+      item.verschil_percentage === null
+        ? "geen vergelijking"
+        : `${item.verschil_percentage >= 0 ? "+" : ""}${item.verschil_percentage}%`;
+    document.setTextColor(15, 23, 42);
+    document.setFont("helvetica", "bold");
+    document.setFontSize(8);
+    document.text(item.label, marge, y);
+    document.setFont("helvetica", "normal");
+    document.text(
+      `vorig ${vorig} > huidig ${huidig} ${item.eenheid} · ${verschil}`,
+      breedte - marge,
+      y,
+      { align: "right" },
+    );
+  });
+
+  document.setFillColor(15, 23, 42);
+  document.roundedRect(marge, 248, inhoud, 29, 3, 3, "F");
+  document.setTextColor(255, 255, 255);
+  document.setFont("helvetica", "bold");
+  document.setFontSize(11);
+  document.text("Conclusie voor de klant", marge + 6, 259);
+  document.setFont("helvetica", "normal");
+  document.setFontSize(8);
+  const conclusie = document.splitTextToSize(
+    `CFME maakte ${waarde.ontvangen} nieuwe meldingen zichtbaar, rondde ${waarde.opgelost} problemen aantoonbaar af en bewaakte de resterende werkvoorraad.`,
+    inhoud - 12,
+  ) as string[];
+  document.text(conclusie.slice(0, 2), marge + 6, 267);
+}
 
 function veiligeBestandsnaam(waarde: string): string {
   return waarde
@@ -298,6 +513,17 @@ export async function GET(
       y += 11;
     }
 
+    if (
+      isKlantwaardeRapportage(
+        rapportage.rapport_data,
+      )
+    ) {
+      tekenKlantwaardePdf(
+        document,
+        rapportage,
+        woning,
+      );
+    } else {
     document.setFillColor(6, 78, 59);
     document.rect(
       0,
@@ -612,6 +838,8 @@ export async function GET(
     if (model.opmerkingen) {
       sectie("Aanvullende opmerkingen");
       schrijf(model.opmerkingen);
+    }
+
     }
 
     const paginaAantal =
