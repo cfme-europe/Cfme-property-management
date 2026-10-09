@@ -1,5 +1,8 @@
+import Link from "next/link";
+import IntelligenceWerkpuntActies from "@/components/intelligence/IntelligenceWerkpuntActies";
 import type {
   ControlebriefingMetWerkpunten,
+  IntelligenceWerkpunt,
   IntelligenceWerkpuntPrioriteit,
   WoningDnaRisiconiveau,
 } from "@/types/intelligence";
@@ -54,6 +57,47 @@ function datum(waarde: string | null): string {
   }).format(new Date(`${waarde}T00:00:00`));
 }
 
+function datumTijd(waarde: string | null): string {
+  if (!waarde) return "—";
+
+  return new Intl.DateTimeFormat("nl-NL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(waarde));
+}
+
+function bronLink(werkpunt: IntelligenceWerkpunt): string {
+  const aanwijzing = `${werkpunt.categorie} ${werkpunt.titel}`.toLowerCase();
+  const basis = `/woningen/${werkpunt.woning_id}`;
+
+  if (aanwijzing.includes("melding")) return `${basis}#meldingen`;
+  if (aanwijzing.includes("taak") || aanwijzing.includes("deadline")) {
+    return `${basis}#taken`;
+  }
+  if (
+    aanwijzing.includes("inspectie") ||
+    aanwijzing.includes("orde") ||
+    aanwijzing.includes("netheid")
+  ) {
+    return `${basis}#inspecties`;
+  }
+  if (
+    aanwijzing.includes("energie") ||
+    aanwijzing.includes("verbruik") ||
+    aanwijzing.includes("water") ||
+    aanwijzing.includes("gas") ||
+    aanwijzing.includes("stroom") ||
+    aanwijzing.includes("meter")
+  ) {
+    return `${basis}#meterstanden`;
+  }
+
+  return basis;
+}
+
 export default function ControlebriefingOverzicht({
   gegevens,
 }: Props) {
@@ -81,7 +125,11 @@ export default function ControlebriefingOverzicht({
     );
   }
 
-  const { briefing, werkpunten } = gegevens;
+  const {
+    briefing,
+    werkpunten,
+    afgehandelde_werkpunten: afgehandeldeWerkpunten,
+  } = gegevens;
   const risico = risicoOpmaak[briefing.risiconiveau];
 
   return (
@@ -184,11 +232,59 @@ export default function ControlebriefingOverzicht({
                     ? ` #${werkpunt.bron_id}`
                     : ""}
                 </p>
+
+                <div className="mt-3">
+                  <Link
+                    href={bronLink(werkpunt)}
+                    className="text-sm font-semibold text-violet-700 underline decoration-violet-300 underline-offset-4 hover:text-violet-900"
+                  >
+                    Bron bekijken
+                  </Link>
+                </div>
+
+                <IntelligenceWerkpuntActies
+                  werkpuntId={werkpunt.id}
+                />
               </article>
             ))}
           </div>
         )}
       </div>
+
+      {afgehandeldeWerkpunten.length > 0 && (
+        <details className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <summary className="cursor-pointer font-semibold text-slate-800">
+            Recent afgehandeld ({afgehandeldeWerkpunten.length})
+          </summary>
+
+          <div className="mt-4 space-y-3">
+            {afgehandeldeWerkpunten.map((werkpunt) => (
+              <article
+                key={werkpunt.id}
+                className="rounded-lg border border-slate-200 bg-white p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <p className="font-semibold">{werkpunt.titel}</p>
+                  <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-800">
+                    {werkpunt.status === "opgevolgd"
+                      ? "Gereed / opgevolgd"
+                      : "Niet relevant"}
+                  </span>
+                </div>
+
+                <p className="mt-2 text-sm text-slate-700">
+                  {werkpunt.afhandelnotitie || "Geen notitie vastgelegd."}
+                </p>
+
+                <p className="mt-2 text-xs text-slate-500">
+                  {datumTijd(werkpunt.afgehandeld_at)} · door{" "}
+                  {werkpunt.afgehandeld_door_naam || "onbekend"}
+                </p>
+              </article>
+            ))}
+          </div>
+        </details>
+      )}
 
       <p className="mt-5 text-xs text-slate-500">
         Peildatum {datum(briefing.peildatum)} · Geldig tot{" "}

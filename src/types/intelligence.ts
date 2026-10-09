@@ -44,6 +44,10 @@ export type IntelligenceWerkpuntStatus =
   | "vervallen"
   | "genegeerd";
 
+export type IntelligenceWerkpuntAfhandelstatus =
+  | "opgevolgd"
+  | "genegeerd";
+
 export type Controlebriefing = {
   id: number;
   created_at: string;
@@ -82,9 +86,14 @@ export type IntelligenceWerkpunt = {
   details: Record<string, unknown>;
   geactiveerd_at: string | null;
   opgevolgd_at: string | null;
+  afgehandeld_at: string | null;
+  afgehandeld_door: string | null;
+  afgehandeld_door_naam: string | null;
+  afhandelnotitie: string | null;
 };
 
 export type ControlebriefingMetWerkpunten = {
   briefing: Controlebriefing;
   werkpunten: IntelligenceWerkpunt[];
+  afgehandelde_werkpunten: IntelligenceWerkpunt[];
 };
