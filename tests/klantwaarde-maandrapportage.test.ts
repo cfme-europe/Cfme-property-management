@@ -127,13 +127,14 @@ test("oplossnelheid gebruikt de historische maandstand en geen latere oplossing"
   );
 });
 
-test("scherm toont CFME-meerwaarde op exact twee herkenbare pagina's", async () => {
+test("scherm toont CFME-meerwaarde op maximaal twee herkenbare pagina's", async () => {
   const [component, standaard] = await Promise.all([
     lees("component"),
     lees("standaard"),
   ]);
 
-  assert.match(component, /Pagina \{pagina\} van 2/);
+  assert.match(component, /Pagina \{pagina\} van \{totaalPaginas\}/);
+  assert.match(component, /const totaalPaginas = heeftTweedePagina \? 2 : 1/);
   assert.match(component, /CFME-meerwaarde in één oogopslag/);
   assert.match(component, /Gemiddelde oplostijd/);
   assert.match(component, /Probleem → actie → oplossing/);
@@ -145,7 +146,7 @@ test("scherm toont CFME-meerwaarde op exact twee herkenbare pagina's", async () 
   assert.match(standaard, /<KlantwaardeMaandrapportage/);
 });
 
-test("PDF gebruikt voor de klantvariant exact twee pagina's", async () => {
+test("PDF gebruikt voor de klantvariant maximaal twee pagina's", async () => {
   const [pdf, generator] = await Promise.all([
     lees("pdf"),
     lees("generator"),
@@ -159,6 +160,7 @@ test("PDF gebruikt voor de klantvariant exact twee pagina's", async () => {
     (klantPdf.match(/document\.addPage\(\)/g) ?? []).length,
     1,
   );
+  assert.match(klantPdf, /if \(!heeftTweedePagina\) return/);
   assert.match(pdf, /isKlantwaardeRapportage/);
   assert.match(pdf, /Energieverbruik versus vorige periode/);
   assert.match(generator, /templateConfiguratie\.weergave/);
