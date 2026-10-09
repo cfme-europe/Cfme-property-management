@@ -52,7 +52,7 @@ export async function getActieveControlebriefingVoorWoning(
       .from("intelligence_werkpunten")
       .select("*")
       .eq("controlebriefing_id", briefing.id)
-      .eq("status", "actief")
+      .in("status", ["actief", "opgevolgd", "genegeerd"])
       .order("prioriteit", {
         ascending: false,
       })
@@ -73,8 +73,22 @@ export async function getActieveControlebriefingVoorWoning(
     laag: 3,
   } as const;
 
-  const werkpunten =
+  const alleWerkpunten =
     (werkpuntenData ?? []) as IntelligenceWerkpunt[];
+
+  const werkpunten = alleWerkpunten.filter(
+    (werkpunt) => werkpunt.status === "actief",
+  );
+
+  const afgehandeldeWerkpunten = alleWerkpunten
+    .filter((werkpunt) =>
+      ["opgevolgd", "genegeerd"].includes(werkpunt.status),
+    )
+    .sort((a, b) =>
+      (b.afgehandeld_at ?? "").localeCompare(
+        a.afgehandeld_at ?? "",
+      ),
+    );
 
   werkpunten.sort(
     (a, b) =>
@@ -85,5 +99,6 @@ export async function getActieveControlebriefingVoorWoning(
   return {
     briefing,
     werkpunten,
+    afgehandelde_werkpunten: afgehandeldeWerkpunten,
   };
 }
