@@ -231,13 +231,6 @@ export default async function WoningDossierPage({
           planning={woningplanning}
         />
 
-        <WoningQrCode
-          woningId={woning.id}
-          adres={woning.adres}
-          postcode={woning.postcode}
-          plaats={woning.plaats}
-        />
-
         <WoningDnaOverzicht snapshot={woningDna} />
 
         <OpvolgingOverzicht
@@ -1508,6 +1501,13 @@ export default async function WoningDossierPage({
             </div>
           )}
         </section>
+
+        <WoningQrCode
+          woningId={woning.id}
+          adres={woning.adres}
+          postcode={woning.postcode}
+          plaats={woning.plaats}
+        />
       </div>
     </main>
   );
