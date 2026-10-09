@@ -88,8 +88,7 @@ export default function OpvolgingOverzicht({ woningId, items }: Props) {
       <span id="taken" className="scroll-mt-6" />
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-emerald-700">Eén werklijst</p>
-          <h2 className="mt-1 text-xl font-bold">Opvolging</h2>
+          <h2 className="text-xl font-bold">Werklijst</h2>
           <p className="mt-1 max-w-2xl text-slate-600">
             Meldingen, controleafwijkingen en taken staan hier per kwestie bij elkaar.
           </p>

@@ -240,6 +240,11 @@ export default async function WoningDossierPage({
 
         <WoningDnaOverzicht snapshot={woningDna} />
 
+        <OpvolgingOverzicht
+          woningId={woning.id}
+          items={opvolgitems}
+        />
+
         <ControlebriefingOverzicht
           gegevens={controlebriefing}
         />
@@ -923,11 +928,6 @@ export default async function WoningDossierPage({
             </div>
           </div>
         </section>
-
-        <OpvolgingOverzicht
-          woningId={woning.id}
-          items={opvolgitems}
-        />
 
         <section className="mb-8 rounded-2xl bg-white p-6 shadow" id="inspecties">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
