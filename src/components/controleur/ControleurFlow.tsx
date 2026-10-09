@@ -6,6 +6,7 @@ import {
   type ChangeEvent,
 } from "react";
 import { useRouter } from "next/navigation";
+import ControleurWerkpuntTerugmelding from "@/components/controleur/ControleurWerkpuntTerugmelding";
 import {
   markeerAfwijkingNietRelevant,
   rondControleflowAf,
@@ -1174,6 +1175,17 @@ export default function ControleurFlow({
                     <p className="mt-1 text-sm text-slate-700">
                       {werkpunt.omschrijving}
                     </p>
+                    <ControleurWerkpuntTerugmelding
+                      werkpunt={werkpunt}
+                      controlesessieId={gegevens.sessie.id}
+                      route={gegevens.route}
+                      bestaandeTerugmelding={
+                        gegevens.werkpunt_terugmeldingen.find(
+                          (terugmelding) =>
+                            terugmelding.werkpunt_id === werkpunt.id,
+                        ) ?? null
+                      }
+                    />
                   </article>
                 ))}
               </div>

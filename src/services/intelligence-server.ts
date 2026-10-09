@@ -5,6 +5,7 @@ import type {
   Controlebriefing,
   ControlebriefingMetWerkpunten,
   IntelligenceWerkpunt,
+  IntelligenceWerkpuntTerugmelding,
 } from "@/types/intelligence";
 
 function valideerWoningId(woningId: number): void {
@@ -76,6 +77,29 @@ export async function getActieveControlebriefingVoorWoning(
   const alleWerkpunten =
     (werkpuntenData ?? []) as IntelligenceWerkpunt[];
 
+  const werkpuntIds = alleWerkpunten.map(
+    (werkpunt) => werkpunt.id,
+  );
+
+  let terugmeldingen: IntelligenceWerkpuntTerugmelding[] = [];
+
+  if (werkpuntIds.length > 0) {
+    const { data, error } = await supabase
+      .from("intelligence_werkpunt_terugmeldingen")
+      .select("*")
+      .in("werkpunt_id", werkpuntIds)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      throw new Error(
+        `Controleurterugmeldingen ophalen mislukt: ${error.message}`,
+      );
+    }
+
+    terugmeldingen =
+      (data ?? []) as IntelligenceWerkpuntTerugmelding[];
+  }
+
   const werkpunten = alleWerkpunten.filter(
     (werkpunt) => werkpunt.status === "actief",
   );
@@ -100,5 +124,6 @@ export async function getActieveControlebriefingVoorWoning(
     briefing,
     werkpunten,
     afgehandelde_werkpunten: afgehandeldeWerkpunten,
+    terugmeldingen,
   };
 }

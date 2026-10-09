@@ -1,5 +1,6 @@
 import type {
   ControlebriefingMetWerkpunten,
+  IntelligenceWerkpuntTerugmelding,
 } from "@/types/intelligence";
 
 export const CONTROLE_RESULTATEN = [
@@ -139,6 +140,8 @@ export type ControleurFlowGegevens = {
   correctiewaarschuwingen: string[];
   controlebriefing:
     ControlebriefingMetWerkpunten | null;
+  werkpunt_terugmeldingen:
+    IntelligenceWerkpuntTerugmelding[];
   laatste_meterstand: {
     dagstroom_kwh: number | null;
     nachtstroom_kwh: number | null;

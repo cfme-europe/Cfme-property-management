@@ -252,6 +252,12 @@ export async function getControleurFlow(
       sessie.woning_id,
     );
 
+  const werkpuntTerugmeldingen =
+    controlebriefing?.terugmeldingen.filter(
+      (terugmelding) =>
+        terugmelding.controlesessie_id === sessie.id,
+    ) ?? [];
+
   return {
     sessie,
     woning: woningResultaat.data,
@@ -265,6 +271,7 @@ export async function getControleurFlow(
       (correctie) => `Vorige meteropname is achteraf gecorrigeerd: ${correctie.reden}. Controleer de betreffende meter extra.`,
     ),
     controlebriefing,
+    werkpunt_terugmeldingen: werkpuntTerugmeldingen,
     laatste_meterstand: meterstandResultaat.data ?? null,
   };
 }

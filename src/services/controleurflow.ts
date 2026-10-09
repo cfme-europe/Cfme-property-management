@@ -8,6 +8,10 @@ import type {
   RuimteAkkoordResultaat,
 } from "@/types/controleurflow";
 import type { InspectieFotoType } from "@/types/inspectiefoto";
+import type {
+  IntelligenceWerkpuntTerugmelding,
+  IntelligenceWerkpuntTerugmeldingUitkomst,
+} from "@/types/intelligence";
 
 const supabase = createClient();
 const FOTO_BUCKET = "inspectiefotos";
@@ -322,6 +326,44 @@ export async function rondControleflowAf(
       );
     }
   }
+}
+
+export async function registreerWerkpuntTerugmelding(invoer: {
+  werkpunt_id: number;
+  controlesessie_id: number;
+  uitkomst: IntelligenceWerkpuntTerugmeldingUitkomst;
+  bevinding: string;
+  woning_controlepunt_id: number | null;
+}): Promise<IntelligenceWerkpuntTerugmelding> {
+  const bevinding = invoer.bevinding.trim();
+
+  if (!bevinding) {
+    throw new Error("Een feitelijke bevinding is verplicht.");
+  }
+
+  if (bevinding.length > 2000) {
+    throw new Error("De bevinding mag maximaal 2000 tekens bevatten.");
+  }
+
+  const { data, error } = await supabase.rpc(
+    "registreer_intelligence_werkpunt_terugmelding",
+    {
+      p_werkpunt_id: invoer.werkpunt_id,
+      p_controlesessie_id: invoer.controlesessie_id,
+      p_uitkomst: invoer.uitkomst,
+      p_bevinding: bevinding,
+      p_woning_controlepunt_id:
+        invoer.woning_controlepunt_id,
+    },
+  );
+
+  if (error) {
+    throw new Error(
+      `Werkpunt terugmelden mislukt: ${error.message}`,
+    );
+  }
+
+  return data as IntelligenceWerkpuntTerugmelding;
 }
 
 
