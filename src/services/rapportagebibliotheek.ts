@@ -213,6 +213,7 @@ export async function getActieveRapporttemplates(): Promise<
       .select("*")
       .eq("status", "actief")
       .eq("actief", true)
+      .neq("code", "maandrapportage-klantwaarde")
       .order("naam", { ascending: true });
 
   if (templatesFout) {

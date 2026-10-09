@@ -21,6 +21,7 @@ function tekenKlantwaardePdf(
   document: jsPDF,
   rapportage: Maandrapportage,
   woning: Woning,
+  onderdelen: Set<string>,
 ) {
   const waarde = bouwKlantwaardeRapportage(
     rapportage.rapport_data,
@@ -75,6 +76,10 @@ function tekenKlantwaardePdf(
     document.text(gesplitst.slice(0, maxRegels), x, y);
   }
 
+  const toon = (onderdeel: string) => onderdelen.has(onderdeel);
+  const heeftTweedePagina = toon("reparaties") ||
+    (toon("energie") && onderdelen.size > 2);
+
   kop(1);
   document.setFillColor(15, 23, 42);
   document.roundedRect(marge, 51, inhoud, 37, 3, 3, "F");
@@ -86,18 +91,26 @@ function tekenKlantwaardePdf(
   document.setFontSize(17);
   document.text("Zichtbaar, opgevolgd en opgelost", marge + 6, 77);
 
-  const kaarten = [
-    ["Inspecties", String(waarde.inspecties)],
-    ["Opgelost", String(waarde.opgelost)],
-    [
+  const kaarten: string[][] = [];
+  if (toon("inspecties")) {
+    kaarten.push(["Inspecties", String(waarde.inspecties)]);
+  }
+  if (toon("reparaties")) {
+    kaarten.push(["Opgelost", String(waarde.opgelost)]);
+  }
+  if (toon("opvolging")) {
+    kaarten.push([
       "Gem. oplostijd",
       waarde.gemiddelde_oplostijd_dagen === null
         ? "-"
         : `${waarde.gemiddelde_oplostijd_dagen} d`,
-    ],
-    ["Nog open", String(waarde.open_einde_periode)],
-  ];
-  const kaartBreedte = (inhoud - 9) / 4;
+    ]);
+  }
+  if (toon("aandachtspunten")) {
+    kaarten.push(["Nog open", String(waarde.open_einde_periode)]);
+  }
+  const kaartBreedte = (inhoud - Math.max(kaarten.length - 1, 0) * 3) /
+    Math.max(kaarten.length, 1);
   kaarten.forEach(([label, getal], index) => {
     const x = marge + index * (kaartBreedte + 3);
     document.setFillColor(236, 253, 245);
@@ -111,51 +124,69 @@ function tekenKlantwaardePdf(
     document.text(getal, x + 4, 121);
   });
 
-  titel("Wat CFME deze maand bereikte", 146);
-  waarde.meerwaarde.slice(0, 5).forEach((regel, index) => {
-    document.setFillColor(4, 120, 87);
-    document.circle(marge + 2, 159 + index * 14, 1.5, "F");
-    regels(regel, marge + 7, 161 + index * 14, inhoud - 8, 10, 2);
-  });
+  let paginaEenY = kaarten.length > 0 ? 146 : 102;
 
-  titel("Opvolging in cijfers", 232);
-  const percentage =
-    waarde.oplossingspercentage === null
+  if (toon("meerwaarde")) {
+    titel("Wat CFME deze maand bereikte", paginaEenY);
+    waarde.meerwaarde.slice(0, 5).forEach((regel, index) => {
+    document.setFillColor(4, 120, 87);
+      document.circle(marge + 2, paginaEenY + 13 + index * 14, 1.5, "F");
+      regels(regel, marge + 7, paginaEenY + 15 + index * 14, inhoud - 8, 10, 2);
+    });
+    paginaEenY += Math.min(waarde.meerwaarde.length, 5) * 14 + 22;
+  }
+
+  if (toon("opvolging")) {
+    titel("Opvolging in cijfers", paginaEenY);
+    const percentage = waarde.oplossingspercentage === null
       ? "Niet berekenbaar"
       : `${waarde.oplossingspercentage}% opgelost`;
-  regels(
-    `${waarde.ontvangen} nieuwe meldingen · ${waarde.dezelfde_dag_opgelost} dezelfde dag opgelost · ${percentage}.`,
-    marge,
-    244,
-    inhoud,
-    10,
-    3,
-  );
+    regels(
+      `${waarde.ontvangen} nieuwe meldingen · ${waarde.dezelfde_dag_opgelost} dezelfde dag opgelost · ${percentage}.`,
+      marge, paginaEenY + 12, inhoud, 10, 3,
+    );
+    paginaEenY += 34;
+  }
+
+  if (toon("aandachtspunten")) {
+    titel("Openstaande aandachtspunten", paginaEenY);
+    regels(
+      waarde.open_einde_periode === 0
+        ? "Geen openstaande problemen aan het einde van de rapportmaand."
+        : `${waarde.open_einde_periode} probleem${waarde.open_einde_periode === 1 ? "" : "en"} vraagt nog opvolging.`,
+      marge, paginaEenY + 12, inhoud, 10, 2,
+    );
+  }
+
+  if (toon("energie") && !heeftTweedePagina) {
+    tekenEnergie(Math.max(paginaEenY + 32, 150));
+  }
+
+  if (!heeftTweedePagina) return;
 
   document.addPage();
   kop(2);
-  titel("Probleem - actie - oplossing", 57);
+  let paginaTweeY = 57;
+
+  if (toon("reparaties")) {
+    titel("Probleem - actie - oplossing", paginaTweeY);
   regels(
     "Herleidbare voorbeelden uit de rapportmaand. De doorlooptijd loopt van melddatum tot geregistreerde oplossing.",
-    marge,
-    66,
-    inhoud,
-    9,
-    2,
+      marge, paginaTweeY + 9, inhoud, 9, 2,
   );
 
   if (waarde.oplossingen.length === 0) {
     regels(
       "Geen afgeronde problemen in deze rapportmaand.",
       marge,
-      86,
+        paginaTweeY + 29,
       inhoud,
       10,
       2,
     );
   } else {
     waarde.oplossingen.slice(0, 4).forEach((item, index) => {
-      const y = 82 + index * 25;
+        const y = paginaTweeY + 25 + index * 25;
       document.setDrawColor(203, 213, 225);
       document.line(marge, y - 5, breedte - marge, y - 5);
       document.setTextColor(15, 23, 42);
@@ -180,18 +211,21 @@ function tekenKlantwaardePdf(
       );
     });
   }
+    paginaTweeY += 128;
+  }
 
-  titel("Energieverbruik versus vorige periode", 190);
-  regels(
-    "Verbruik per persoon per week; hierdoor blijft de kostenontwikkeling meetbaar en vergelijkbaar.",
-    marge,
-    198,
-    inhoud,
-    8,
-    1,
-  );
-  waarde.energie.forEach((item, index) => {
-    const y = 208 + index * 11;
+  if (toon("energie")) {
+    tekenEnergie(Math.max(paginaTweeY, 190));
+  }
+
+  function tekenEnergie(yStart: number) {
+    titel("Energieverbruik versus vorige periode", yStart);
+    regels(
+      "Verbruik per persoon per week; hierdoor blijft de kostenontwikkeling meetbaar en vergelijkbaar.",
+      marge, yStart + 8, inhoud, 8, 1,
+    );
+    waarde.energie.forEach((item, index) => {
+      const y = yStart + 18 + index * 11;
     const huidig =
       item.huidig === null ? "-" : item.huidig.toFixed(2);
     const vorig =
@@ -211,8 +245,10 @@ function tekenKlantwaardePdf(
       y,
       { align: "right" },
     );
-  });
+    });
+  }
 
+  if (toon("meerwaarde") || toon("opvolging") || toon("reparaties")) {
   document.setFillColor(15, 23, 42);
   document.roundedRect(marge, 248, inhoud, 29, 3, 3, "F");
   document.setTextColor(255, 255, 255);
@@ -226,6 +262,7 @@ function tekenKlantwaardePdf(
     inhoud - 12,
   ) as string[];
   document.text(conclusie.slice(0, 2), marge + 6, 267);
+  }
 }
 
 function veiligeBestandsnaam(waarde: string): string {
@@ -265,7 +302,24 @@ export async function GET(
     }>;
   }
 ) {
-  const preview = new URL(request.url).searchParams.get("preview") === "1";
+  const zoekparameters = new URL(request.url).searchParams;
+  const preview = zoekparameters.get("preview") === "1";
+  const klantversie = zoekparameters.get("variant") === "klantwaarde";
+  const geldigeOnderdelen = new Set([
+    "meerwaarde", "opvolging", "reparaties", "energie", "inspecties", "aandachtspunten",
+  ]);
+  const onderdelen = new Set(
+    (zoekparameters.get("onderdelen") ?? "")
+      .split(",")
+      .filter((onderdeel) => geldigeOnderdelen.has(onderdeel)),
+  );
+
+  if (klantversie && onderdelen.size === 0) {
+    return NextResponse.json(
+      { fout: "Selecteer minimaal één onderdeel voor de klantversie." },
+      { status: 400 },
+    );
+  }
 
   const { id, rapportageId } =
     await context.params;
@@ -355,7 +409,7 @@ export async function GET(
   }
 
   const bestandsnaam = [
-    "cfme-maandrapportage",
+    klantversie ? "cfme-klantversie" : "cfme-maandrapportage",
     veiligeBestandsnaam(woning.adres),
     rapportage.rapportjaar,
     String(
@@ -382,6 +436,8 @@ export async function GET(
             rapportjaar: rapportage.rapportjaar,
             rapportmaand:
               rapportage.rapportmaand,
+            variant: klantversie ? "klantwaarde" : "standaard",
+            onderdelen: klantversie ? [...onderdelen] : null,
           },
         })
         .select("id")
@@ -514,7 +570,7 @@ export async function GET(
     }
 
     if (
-      isKlantwaardeRapportage(
+      klantversie || isKlantwaardeRapportage(
         rapportage.rapport_data,
       )
     ) {
@@ -522,6 +578,9 @@ export async function GET(
         document,
         rapportage,
         woning,
+        klantversie
+          ? onderdelen
+          : new Set(["meerwaarde", "opvolging", "reparaties", "energie", "inspecties", "aandachtspunten"]),
       );
     } else {
     document.setFillColor(6, 78, 59);
