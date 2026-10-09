@@ -9,6 +9,7 @@ import {
   getDocumentVersies,
 } from "@/services/documenten";
 import { getWoningById } from "@/services/woningen-server";
+import DocumentFormulier from "@/components/documenten/DocumentFormulier";
 
 type Props = {
   params: Promise<{
@@ -184,8 +185,9 @@ export default async function DocumentPage({
 
           {document.status === "actief" && (
             <div className="mt-10 grid gap-6 lg:grid-cols-2">
-              <form
+              <DocumentFormulier
                 action={versieActie}
+                uploadSleutel={crypto.randomUUID()}
                 className="rounded-2xl border border-slate-200 p-5"
               >
                 <h2 className="text-lg font-bold">
@@ -210,10 +212,11 @@ export default async function DocumentPage({
                 <button className="mt-4 rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white">
                   Versie toevoegen
                 </button>
-              </form>
+              </DocumentFormulier>
 
-              <form
+              <DocumentFormulier
                 action={archiefActie}
+                bevestiging="Dit document archiveren? Het blijft beschikbaar in het documentarchief."
                 className="rounded-2xl border border-amber-200 bg-amber-50 p-5"
               >
                 <h2 className="text-lg font-bold">
@@ -234,7 +237,7 @@ export default async function DocumentPage({
                 <button className="mt-4 rounded-xl bg-amber-700 px-5 py-3 font-medium text-white">
                   Archiveren
                 </button>
-              </form>
+              </DocumentFormulier>
             </div>
           )}
         </section>

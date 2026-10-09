@@ -104,6 +104,23 @@ function valideerBestand(
   return waarde;
 }
 
+function valideerUploadSleutel(
+  waarde: FormDataEntryValue | null
+): string {
+  const sleutel = schoon(waarde);
+
+  if (
+    !sleutel ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      sleutel,
+    )
+  ) {
+    throw new Error("Ongeldige upload. Vernieuw het scherm en probeer opnieuw.");
+  }
+
+  return sleutel;
+}
+
 async function huidigeGebruikerId(): Promise<string> {
   const supabase = await createClient();
 
@@ -234,6 +251,9 @@ export async function createDocument(
   const bestand = valideerBestand(
     formData.get("bestand")
   );
+  const uploadSleutel = valideerUploadSleutel(
+    formData.get("upload_sleutel")
+  );
   const objectIdWaarde = schoon(
     formData.get("object_id")
   );
@@ -274,80 +294,53 @@ export async function createDocument(
   const gebruikerId = await huidigeGebruikerId();
   const supabase = await createClient();
 
-  const { data: document, error: documentFout } =
-    await supabase
-      .from("documenten")
-      .insert({
-        woning_id: woningId,
-        object_id: objectId,
-        titel,
-        document_type: documentType,
-        omschrijving,
-        vertrouwelijkheid,
-        aangemaakt_door: gebruikerId,
-      })
-      .select("id")
-      .single();
-
-  if (documentFout) {
-    throw new Error(
-      `Document registreren mislukt: ${documentFout.message}`
-    );
-  }
-
   const veiligeNaam = veiligeBestandsnaam(
     bestand.name
   );
   const bestandspad = [
     String(woningId),
-    String(document.id),
-    `1-${crypto.randomUUID()}-${veiligeNaam}`,
+    "uploads",
+    `${uploadSleutel}-${veiligeNaam}`,
   ].join("/");
 
   const { error: uploadFout } = await supabase.storage
     .from(BUCKET)
     .upload(bestandspad, bestand, {
-      upsert: false,
+      upsert: true,
       contentType: bestand.type,
       cacheControl: "3600",
     });
 
   if (uploadFout) {
-    await supabase
-      .from("documenten")
-      .update({
-        status: "gearchiveerd",
-        gearchiveerd_op: new Date().toISOString(),
-        archiefreden:
-          "Automatisch gearchiveerd na mislukte eerste upload.",
-      })
-      .eq("id", document.id);
-
     throw new Error(
       `Document uploaden mislukt: ${uploadFout.message}`
     );
   }
 
-  const { error: versieFout } = await supabase
-    .from("documentversies")
-    .insert({
-      document_id: document.id,
-      versienummer: 1,
-      bestandspad,
-      bestandsnaam: bestand.name,
-      mime_type: bestand.type,
-      bestandsgrootte: bestand.size,
-      versie_opmerking: versieOpmerking,
-      geupload_door: gebruikerId,
+  const { data: documentId, error: registratieFout } =
+    await supabase.rpc("registreer_document_upload", {
+      p_aangemaakt_door: gebruikerId,
+      p_bestandsnaam: bestand.name,
+      p_bestandsgrootte: bestand.size,
+      p_bestandspad: bestandspad,
+      p_document_type: documentType,
+      p_mime_type: bestand.type,
+      p_object_id: objectId,
+      p_omschrijving: omschrijving,
+      p_titel: titel,
+      p_upload_sleutel: uploadSleutel,
+      p_versie_opmerking: versieOpmerking,
+      p_vertrouwelijkheid: vertrouwelijkheid,
+      p_woning_id: woningId,
     });
 
-  if (versieFout) {
+  if (registratieFout || !documentId) {
     throw new Error(
-      `Documentversie registreren mislukt: ${versieFout.message}`
+      `Document registreren mislukt: ${registratieFout?.message ?? "onbekende fout"}`
     );
   }
 
-  return document.id;
+  return Number(documentId);
 }
 
 export async function addDocumentVersie(
@@ -379,41 +372,25 @@ export async function addDocumentVersie(
   const versieOpmerking = schoon(
     formData.get("versie_opmerking")
   );
+  const uploadSleutel = valideerUploadSleutel(
+    formData.get("upload_sleutel")
+  );
   const gebruikerId = await huidigeGebruikerId();
   const supabase = await createClient();
 
-  const { data: laatste, error: laatsteFout } =
-    await supabase
-      .from("documentversies")
-      .select("versienummer")
-      .eq("document_id", documentId)
-      .order("versienummer", {
-        ascending: false,
-      })
-      .limit(1)
-      .maybeSingle();
-
-  if (laatsteFout) {
-    throw new Error(
-      `Laatste versie bepalen mislukt: ${laatsteFout.message}`
-    );
-  }
-
-  const versienummer =
-    (laatste?.versienummer ?? 0) + 1;
   const veiligeNaam = veiligeBestandsnaam(
     bestand.name
   );
   const bestandspad = [
     String(woningId),
     String(documentId),
-    `${versienummer}-${crypto.randomUUID()}-${veiligeNaam}`,
+    `${uploadSleutel}-${veiligeNaam}`,
   ].join("/");
 
   const { error: uploadFout } = await supabase.storage
     .from(BUCKET)
     .upload(bestandspad, bestand, {
-      upsert: false,
+      upsert: true,
       contentType: bestand.type,
       cacheControl: "3600",
     });
@@ -424,18 +401,20 @@ export async function addDocumentVersie(
     );
   }
 
-  const { error } = await supabase
-    .from("documentversies")
-    .insert({
-      document_id: documentId,
-      versienummer,
-      bestandspad,
-      bestandsnaam: bestand.name,
-      mime_type: bestand.type,
-      bestandsgrootte: bestand.size,
-      versie_opmerking: versieOpmerking,
-      geupload_door: gebruikerId,
-    });
+  const { error } = await supabase.rpc(
+    "registreer_documentversie_upload",
+    {
+      p_bestandsnaam: bestand.name,
+      p_bestandsgrootte: bestand.size,
+      p_bestandspad: bestandspad,
+      p_document_id: documentId,
+      p_geupload_door: gebruikerId,
+      p_mime_type: bestand.type,
+      p_upload_sleutel: uploadSleutel,
+      p_versie_opmerking: versieOpmerking,
+      p_woning_id: woningId,
+    },
+  );
 
   if (error) {
     throw new Error(
@@ -454,17 +433,14 @@ export async function archiveDocument(
 
   const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("documenten")
-    .update({
-      status: "gearchiveerd",
-      gearchiveerd_op: new Date().toISOString(),
-      archiefreden: reden,
-    })
-    .eq("id", documentId)
-    .eq("woning_id", woningId)
-    .select("id")
-    .maybeSingle();
+  const { data, error } = await supabase.rpc(
+    "archiveer_document",
+    {
+      p_document_id: documentId,
+      p_reden: reden,
+      p_woning_id: woningId,
+    },
+  );
 
   if (error) {
     throw new Error(

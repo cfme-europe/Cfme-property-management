@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { documentAanmaken } from "../actions";
 import { getWoningById } from "@/services/woningen-server";
+import DocumentFormulier from "@/components/documenten/DocumentFormulier";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -55,8 +56,9 @@ export default async function NieuwDocumentPage({
             {woning.plaats}
           </p>
 
-          <form
+          <DocumentFormulier
             action={actie}
+            uploadSleutel={crypto.randomUUID()}
             className="mt-8 space-y-6"
           >
             <div className="grid gap-4 md:grid-cols-2">
@@ -156,7 +158,7 @@ export default async function NieuwDocumentPage({
             >
               Document opslaan
             </button>
-          </form>
+          </DocumentFormulier>
         </section>
       </div>
     </main>
