@@ -7,6 +7,8 @@ import {
 } from "@/lib/rapportages/zakelijke-rapportage";
 import { bouwRapportageEindvorm } from "@/lib/rapportages/rapportage-eindvorm";
 import type { Maandrapportage } from "@/types/maandrapportage";
+import { isKlantwaardeRapportage } from "@/lib/rapportages/klantwaarde-rapportage";
+import KlantwaardeMaandrapportage from "@/components/rapportages/KlantwaardeMaandrapportage";
 
 type Props = {
   rapportage: Maandrapportage;
@@ -199,6 +201,15 @@ export default function MaandrapportageInhoud({
   rapportage,
 }: Props) {
   const data = rapportage.rapport_data;
+
+  if (isKlantwaardeRapportage(data)) {
+    return (
+      <KlantwaardeMaandrapportage
+        rapportage={rapportage}
+      />
+    );
+  }
+
   const model = bouwZakelijkeRapportageModel(
     data,
   );
