@@ -15,10 +15,6 @@ import {
 } from "@/services/verhuurperiodes-server";
 import { getTakenVoorWoning } from "@/services/taken";
 import { getDocumentenVoorWoning } from "@/services/documenten";
-import type {
-  TaakPrioriteit,
-  TaakStatus,
-} from "@/types/taak";
 import EnergieVerbruikGrafieken from "@/components/energie/EnergieVerbruikGrafieken";
 import EnergieVerbruikOverzicht from "@/components/energie/EnergieVerbruikOverzicht";
 import { getCertificeringenVoorWoning } from "@/services/certificeringen";
@@ -33,6 +29,9 @@ import ControlebriefingOverzicht from "@/components/intelligence/Controlebriefin
 import WoningPlanningOverzicht from "@/components/planning/WoningPlanningOverzicht";
 import WoningQrCode from "@/components/woningen/WoningQrCode";
 import { getActieveWoningplanning } from "@/services/planning";
+import { getControleAfwijkingenVoorWoning } from "@/services/controleafwijkingen-server";
+import { groepeerOpvolging } from "@/services/opvolging-groepering";
+import OpvolgingOverzicht from "@/components/opvolging/OpvolgingOverzicht";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +94,7 @@ export default async function WoningDossierPage({
     woningDna,
     controlebriefing,
     woningplanning,
+    controleAfwijkingen,
   ] = await Promise.all([
     getKamersVoorWoning(woningId),
     actieveVerhuur
@@ -110,6 +110,7 @@ export default async function WoningDossierPage({
     getLaatsteWoningDnaVoorWoning(woningId),
     getActieveControlebriefingVoorWoning(woningId),
     getActieveWoningplanning(woningId),
+    getControleAfwijkingenVoorWoning(woningId),
   ]);
 
   if (!woning) {
@@ -118,6 +119,11 @@ export default async function WoningDossierPage({
 
   const meetellendeInspecties = inspecties.filter(
     (inspectie) => inspectie.status !== "geannuleerd",
+  );
+  const opvolgitems = groepeerOpvolging(
+    controleAfwijkingen,
+    meldingen,
+    taken,
   );
 
   return (
@@ -140,10 +146,10 @@ export default async function WoningDossierPage({
             </Link>
 
             <Link
-              href={`/woningen/${woning.id}/meldingen/nieuw`}
+              href={`/woningen/${woning.id}#opvolging`}
               className="rounded-xl border border-amber-700 px-5 py-3 font-medium text-amber-800"
             >
-              Nieuwe melding
+              Opvolging
             </Link>
 
             <Link
@@ -165,13 +171,6 @@ export default async function WoningDossierPage({
               className="rounded-xl border border-blue-700 px-5 py-3 font-medium text-blue-800"
             >
               Woningconfiguratie
-            </Link>
-
-            <Link
-              href={`/woningen/${woning.id}/afwijkingen`}
-              className="rounded-xl border border-red-700 px-5 py-3 font-medium text-red-800"
-            >
-              Controleafwijkingen
             </Link>
 
           {actieveVerhuur && (
@@ -925,385 +924,10 @@ export default async function WoningDossierPage({
           </div>
         </section>
 
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow" id="taken">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold">Taken</h2>
-              {taken.length > 10 && volledigeSectie !== "taken" && (
-                <Link
-                  href={{
-                    pathname: `/woningen/${woning.id}`,
-                    query: { alles: "taken" },
-                    hash: "taken",
-                  }}
-                  className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
-                >
-                  Alles bekijken ({taken.length})
-                </Link>
-              )}
-              <p className="mt-1 text-slate-600">
-                Openstaande acties, deadlines en afgeronde opvolging.
-              </p>
-            </div>
-
-            <Link
-              href={`/woningen/${woning.id}/taken/nieuw`}
-              className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
-            >
-              Nieuwe taak
-            </Link>
-          </div>
-
-          {taken.length === 0 ? (
-            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
-              Nog geen taken geregistreerd.
-            </p>
-          ) : (
-            <>
-              <div className="mb-5 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl bg-slate-100 p-4">
-                  <p className="text-sm text-slate-500">
-                    Openstaand
-                  </p>
-                  <p className="mt-1 text-2xl font-bold">
-                    {
-                      taken.filter((taak) =>
-                        ["open", "in_behandeling"].includes(
-                          taak.status
-                        )
-                      ).length
-                    }
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-red-50 p-4">
-                  <p className="text-sm text-red-700">
-                    Over deadline
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-red-900">
-                    {
-                      taken.filter(
-                        (taak) =>
-                          ["open", "in_behandeling"].includes(
-                            taak.status
-                          ) &&
-                          taak.deadline !== null &&
-                          taak.deadline <
-                            new Date()
-                              .toISOString()
-                              .slice(0, 10)
-                      ).length
-                    }
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-emerald-50 p-4">
-                  <p className="text-sm text-emerald-700">
-                    Afgerond
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-emerald-900">
-                    {
-                      taken.filter(
-                        (taak) => taak.status === "afgerond"
-                      ).length
-                    }
-                  </p>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[980px]">
-                  <thead className="border-b bg-slate-100">
-                    <tr>
-                      <th className="p-4 text-left">Taak</th>
-                      <th className="p-4 text-left">Prioriteit</th>
-                      <th className="p-4 text-left">Deadline</th>
-                      <th className="p-4 text-left">Toegewezen</th>
-                      <th className="p-4 text-left">Status</th>
-                      <th className="p-4 text-left">Actie</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(volledigeSectie === "taken" ? taken : taken.slice(0, 10)).map((taak) => {
-                      const statusLabels: Record<
-                        TaakStatus,
-                        string
-                      > = {
-                        open: "Open",
-                        in_behandeling: "In behandeling",
-                        afgerond: "Afgerond",
-                        geannuleerd: "Geannuleerd",
-                      };
-
-                      const prioriteitLabels: Record<
-                        TaakPrioriteit,
-                        string
-                      > = {
-                        laag: "Laag",
-                        normaal: "Normaal",
-                        hoog: "Hoog",
-                        spoed: "Spoed",
-                      };
-
-                      const statusClass: Record<
-                        TaakStatus,
-                        string
-                      > = {
-                        open: "bg-amber-100 text-amber-800",
-                        in_behandeling:
-                          "bg-blue-100 text-blue-800",
-                        afgerond:
-                          "bg-emerald-100 text-emerald-800",
-                        geannuleerd:
-                          "bg-slate-200 text-slate-700",
-                      };
-
-                      return (
-                        <tr
-                          key={taak.id}
-                          className="border-b last:border-b-0"
-                        >
-                          <td className="p-4">
-                            <p className="font-medium">
-                              {taak.titel}
-                            </p>
-                            {taak.omschrijving && (
-                              <p className="mt-1 max-w-md text-sm text-slate-500">
-                                {taak.omschrijving}
-                              </p>
-                            )}
-                          </td>
-                          <td className="p-4">
-                            {prioriteitLabels[taak.prioriteit]}
-                          </td>
-                          <td className="p-4">
-                            {datum(taak.deadline)}
-                          </td>
-                          <td className="p-4">
-                            {taak.toegewezen_aan ?? "—"}
-                          </td>
-                          <td className="p-4">
-                            <span
-                              className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${
-                                statusClass[taak.status]
-                              }`}
-                            >
-                              {statusLabels[taak.status]}
-                            </span>
-                          </td>
-                          <td className="p-4">
-                            <Link
-                              href={`/woningen/${woning.id}/taken/${taak.id}/bewerken`}
-                              className="font-medium text-emerald-700 hover:underline"
-                            >
-                              Bewerken
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </section>
-
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow" id="meldingen">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold">Meldingen</h2>
-              {meldingen.length > 10 && volledigeSectie !== "meldingen" && (
-                <Link
-                  href={{
-                    pathname: `/woningen/${woning.id}`,
-                    query: { alles: "meldingen" },
-                    hash: "meldingen",
-                  }}
-                  className="mt-3 inline-block font-medium text-emerald-700 hover:underline"
-                >
-                  Alles bekijken ({meldingen.length})
-                </Link>
-              )}
-              <p className="mt-1 text-slate-600">
-                Schades, onderhoud en overige opvolgpunten.
-              </p>
-            </div>
-
-            <Link
-              href={`/woningen/${woning.id}/meldingen/nieuw`}
-              className="rounded-xl bg-amber-700 px-5 py-3 font-medium text-white"
-            >
-              Nieuwe melding
-            </Link>
-          </div>
-
-          {meldingen.length === 0 ? (
-            <p className="rounded-xl bg-slate-100 p-5 text-slate-600">
-              Nog geen meldingen geregistreerd.
-            </p>
-          ) : (
-            <>
-              <div className="mb-5 grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl bg-slate-100 p-4">
-                  <p className="text-sm text-slate-500">
-                    Totaal
-                  </p>
-                  <p className="mt-1 text-2xl font-bold">
-                    {meldingen.length}
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-amber-50 p-4">
-                  <p className="text-sm text-amber-700">
-                    Openstaand
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-amber-900">
-                    {
-                      meldingen.filter(
-                        (melding) =>
-                          melding.status !== "opgelost"
-                      ).length
-                    }
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-red-50 p-4">
-                  <p className="text-sm text-red-700">
-                    Hoog of spoed
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-red-900">
-                    {
-                      meldingen.filter(
-                        (melding) =>
-                          melding.status !== "opgelost" &&
-                          (
-                            melding.prioriteit === "hoog" ||
-                            melding.prioriteit === "spoed"
-                          )
-                      ).length
-                    }
-                  </p>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[950px]">
-                  <thead className="border-b bg-slate-100">
-                    <tr>
-                      <th className="p-4 text-left">
-                        Datum
-                      </th>
-                      <th className="p-4 text-left">
-                        Melding
-                      </th>
-                      <th className="p-4 text-left">
-                        Categorie
-                      </th>
-                      <th className="p-4 text-left">
-                        Prioriteit
-                      </th>
-                      <th className="p-4 text-left">
-                        Verantwoordelijke
-                      </th>
-                      <th className="p-4 text-left">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {(volledigeSectie === "meldingen" ? meldingen : meldingen.slice(0, 10)).map((melding) => {
-                      const categorieLabels = {
-                        schade: "Schade",
-                        onderhoud: "Onderhoud",
-                        veiligheid: "Veiligheid",
-                        schoonmaak: "Schoonmaak",
-                        installatie: "Installatie",
-                        overig: "Overig",
-                      };
-
-                      const prioriteitLabels = {
-                        laag: "Laag",
-                        normaal: "Normaal",
-                        hoog: "Hoog",
-                        spoed: "Spoed",
-                      };
-
-                      const statusLabels = {
-                        open: "Open",
-                        in_behandeling:
-                          "In behandeling",
-                        opgelost: "Opgelost",
-                      };
-
-                      return (
-                        <tr
-                          key={melding.id}
-                          className="border-b border-slate-200 last:border-0"
-                        >
-                          <td className="p-4">
-                            {datum(melding.melddatum)}
-                          </td>
-
-                          <td className="p-4">
-                            <Link
-                              href={`/woningen/${woning.id}/meldingen/${melding.id}${volledigeSectie === "meldingen" ? "?terug=meldingen" : ""}`}
-                              className="font-semibold text-amber-800 hover:underline"
-                            >
-                              {melding.titel}
-                            </Link>
-                          </td>
-
-                          <td className="p-4">
-                            {
-                              categorieLabels[
-                                melding.categorie
-                              ]
-                            }
-                          </td>
-
-                          <td className="p-4">
-                            {
-                              prioriteitLabels[
-                                melding.prioriteit
-                              ]
-                            }
-                          </td>
-
-                          <td className="p-4">
-                            {melding.verantwoordelijke ||
-                              "—"}
-                          </td>
-
-                          <td className="p-4">
-                            <span
-                              className={`rounded-full px-3 py-1 text-sm font-semibold ${
-                                melding.status ===
-                                "opgelost"
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : melding.status ===
-                                      "in_behandeling"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : "bg-amber-100 text-amber-800"
-                              }`}
-                            >
-                              {
-                                statusLabels[
-                                  melding.status
-                                ]
-                              }
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </section>
+        <OpvolgingOverzicht
+          woningId={woning.id}
+          items={opvolgitems}
+        />
 
         <section className="mb-8 rounded-2xl bg-white p-6 shadow" id="inspecties">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">

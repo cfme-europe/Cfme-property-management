@@ -79,9 +79,9 @@ function bronLink(werkpunt: IntelligenceWerkpunt): string {
   const aanwijzing = `${werkpunt.categorie} ${werkpunt.titel}`.toLowerCase();
   const basis = `/woningen/${werkpunt.woning_id}`;
 
-  if (aanwijzing.includes("melding")) return `${basis}#meldingen`;
+  if (aanwijzing.includes("melding")) return `${basis}#opvolging`;
   if (aanwijzing.includes("taak") || aanwijzing.includes("deadline")) {
-    return `${basis}#taken`;
+    return `${basis}#opvolging`;
   }
   if (
     aanwijzing.includes("inspectie") ||
