@@ -97,6 +97,7 @@ export async function getRapporttemplatesMetVersies(): Promise<
         *
       )
     `)
+    .neq("code", "maandrapportage-klantwaarde")
     .order("actief", { ascending: false })
     .order("naam", { ascending: true });
 
