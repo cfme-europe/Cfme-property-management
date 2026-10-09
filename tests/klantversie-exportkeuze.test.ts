@@ -53,10 +53,14 @@ test("voorbeeld en export gebruiken dezelfde goedgekeurde klantindeling", async 
   assert.match(pdf, /const totaalPaginas = heeftTweedePagina \? 2 : 1/);
 });
 
-test("verkeerde tweede template verdwijnt uit nieuwe rapportagekeuze", async () => {
+test("verkeerde tweede template verdwijnt uit keuze en beheer", async () => {
   const bibliotheek = await readFile(bestanden.bibliotheek, "utf8");
-  assert.match(
-    bibliotheek,
-    /\.neq\("code", "maandrapportage-klantwaarde"\)/,
+  assert.equal(
+    (
+      bibliotheek.match(
+        /\.neq\("code", "maandrapportage-klantwaarde"\)/g,
+      ) ?? []
+    ).length,
+    2,
   );
 });
