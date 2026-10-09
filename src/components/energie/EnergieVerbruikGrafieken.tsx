@@ -130,6 +130,10 @@ export default function EnergieVerbruikGrafieken({
           ...gegevens.map((item) => item.waarde),
           1
         );
+        const schaalMaximum = maximum * 1.1;
+        const schaalWaarden = [1, 0.75, 0.5, 0.25, 0].map(
+          (factor) => schaalMaximum * factor
+        );
 
         const laatste = gegevens.at(-1);
         const eerdere = gegevens.slice(0, -1);
@@ -202,41 +206,101 @@ export default function EnergieVerbruikGrafieken({
               )}
             </div>
 
-            <div className="mt-6 flex h-64 items-end gap-3 overflow-x-auto border-b border-l border-slate-300 px-4 pt-4">
-              {gegevens.map((item) => {
-                const hoogte = Math.max(
-                  (item.waarde / maximum) * 100,
-                  2
-                );
-
-                return (
-                  <div
-                    key={item.label}
-                    className="flex min-w-20 flex-1 flex-col items-center justify-end"
-                  >
-                    <span className="mb-2 text-xs font-semibold text-slate-700">
-                      {new Intl.NumberFormat("nl-NL", {
-                        maximumFractionDigits: 2,
-                      }).format(item.waarde)}
-                    </span>
-
-                    <div
-                      className="w-full rounded-t-lg bg-emerald-700"
-                      style={{
-                        height: `${hoogte}%`,
-                      }}
-                      title={`${item.label}: ${formatGetal(
-                        item.waarde,
-                        reeks.eenheid
-                      )}`}
-                    />
-
-                    <span className="mt-2 whitespace-nowrap pb-3 text-xs text-slate-500">
-                      {item.label}
-                    </span>
+            <div
+              className="mt-6 overflow-x-auto"
+              role="img"
+              aria-label={`${reeks.titel}. Staafdiagram met ${gegevens.length} meetperiodes.`}
+            >
+              <div
+                className="min-w-[32rem]"
+                style={{
+                  minWidth: `${Math.max(
+                    512,
+                    gegevens.length * 112
+                  )}px`,
+                }}
+              >
+                <div className="grid grid-cols-[4.5rem_1fr] gap-3">
+                  <div className="flex h-64 flex-col justify-between pb-1 text-right text-xs text-slate-500">
+                    {schaalWaarden.map((waarde) => (
+                      <span key={waarde}>
+                        {new Intl.NumberFormat("nl-NL", {
+                          maximumFractionDigits: 1,
+                        }).format(waarde)}
+                      </span>
+                    ))}
                   </div>
-                );
-              })}
+
+                  <div className="relative h-64 border-b border-l border-slate-300">
+                    {schaalWaarden.map((waarde, index) => (
+                      <div
+                        key={waarde}
+                        className="absolute inset-x-0 border-t border-slate-200"
+                        style={{ top: `${index * 25}%` }}
+                      />
+                    ))}
+
+                    <div className="absolute inset-0 flex items-end gap-4 px-4">
+                      {gegevens.map((item, index) => {
+                        const hoogte = Math.max(
+                          (item.waarde / schaalMaximum) * 100,
+                          3
+                        );
+                        const isLaatste =
+                          index === gegevens.length - 1;
+
+                        return (
+                          <div
+                            key={item.label}
+                            className="relative h-full min-w-20 flex-1"
+                          >
+                            <span
+                              className="absolute inset-x-0 text-center text-xs font-bold text-slate-800"
+                              style={{
+                                bottom: `calc(${hoogte}% + 0.5rem)`,
+                              }}
+                            >
+                              {new Intl.NumberFormat("nl-NL", {
+                                maximumFractionDigits: 2,
+                              }).format(item.waarde)}
+                            </span>
+
+                            <div
+                              className={`absolute inset-x-1 bottom-0 min-h-2 rounded-t-lg shadow-sm ${
+                                isLaatste
+                                  ? "bg-emerald-700"
+                                  : "bg-emerald-500"
+                              }`}
+                              style={{ height: `${hoogte}%` }}
+                              title={`${item.label}: ${formatGetal(
+                                item.waarde,
+                                reeks.eenheid
+                              )}`}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-2 grid grid-cols-[4.5rem_1fr] gap-3">
+                  <span className="text-right text-xs font-medium text-slate-500">
+                    {reeks.eenheid}
+                  </span>
+
+                  <div className="flex gap-4 px-4">
+                    {gegevens.map((item) => (
+                      <span
+                        key={item.label}
+                        className="min-w-20 flex-1 whitespace-nowrap text-center text-xs text-slate-600"
+                      >
+                        {item.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {opvallend && (
