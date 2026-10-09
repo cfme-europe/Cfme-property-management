@@ -7,6 +7,7 @@ import { getInspectieFotos } from "@/services/inspectiefotos-server";
 import { getInspectieById } from "@/services/inspecties-server";
 import { getWoningById } from "@/services/woningen-server";
 import { getLaatsteControlesessieVoorInspectie } from "@/services/controlesessies-server";
+import { getControlebewijsVoorInspectie } from "@/services/controlebewijs-server";
 import ControlesessieBeheer from "@/components/controlesessies/ControlesessieBeheer";
 import type {
   AlgemeneToestand,
@@ -65,6 +66,19 @@ function toestandLabel(
   return labels[toestand];
 }
 
+function waardeLabel(waarde: string): string {
+  return waarde
+    .replaceAll("_", " ")
+    .replace(/^./, (letter) => letter.toUpperCase());
+}
+
+const fotoTypeLabels = {
+  situatie: "Situatie",
+  voor_herstel: "Voor herstel",
+  na_herstel: "Na herstel",
+  herstelbewijs: "Herstelbewijs",
+};
+
 export default async function InspectieDetailPage({
   params,
 }: {
@@ -91,6 +105,7 @@ export default async function InspectieDetailPage({
     inspectie,
     fotos,
     controlesessie,
+    controlebewijs,
   ] = await Promise.all([
     getWoningById(woningId),
     getInspectieById(inspectieNummer),
@@ -98,6 +113,7 @@ export default async function InspectieDetailPage({
     getLaatsteControlesessieVoorInspectie(
       inspectieNummer
     ),
+    getControlebewijsVoorInspectie(inspectieNummer),
   ]);
 
   if (
@@ -241,6 +257,133 @@ export default async function InspectieDetailPage({
             </p>
           </section>
 
+          <section className="mt-8">
+            <div>
+              <h2 className="text-xl font-bold">
+                Controlebewijs per punt
+              </h2>
+              <p className="mt-1 text-slate-600">
+                Beoordelingen, opmerkingen, afwijkingen en reparaties die tijdens de controle zijn vastgelegd.
+              </p>
+            </div>
+
+            {controlebewijs.length === 0 ? (
+              <p className="mt-4 rounded-xl bg-slate-100 p-5 text-slate-600">
+                Voor deze inspectie zijn geen controlepunten vastgelegd.
+              </p>
+            ) : (
+              <div className="mt-4 space-y-4">
+                {controlebewijs.map((bewijs) => {
+                  const bewijsFotos = fotos.filter(
+                    (foto) => foto.controle_resultaat_id === bewijs.id,
+                  );
+
+                  return (
+                    <article
+                      key={bewijs.id}
+                      className="rounded-xl border border-slate-200 p-5"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-emerald-700">
+                            {bewijs.ruimte_naam_snapshot}
+                            {bewijs.object_naam_snapshot
+                              ? ` / ${bewijs.object_naam_snapshot}`
+                              : ""}
+                          </p>
+                          <h3 className="mt-1 font-bold">
+                            {bewijs.controlepunt_naam_snapshot}
+                          </h3>
+                        </div>
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold">
+                          {waardeLabel(bewijs.resultaat)}
+                        </span>
+                      </div>
+
+                      {bewijs.numerieke_waarde !== null && (
+                        <p className="mt-3 text-sm">
+                          Vastgelegde waarde: <strong>{bewijs.numerieke_waarde}</strong>
+                        </p>
+                      )}
+
+                      {bewijs.opmerkingen && (
+                        <div className="mt-3 rounded-lg bg-blue-50 p-4">
+                          <p className="text-sm font-semibold text-blue-900">Opmerking controleur</p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm text-blue-950">
+                            {bewijs.opmerkingen}
+                          </p>
+                        </div>
+                      )}
+
+                      {bewijs.afwijking && bewijs.afwijking.status !== "niet_relevant" && (
+                        <div className={`mt-3 rounded-lg p-4 ${
+                          bewijs.afwijking.ter_plaatse_hersteld
+                            ? "bg-emerald-50 text-emerald-950"
+                            : "bg-amber-50 text-amber-950"
+                        }`}>
+                          <p className="font-semibold">
+                            {bewijs.afwijking.ter_plaatse_hersteld
+                              ? "Ter plaatse hersteld"
+                              : `Afwijking — ${waardeLabel(bewijs.afwijking.status)}`}
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm">
+                            {bewijs.afwijking.toelichting}
+                          </p>
+                          {bewijs.afwijking.oplossing && (
+                            <p className="mt-2 text-sm">
+                              <strong>Reparatie:</strong> {bewijs.afwijking.oplossing}
+                            </p>
+                          )}
+                          {bewijs.afwijking.gebruikte_materialen && (
+                            <p className="mt-1 text-sm">
+                              <strong>Materialen:</strong> {bewijs.afwijking.gebruikte_materialen}
+                            </p>
+                          )}
+                          {(bewijs.afwijking.arbeid_minuten !== null || bewijs.afwijking.werkelijke_kosten !== null) && (
+                            <p className="mt-1 text-sm">
+                              {bewijs.afwijking.arbeid_minuten !== null
+                                ? `${bewijs.afwijking.arbeid_minuten} minuten arbeid`
+                                : ""}
+                              {bewijs.afwijking.arbeid_minuten !== null && bewijs.afwijking.werkelijke_kosten !== null
+                                ? " · "
+                                : ""}
+                              {bewijs.afwijking.werkelijke_kosten !== null
+                                ? new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(bewijs.afwijking.werkelijke_kosten)
+                                : ""}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {bewijsFotos.length > 0 && (
+                        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                          {bewijsFotos.map((foto) => (
+                            <div key={foto.id} className="overflow-hidden rounded-lg border border-slate-200">
+                              {foto.tijdelijke_url && (
+                                <div className="relative aspect-[4/3] bg-slate-100">
+                                  <Image
+                                    src={foto.tijdelijke_url}
+                                    alt={foto.omschrijving || foto.bestandsnaam}
+                                    fill
+                                    unoptimized
+                                    className="object-cover"
+                                  />
+                                </div>
+                              )}
+                              <p className="p-2 text-xs font-semibold">
+                                {fotoTypeLabels[foto.foto_type ?? "situatie"]}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
           <ControlesessieBeheer
             woningId={woning.id}
             inspectieId={inspectie.id}
@@ -293,6 +436,9 @@ export default async function InspectieDetailPage({
                     )}
 
                     <div className="p-4">
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold">
+                        {fotoTypeLabels[foto.foto_type ?? "situatie"]}
+                      </span>
                       <p className="break-all text-sm font-semibold">
                         {foto.bestandsnaam}
                       </p>

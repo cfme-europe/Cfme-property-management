@@ -7,6 +7,7 @@ import type {
   GebrekType,
   RuimteAkkoordResultaat,
 } from "@/types/controleurflow";
+import type { InspectieFotoType } from "@/types/inspectiefoto";
 
 const supabase = createClient();
 const FOTO_BUCKET = "inspectiefotos";
@@ -78,12 +79,53 @@ export async function slaControleAfwijkingOp(invoer: {
   gebrek_type: GebrekType;
   toelichting: string;
   urgentie: AfwijkingUrgentie;
+  ter_plaatse_hersteld?: boolean;
+  oplossing?: string | null;
+  gebruikte_materialen?: string | null;
+  arbeid_minuten?: number | null;
+  werkelijke_kosten?: number | null;
 }): Promise<ControleAfwijking> {
   const toelichting = invoer.toelichting.trim();
 
   if (!toelichting) {
     throw new Error("Toelichting bij de afwijking is verplicht.");
   }
+
+  const terPlaatseHersteld =
+    invoer.ter_plaatse_hersteld === true;
+  const oplossing = invoer.oplossing?.trim() || null;
+
+  if (terPlaatseHersteld && !oplossing) {
+    throw new Error(
+      "Beschrijving van de reparatie ter plaatse is verplicht.",
+    );
+  }
+
+  if (
+    invoer.arbeid_minuten != null &&
+    (!Number.isInteger(invoer.arbeid_minuten) ||
+      invoer.arbeid_minuten < 0)
+  ) {
+    throw new Error("Arbeidstijd moet nul of een positief aantal minuten zijn.");
+  }
+
+  if (
+    invoer.werkelijke_kosten != null &&
+    (!Number.isFinite(invoer.werkelijke_kosten) ||
+      invoer.werkelijke_kosten < 0)
+  ) {
+    throw new Error("Werkelijke kosten mogen niet negatief zijn.");
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Geen geldige gebruikerssessie.");
+  }
+
+  const nu = new Date().toISOString();
 
   const { data, error } = await supabase
     .from("controle_afwijkingen")
@@ -96,10 +138,23 @@ export async function slaControleAfwijkingOp(invoer: {
         gebrek_type: invoer.gebrek_type,
         toelichting,
         urgentie: invoer.urgentie,
-        opvolging_nodig: true,
-        melding_maken: true,
-        taak_maken: true,
-        status: "open",
+        opvolging_nodig: !terPlaatseHersteld,
+        melding_maken: !terPlaatseHersteld,
+        taak_maken: !terPlaatseHersteld,
+        status: terPlaatseHersteld ? "opgelost" : "open",
+        opgelost_at: terPlaatseHersteld ? nu : null,
+        opgelost_door: terPlaatseHersteld ? user.id : null,
+        oplossing: terPlaatseHersteld ? oplossing : null,
+        ter_plaatse_hersteld: terPlaatseHersteld,
+        gebruikte_materialen: terPlaatseHersteld
+          ? invoer.gebruikte_materialen?.trim() || null
+          : null,
+        arbeid_minuten: terPlaatseHersteld
+          ? invoer.arbeid_minuten ?? null
+          : null,
+        werkelijke_kosten: terPlaatseHersteld
+          ? invoer.werkelijke_kosten ?? null
+          : null,
       },
       {
         onConflict: "controle_resultaat_id",
@@ -127,9 +182,10 @@ export async function markeerAfwijkingNietRelevant(
       opvolging_nodig: false,
       melding_maken: false,
       taak_maken: false,
+      ter_plaatse_hersteld: false,
     })
     .eq("controle_resultaat_id", controleResultaatId)
-    .in("status", ["open", "in_opvolging"]);
+    .neq("status", "niet_relevant");
 
   if (error) {
     throw new Error(
@@ -141,9 +197,10 @@ export async function markeerAfwijkingNietRelevant(
 export async function uploadControleFoto(invoer: {
   inspectie_id: number;
   controle_resultaat_id: number;
-  controle_afwijking_id: number;
+  controle_afwijking_id: number | null;
   bestand: File;
   omschrijving: string;
+  foto_type?: InspectieFotoType;
 }): Promise<void> {
   if (!TOEGESTANE_FOTOTYPEN.has(invoer.bestand.type)) {
     throw new Error(
@@ -209,6 +266,7 @@ export async function uploadControleFoto(invoer: {
       mime_type: invoer.bestand.type,
       bestandsgrootte: invoer.bestand.size,
       omschrijving: invoer.omschrijving.trim() || null,
+      foto_type: invoer.foto_type ?? "situatie",
       volgorde: (laatsteFoto?.volgorde ?? -1) + 1,
     });
 
