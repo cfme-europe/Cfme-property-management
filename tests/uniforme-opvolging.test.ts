@@ -28,6 +28,22 @@ test("afwijking, melding en taak worden één zichtbaar opvolgdossier", async ()
   assert.match(groepering, /taak\.melding_id === afwijking\.melding_id/);
 });
 
+test("interne intelligence wordt direct gevolgd door de werklijst", async () => {
+  const [woning, component] = await Promise.all([
+    lees("woning"), lees("component"),
+  ]);
+
+  const intelligencePositie = woning.indexOf("<WoningDnaOverzicht");
+  const werklijstPositie = woning.indexOf("<OpvolgingOverzicht");
+  const briefingPositie = woning.indexOf("<ControlebriefingOverzicht");
+
+  assert.ok(intelligencePositie >= 0);
+  assert.ok(werklijstPositie > intelligencePositie);
+  assert.ok(briefingPositie > werklijstPositie);
+  assert.match(component, /<h2 className="text-xl font-bold">Werklijst<\/h2>/);
+  assert.doesNotMatch(component, />Eén werklijst</);
+});
+
 test("één managementactie synchroniseert de onderliggende registraties", async () => {
   const [migratie, actie] = await Promise.all([
     lees("migratie"), lees("actie"),
