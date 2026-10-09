@@ -69,6 +69,12 @@ function datumTijd(waarde: string | null): string {
   }).format(new Date(waarde));
 }
 
+function terugmeldingUitkomst(waarde: string): string {
+  if (waarde === "actie_uitgevoerd") return "Actie uitgevoerd";
+  if (waarde === "vervolg_nodig") return "Vervolg nodig";
+  return "Gecontroleerd";
+}
+
 function bronLink(werkpunt: IntelligenceWerkpunt): string {
   const aanwijzing = `${werkpunt.categorie} ${werkpunt.titel}`.toLowerCase();
   const basis = `/woningen/${werkpunt.woning_id}`;
@@ -128,6 +134,7 @@ export default function ControlebriefingOverzicht({
   const {
     briefing,
     werkpunten,
+    terugmeldingen,
     afgehandelde_werkpunten: afgehandeldeWerkpunten,
   } = gegevens;
   const risico = risicoOpmaak[briefing.risiconiveau];
@@ -242,6 +249,36 @@ export default function ControlebriefingOverzicht({
                   </Link>
                 </div>
 
+                {terugmeldingen
+                  .filter(
+                    (terugmelding) =>
+                      terugmelding.werkpunt_id === werkpunt.id,
+                  )
+                  .map((terugmelding) => (
+                    <div
+                      key={terugmelding.id}
+                      className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950"
+                    >
+                      <p className="font-bold">
+                        Controleur: {terugmeldingUitkomst(terugmelding.uitkomst)}
+                      </p>
+                      <p className="mt-1">{terugmelding.bevinding}</p>
+                      <p className="mt-2 text-xs text-blue-800">
+                        {terugmelding.geregistreerd_door_naam} ·{" "}
+                        {datumTijd(terugmelding.created_at)} · sessie #{terugmelding.controlesessie_id}
+                      </p>
+                      {terugmelding.controle_resultaat_id &&
+                        terugmelding.inspectie_id && (
+                        <Link
+                          href={`/woningen/${terugmelding.woning_id}/inspecties/${terugmelding.inspectie_id}`}
+                          className="mt-2 inline-block font-bold text-violet-700 underline"
+                        >
+                          Gekoppeld controlebewijs bekijken
+                        </Link>
+                      )}
+                    </div>
+                  ))}
+
                 <IntelligenceWerkpuntActies
                   werkpuntId={werkpunt.id}
                 />
@@ -280,6 +317,23 @@ export default function ControlebriefingOverzicht({
                   {datumTijd(werkpunt.afgehandeld_at)} · door{" "}
                   {werkpunt.afgehandeld_door_naam || "onbekend"}
                 </p>
+
+                {terugmeldingen
+                  .filter(
+                    (terugmelding) =>
+                      terugmelding.werkpunt_id === werkpunt.id,
+                  )
+                  .map((terugmelding) => (
+                    <p
+                      key={terugmelding.id}
+                      className="mt-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-950"
+                    >
+                      Controleur ({terugmeldingUitkomst(terugmelding.uitkomst)}):{" "}
+                      {terugmelding.bevinding} ·{" "}
+                      {terugmelding.geregistreerd_door_naam} ·{" "}
+                      {datumTijd(terugmelding.created_at)}
+                    </p>
+                  ))}
               </article>
             ))}
           </div>

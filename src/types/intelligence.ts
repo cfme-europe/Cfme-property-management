@@ -48,6 +48,25 @@ export type IntelligenceWerkpuntAfhandelstatus =
   | "opgevolgd"
   | "genegeerd";
 
+export type IntelligenceWerkpuntTerugmeldingUitkomst =
+  | "gecontroleerd"
+  | "actie_uitgevoerd"
+  | "vervolg_nodig";
+
+export type IntelligenceWerkpuntTerugmelding = {
+  id: number;
+  created_at: string;
+  werkpunt_id: number;
+  controlesessie_id: number;
+  inspectie_id: number | null;
+  woning_id: number;
+  controle_resultaat_id: number | null;
+  uitkomst: IntelligenceWerkpuntTerugmeldingUitkomst;
+  bevinding: string;
+  geregistreerd_door: string;
+  geregistreerd_door_naam: string;
+};
+
 export type Controlebriefing = {
   id: number;
   created_at: string;
@@ -96,4 +115,5 @@ export type ControlebriefingMetWerkpunten = {
   briefing: Controlebriefing;
   werkpunten: IntelligenceWerkpunt[];
   afgehandelde_werkpunten: IntelligenceWerkpunt[];
+  terugmeldingen: IntelligenceWerkpuntTerugmelding[];
 };
