@@ -211,12 +211,21 @@ export default async function BedrijvenPage({
             </p>
           </div>
 
-          <Link
-            href="/bedrijven/nieuw"
-            className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white hover:bg-emerald-600"
-          >
-            Nieuw bedrijf
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/bedrijven/energieanalyse"
+              className="rounded-xl border border-emerald-700 bg-white px-5 py-3 font-medium text-emerald-800 hover:bg-emerald-50"
+            >
+              Energieanalyse
+            </Link>
+
+            <Link
+              href="/bedrijven/nieuw"
+              className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white hover:bg-emerald-600"
+            >
+              Nieuw bedrijf
+            </Link>
+          </div>
         </div>
 
         <form className="mb-5 grid gap-3 rounded-2xl bg-white p-5 shadow-sm md:grid-cols-2 xl:grid-cols-[minmax(260px,1fr)_190px_190px_210px_auto]">
