@@ -148,8 +148,7 @@ export async function getDocumentenVoorWoning(
     .select("*")
     .eq("woning_id", woningId)
     .eq("status", "actief")
-    .order("updated_at", { ascending: false })
-    .limit(5);
+    .order("updated_at", { ascending: false });
 
   if (error) {
     throw new Error(
