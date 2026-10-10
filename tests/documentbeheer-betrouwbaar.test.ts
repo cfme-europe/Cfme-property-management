@@ -86,3 +86,23 @@ test("archiveren heeft bevestiging, zichtbare fout en bewaart historie", async (
   assert.match(detail, /bevestiging="Dit document archiveren\?/);
   assert.match(acties, /fout: foutmelding\(error\)/);
 });
+
+test("gearchiveerd document verdwijnt direct uit het actieve overzicht", async () => {
+  const [service, acties] = await Promise.all([
+    lees("service"),
+    lees("acties"),
+  ]);
+
+  const actieveDocumenten = service.slice(
+    service.indexOf("export async function getDocumentenVoorWoning"),
+    service.indexOf("export async function getDocumentArchiefVoorWoning"),
+  );
+
+  assert.match(actieveDocumenten, /\.eq\("status", "actief"\)/);
+  assert.doesNotMatch(actieveDocumenten, /\.limit\(/);
+  assert.match(acties, /revalidatePath\(`\/woningen\/\$\{woningId\}`\)/);
+  assert.match(
+    acties,
+    /revalidatePath\(`\/woningen\/\$\{woningId\}\/documenten\/archief`\)/,
+  );
+});

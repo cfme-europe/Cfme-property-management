@@ -1,4 +1,5 @@
 "use server";
+import { revalidatePath } from "next/cache";
 import {
   addDocumentVersie,
   archiveDocument,
@@ -23,6 +24,7 @@ export async function documentAanmaken(
 ): Promise<DocumentActieResultaat> {
   try {
     const documentId = await createDocument(woningId, formData);
+    revalidatePath(`/woningen/${woningId}`);
     return {
       gelukt: true,
       fout: null,
@@ -40,6 +42,8 @@ export async function documentVersieToevoegen(
 ): Promise<DocumentActieResultaat> {
   try {
     await addDocumentVersie(documentId, woningId, formData);
+    revalidatePath(`/woningen/${woningId}`);
+    revalidatePath(`/woningen/${woningId}/documenten/${documentId}`);
     return {
       gelukt: true,
       fout: null,
@@ -58,6 +62,9 @@ export async function documentArchiveren(
   try {
     const reden = String(formData.get("archiefreden") ?? "").trim();
     await archiveDocument(documentId, woningId, reden || null);
+    revalidatePath(`/woningen/${woningId}`);
+    revalidatePath(`/woningen/${woningId}/documenten/${documentId}`);
+    revalidatePath(`/woningen/${woningId}/documenten/archief`);
     return {
       gelukt: true,
       fout: null,
