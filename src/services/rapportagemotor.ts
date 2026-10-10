@@ -41,10 +41,10 @@ function verschil(huidig: number, vorig: number): RapportageVerschil {
 function persoonsdagen(
   bewoners: RapportagemotorInvoer["bewoners"],
   vanaf: string,
-  totEnMet: string,
+  totExclusief: string,
 ): number {
   const begin = datumTijd(vanaf);
-  const einde = datumTijd(totEnMet);
+  const einde = datumTijd(totExclusief);
 
   return bewoners.reduce((totaal, bewoner) => {
     const bewonerBegin = Math.max(
@@ -53,20 +53,17 @@ function persoonsdagen(
     );
     const bewonerEinde = Math.min(
       einde,
-      datumTijd(bewoner.uitcheckdatum ?? totEnMet),
+      datumTijd(bewoner.uitcheckdatum ?? totExclusief),
     );
 
-    if (bewonerEinde < bewonerBegin) {
+    if (bewonerEinde <= bewonerBegin) {
       return totaal;
     }
 
     return (
       totaal +
-      Math.floor(
-        (bewonerEinde - bewonerBegin) /
-          DAG_MILLISECONDEN,
-      ) +
-      1
+      (bewonerEinde - bewonerBegin) /
+        DAG_MILLISECONDEN
     );
   }, 0);
 }

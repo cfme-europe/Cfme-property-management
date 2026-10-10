@@ -123,9 +123,13 @@ test("berekent energie per persoon per week met persoonsdagen", () => {
     uitkomst.energie.elektriciteit.totaal,
     150,
   );
-  assert.ok(
-    uitkomst.energie.elektriciteit
-      .per_persoon_per_week !== null,
+  assert.equal(
+    uitkomst.energie.elektriciteit.persoonsweken,
+    62 / 7,
+  );
+  assert.equal(
+    uitkomst.energie.elektriciteit.per_persoon_per_week,
+    150 / (62 / 7),
   );
 });
 
