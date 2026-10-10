@@ -39,6 +39,7 @@ export type DocumentOverzicht = {
   archiefreden: string | null;
   aangemaakt_door: string | null;
   gewijzigd_door: string | null;
+  samengevoegd_met_document_id: number | null;
   laatste_versie_id: number | null;
   laatste_versienummer: number | null;
   laatste_versie_created_at: string | null;

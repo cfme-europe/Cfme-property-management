@@ -148,6 +148,7 @@ export async function getDocumentenVoorWoning(
     .select("*")
     .eq("woning_id", woningId)
     .eq("status", "actief")
+    .is("samengevoegd_met_document_id", null)
     .order("updated_at", { ascending: false });
 
   if (error) {
@@ -171,6 +172,7 @@ export async function getDocumentArchiefVoorWoning(
     .select("*")
     .eq("woning_id", woningId)
     .eq("status", "gearchiveerd")
+    .is("samengevoegd_met_document_id", null)
     .order("gearchiveerd_op", {
       ascending: false,
     });
