@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   documentArchiveren,
   documentVersieToevoegen,
@@ -55,6 +55,12 @@ export default async function DocumentPage({
     document.woning_id !== woningId
   ) {
     notFound();
+  }
+
+  if (document.samengevoegd_met_document_id) {
+    redirect(
+      `/woningen/${woningId}/documenten/${document.samengevoegd_met_document_id}`
+    );
   }
 
   const versieActie =
