@@ -144,6 +144,7 @@ test("energieanalyse heeft bedienbare datumkeuzes voor tablet en desktop", async
   assert.match(pagina, /EnergieAnalyseDatumvelden/);
   assert.match(pagina, /minimum=\{standaardVanaf\}/);
   assert.match(pagina, /maximum=\{standaardTot\}/);
+  assert.match(pagina, /Kies voor beide meetdatums maand, dag en jaar/);
   assert.match(datumvelden, /type="hidden" name=\{naam\} value=\{waarde\}/);
   assert.match(datumvelden, /id=\{`\$\{naam\}-maand`\}/);
   assert.match(datumvelden, /id=\{`\$\{naam\}-dag`\}/);

@@ -232,7 +232,7 @@ export default async function EnergieanalysePage({
               Klant en pand worden gebruikt zodra het bijbehorende niveau is gekozen.
             </span>
             <p className="mt-2 text-sm text-slate-500">
-              Kies een begin- en eindmeetdatum en druk daarna op Analyse toepassen.
+              Kies voor beide meetdatums maand, dag en jaar en druk daarna op Analyse toepassen.
             </p>
           </div>
         </form>
