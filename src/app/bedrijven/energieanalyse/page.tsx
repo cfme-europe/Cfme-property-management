@@ -159,7 +159,7 @@ export default async function EnergieanalysePage({
           </div>
         </section>
 
-        <form className="grid gap-4 rounded-2xl bg-white p-5 shadow-sm md:grid-cols-2 xl:grid-cols-6">
+        <form className="grid gap-4 rounded-2xl bg-white p-5 shadow-sm md:grid-cols-2 xl:grid-cols-4">
           <label>
             <span className="mb-1 block text-sm font-semibold">Vergelijking</span>
             <select
@@ -224,7 +224,7 @@ export default async function EnergieanalysePage({
             maximum={standaardTot}
           />
 
-          <div className="md:col-span-2 xl:col-span-6">
+          <div className="md:col-span-2 xl:col-span-4">
             <button className="rounded-xl bg-emerald-700 px-6 py-3 font-semibold text-white hover:bg-emerald-600">
               Analyse toepassen
             </button>

@@ -144,11 +144,13 @@ test("energieanalyse heeft bedienbare datumkeuzes voor tablet en desktop", async
   assert.match(pagina, /EnergieAnalyseDatumvelden/);
   assert.match(pagina, /minimum=\{standaardVanaf\}/);
   assert.match(pagina, /maximum=\{standaardTot\}/);
-  assert.match(datumvelden, /name=\{naam\}/);
-  assert.match(datumvelden, /value=\{waarde\}/);
-  assert.match(datumvelden, /onChange=\{\(event\) => wijzig\(event\.target\.value\)\}/);
-  assert.match(datumvelden, /showPicker/);
-  assert.match(datumvelden, /Kies datum/);
+  assert.match(datumvelden, /type="hidden" name=\{naam\} value=\{waarde\}/);
+  assert.match(datumvelden, /id=\{`\$\{naam\}-maand`\}/);
+  assert.match(datumvelden, /id=\{`\$\{naam\}-dag`\}/);
+  assert.match(datumvelden, /id=\{`\$\{naam\}-jaar`\}/);
+  assert.match(datumvelden, /begrensDatum/);
+  assert.doesNotMatch(datumvelden, /type="date"/);
+  assert.doesNotMatch(datumvelden, /showPicker/);
   assert.match(datumvelden, /waarde > totEnMet/);
   assert.match(datumvelden, /waarde < vanaf/);
 });
