@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/client";
 import type {
   IntelligenceWerkpunt,
   IntelligenceWerkpuntAfhandelstatus,
@@ -15,6 +15,8 @@ export async function getLaatsteWoningDnaVoorWoning(
   woningId: number,
 ): Promise<WoningDnaSnapshot | null> {
   valideerWoningId(woningId);
+
+  const supabase = createClient();
 
   const { data, error } = await supabase
     .from("woning_dna_snapshots")
@@ -56,6 +58,8 @@ export async function handelIntelligenceWerkpuntAf(
   if (schoneNotitie.length > 2000) {
     throw new Error("De afhandelnotitie mag maximaal 2000 tekens bevatten.");
   }
+
+  const supabase = createClient();
 
   const { data, error } = await supabase.rpc(
     "handel_intelligence_werkpunt_af",

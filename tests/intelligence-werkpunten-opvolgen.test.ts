@@ -17,6 +17,10 @@ const acties = lees(
   "src/components/intelligence/IntelligenceWerkpuntActies.tsx",
 );
 const server = lees("src/services/intelligence-server.ts");
+const clientService = lees("src/services/intelligence.ts");
+const verversMigratie = lees(
+  "supabase/migrations/20261012121634_ververs_intelligence_na_opvolging.sql",
+);
 
 test("werkpunten worden bevoegd en aantoonbaar afgehandeld", () => {
   assert.match(migratie, /public\.mag_wijzigen\(\)/);
@@ -45,4 +49,46 @@ test("afgehandelde werkpunten blijven met notitie gebruiker en tijdstip zichtbaa
   assert.match(overzicht, /werkpunt\.afhandelnotitie/);
   assert.match(overzicht, /werkpunt\.afgehandeld_door_naam/);
   assert.match(overzicht, /datumTijd\(werkpunt\.afgehandeld_at\)/);
+});
+
+test("afhandelen gebruikt de ingelogde browsersessie", () => {
+  assert.match(
+    clientService,
+    /import \{ createClient \} from "@\/lib\/supabase\/client"/,
+  );
+  assert.doesNotMatch(
+    clientService,
+    /import \{ supabase \} from "@\/lib\/supabase"/,
+  );
+  assert.match(
+    clientService,
+    /const supabase = createClient\(\);[\s\S]*supabase\.rpc\(/,
+  );
+});
+
+test("taakwijzigingen verversen intelligence zonder afhandelhistorie te verliezen", () => {
+  assert.match(
+    verversMigratie,
+    /create trigger taken_intelligence_na_wijziging/,
+  );
+  assert.match(
+    verversMigratie,
+    /after insert or delete or update of status, deadline, woning_id/,
+  );
+  assert.match(
+    verversMigratie,
+    /public\.genereer_intelligence_pakket\(/,
+  );
+  assert.match(
+    verversMigratie,
+    /old\.status in \('opgevolgd', 'genegeerd'\)/,
+  );
+  assert.match(
+    verversMigratie,
+    /new\.afhandelnotitie = old\.afhandelnotitie/,
+  );
+  assert.match(
+    verversMigratie,
+    /laatste_snapshot\.taken_open is distinct from telling\.taken_open/,
+  );
 });
