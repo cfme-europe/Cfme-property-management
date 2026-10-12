@@ -4,6 +4,7 @@ import {
   addDocumentVersie,
   archiveDocument,
   createDocument,
+  prepareDocumentUpload,
 } from "@/services/documenten";
 
 export type DocumentActieResultaat = {
@@ -12,10 +13,45 @@ export type DocumentActieResultaat = {
   bestemming: string | null;
 };
 
+export type DocumentUploadVoorbereidingResultaat = {
+  gelukt: boolean;
+  fout: string | null;
+  bestandspad: string | null;
+  token: string | null;
+};
+
 function foutmelding(error: unknown): string {
   return error instanceof Error
     ? error.message
     : "De documenthandeling is niet gelukt.";
+}
+
+export async function documentUploadVoorbereiden(
+  woningId: number,
+  documentId: number | null,
+  formData: FormData,
+): Promise<DocumentUploadVoorbereidingResultaat> {
+  try {
+    const voorbereiding = await prepareDocumentUpload(
+      woningId,
+      documentId,
+      formData,
+    );
+
+    return {
+      gelukt: true,
+      fout: null,
+      bestandspad: voorbereiding.bestandspad,
+      token: voorbereiding.token,
+    };
+  } catch (error) {
+    return {
+      gelukt: false,
+      fout: foutmelding(error),
+      bestandspad: null,
+      token: null,
+    };
+  }
 }
 
 export async function documentAanmaken(

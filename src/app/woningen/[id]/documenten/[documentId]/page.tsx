@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
   documentArchiveren,
+  documentUploadVoorbereiden,
   documentVersieToevoegen,
 } from "../actions";
 import {
@@ -75,6 +76,12 @@ export default async function DocumentPage({
       null,
       document.id,
       woningId
+    );
+  const uploadVoorbereiden =
+    documentUploadVoorbereiden.bind(
+      null,
+      woningId,
+      document.id,
     );
 
   return (
@@ -193,6 +200,7 @@ export default async function DocumentPage({
             <div className="mt-10 grid gap-6 lg:grid-cols-2">
               <DocumentFormulier
                 action={versieActie}
+                uploadVoorbereiden={uploadVoorbereiden}
                 uploadSleutel={crypto.randomUUID()}
                 className="rounded-2xl border border-slate-200 p-5"
               >

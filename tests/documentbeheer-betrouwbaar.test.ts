@@ -63,13 +63,41 @@ test("uploadknoppen blokkeren tijdens verwerking en tonen fouten", async () => {
     lees("compliance"),
   ]);
 
-  assert.match(formulier, /if \(bezig\) return/);
+  assert.match(formulier, /if \(vergrendeld\.current\) return/);
+  assert.match(formulier, /vergrendeld\.current = true/);
   assert.match(formulier, /<fieldset disabled=\{bezig\}/);
   assert.match(formulier, /role="alert"/);
   assert.match(formulier, /Tik niet opnieuw/);
   assert.match(nieuw, /uploadSleutel=\{crypto\.randomUUID\(\)\}/);
   assert.match(detail, /uploadSleutel=\{crypto\.randomUUID\(\)\}/);
   assert.match(compliance, /uploadSleutel=\{crypto\.randomUUID\(\)\}/);
+});
+
+test("documenten gaan rechtstreeks naar private storage zonder serverlimiet", async () => {
+  const [service, formulier, acties, nieuw, detail, compliance] =
+    await Promise.all([
+      lees("service"),
+      lees("formulier"),
+      lees("acties"),
+      lees("nieuw"),
+      lees("detail"),
+      lees("compliance"),
+    ]);
+
+  assert.match(service, /createSignedUploadUrl\(bestandspad/);
+  assert.match(service, /\.info\(bestandspad\)/);
+  assert.doesNotMatch(service, /\.upload\(bestandspad, bestand/);
+  assert.match(formulier, /uploadToSignedUrl/);
+  assert.match(formulier, /formData\.delete\("bestand"\)/);
+  assert.match(formulier, /router\.replace\(resultaat\.bestemming\)/);
+  assert.doesNotMatch(formulier, /router\.push\(resultaat\.bestemming\)/);
+  assert.match(acties, /documentUploadVoorbereiden/);
+  assert.match(nieuw, /uploadVoorbereiden=\{uploadVoorbereiden\}/);
+  assert.match(detail, /uploadVoorbereiden=\{uploadVoorbereiden\}/);
+  assert.match(
+    compliance,
+    /uploadVoorbereiden=\{documentUploadVoorbereidenVoorWoning\}/,
+  );
 });
 
 test("archiveren heeft bevestiging, zichtbare fout en bewaart historie", async () => {

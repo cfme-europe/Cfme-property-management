@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { documentAanmaken } from "../actions";
+import {
+  documentAanmaken,
+  documentUploadVoorbereiden,
+} from "../actions";
 import { getWoningById } from "@/services/woningen-server";
 import DocumentFormulier from "@/components/documenten/DocumentFormulier";
 
@@ -27,6 +30,11 @@ export default async function NieuwDocumentPage({
   const actie = documentAanmaken.bind(
     null,
     woningId
+  );
+  const uploadVoorbereiden = documentUploadVoorbereiden.bind(
+    null,
+    woningId,
+    null,
   );
 
   const invoerClass =
@@ -58,6 +66,7 @@ export default async function NieuwDocumentPage({
 
           <DocumentFormulier
             action={actie}
+            uploadVoorbereiden={uploadVoorbereiden}
             uploadSleutel={crypto.randomUUID()}
             className="mt-8 space-y-6"
           >

@@ -1,11 +1,18 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import type { DocumentActieResultaat } from "@/app/woningen/[id]/documenten/actions";
+import { useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type {
+  DocumentActieResultaat,
+  DocumentUploadVoorbereidingResultaat,
+} from "@/app/woningen/[id]/documenten/actions";
 
 type Props = {
   action: (formData: FormData) => Promise<DocumentActieResultaat>;
+  uploadVoorbereiden?: (
+    formData: FormData,
+  ) => Promise<DocumentUploadVoorbereidingResultaat>;
   uploadSleutel?: string;
   bevestiging?: string;
   className?: string;
@@ -14,23 +21,76 @@ type Props = {
 
 export default function DocumentFormulier({
   action,
+  uploadVoorbereiden,
   uploadSleutel,
   bevestiging,
   className,
   children,
 }: Props) {
   const router = useRouter();
+  const vergrendeld = useRef(false);
   const [bezig, setBezig] = useState(false);
   const [fout, setFout] = useState<string | null>(null);
 
   async function verstuur(formData: FormData) {
-    if (bezig) return;
+    if (vergrendeld.current) return;
     if (bevestiging && !window.confirm(bevestiging)) return;
 
+    vergrendeld.current = true;
     setBezig(true);
     setFout(null);
 
     try {
+      const bestand = formData.get("bestand");
+
+      if (bestand instanceof File && uploadVoorbereiden) {
+        const uploadGegevens = new FormData();
+        uploadGegevens.set(
+          "upload_sleutel",
+          String(formData.get("upload_sleutel") ?? ""),
+        );
+        uploadGegevens.set("bestandsnaam", bestand.name);
+        uploadGegevens.set("bestandsgrootte", String(bestand.size));
+        uploadGegevens.set("mime_type", bestand.type);
+
+        const voorbereiding = await uploadVoorbereiden(uploadGegevens);
+
+        if (
+          !voorbereiding.gelukt ||
+          !voorbereiding.bestandspad ||
+          !voorbereiding.token
+        ) {
+          setFout(
+            voorbereiding.fout ?? "De upload kon niet worden voorbereid."
+          );
+          return;
+        }
+
+        const supabase = createClient();
+        const { error: uploadFout } = await supabase.storage
+          .from("woningdocumenten")
+          .uploadToSignedUrl(
+            voorbereiding.bestandspad,
+            voorbereiding.token,
+            bestand,
+            {
+              contentType: bestand.type,
+              cacheControl: "3600",
+            },
+          );
+
+        if (uploadFout) {
+          setFout(`Document uploaden mislukt: ${uploadFout.message}`);
+          return;
+        }
+
+        formData.delete("bestand");
+        formData.set("bestandspad", voorbereiding.bestandspad);
+        formData.set("bestandsnaam", bestand.name);
+        formData.set("bestandsgrootte", String(bestand.size));
+        formData.set("mime_type", bestand.type);
+      }
+
       const resultaat = await action(formData);
 
       if (!resultaat.gelukt) {
@@ -39,9 +99,10 @@ export default function DocumentFormulier({
       }
 
       if (resultaat.bestemming) {
-        router.push(resultaat.bestemming);
+        router.replace(resultaat.bestemming);
+      } else {
+        router.refresh();
       }
-      router.refresh();
     } catch (error) {
       setFout(
         error instanceof Error
@@ -49,6 +110,7 @@ export default function DocumentFormulier({
           : "De handeling is niet gelukt. Probeer het opnieuw.",
       );
     } finally {
+      vergrendeld.current = false;
       setBezig(false);
     }
   }
