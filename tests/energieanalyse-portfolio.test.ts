@@ -130,3 +130,25 @@ test("bedrijvenoverzicht ontsluit de energieanalyse", async () => {
   assert.match(pagina, /Eén pand/);
   assert.match(pagina, /Persoonsdagen/);
 });
+
+test("energieanalyse heeft bedienbare datumkeuzes voor tablet en desktop", async () => {
+  const pagina = await readFile(
+    "src/app/bedrijven/energieanalyse/page.tsx",
+    "utf8",
+  );
+  const datumvelden = await readFile(
+    "src/components/energie/EnergieAnalyseDatumvelden.tsx",
+    "utf8",
+  );
+
+  assert.match(pagina, /EnergieAnalyseDatumvelden/);
+  assert.match(pagina, /minimum=\{standaardVanaf\}/);
+  assert.match(pagina, /maximum=\{standaardTot\}/);
+  assert.match(datumvelden, /name=\{naam\}/);
+  assert.match(datumvelden, /value=\{waarde\}/);
+  assert.match(datumvelden, /onChange=\{\(event\) => wijzig\(event\.target\.value\)\}/);
+  assert.match(datumvelden, /showPicker/);
+  assert.match(datumvelden, /Kies datum/);
+  assert.match(datumvelden, /waarde > totEnMet/);
+  assert.match(datumvelden, /waarde < vanaf/);
+});
