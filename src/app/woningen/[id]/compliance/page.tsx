@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { documentAanmaken } from "@/app/woningen/[id]/documenten/actions";
+import {
+  documentAanmaken,
+  documentUploadVoorbereiden,
+} from "@/app/woningen/[id]/documenten/actions";
 import DocumentFormulier from "@/components/documenten/DocumentFormulier";
 import {
   getComplianceObjectOpties,
@@ -73,6 +76,8 @@ export default async function CompliancePage({
 
   const documentAanmakenVoorWoning =
     documentAanmaken.bind(null, woningId);
+  const documentUploadVoorbereidenVoorWoning =
+    documentUploadVoorbereiden.bind(null, woningId, null);
 
   return (
     <main className="mx-auto max-w-7xl space-y-6 p-4 text-slate-950 dark:text-white md:p-8">
@@ -332,6 +337,7 @@ export default async function CompliancePage({
 
         <DocumentFormulier
           action={documentAanmakenVoorWoning}
+          uploadVoorbereiden={documentUploadVoorbereidenVoorWoning}
           uploadSleutel={crypto.randomUUID()}
           className="mt-5 grid gap-4 md:grid-cols-2"
         >

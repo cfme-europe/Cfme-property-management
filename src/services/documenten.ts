@@ -11,6 +11,17 @@ import type {
 const BUCKET = "woningdocumenten";
 const MAXIMALE_GROOTTE = 20 * 1024 * 1024;
 
+type Bestandsgegevens = {
+  naam: string;
+  grootte: number;
+  mimeType: string;
+};
+
+export type DocumentUploadVoorbereiding = {
+  bestandspad: string;
+  token: string;
+};
+
 const toegestaneTypes = new Set<DocumentType>([
   "contract",
   "certificering",
@@ -82,26 +93,31 @@ function veiligeBestandsnaam(
   }`;
 }
 
-function valideerBestand(
-  waarde: FormDataEntryValue | null
-): File {
-  if (!(waarde instanceof File) || waarde.size <= 0) {
+function valideerBestandsgegevens(
+  formData: FormData,
+): Bestandsgegevens {
+  const naam = schoon(formData.get("bestandsnaam"));
+  const mimeType = schoon(formData.get("mime_type"));
+  const grootteWaarde = schoon(formData.get("bestandsgrootte"));
+  const grootte = Number(grootteWaarde);
+
+  if (!naam || !Number.isInteger(grootte) || grootte <= 0) {
     throw new Error("Selecteer een documentbestand.");
   }
 
-  if (!toegestaneMimeTypes.has(waarde.type)) {
+  if (!mimeType || !toegestaneMimeTypes.has(mimeType)) {
     throw new Error(
       "Alleen PDF, Word, Excel, JPEG, PNG, WebP, HEIC en HEIF zijn toegestaan."
     );
   }
 
-  if (waarde.size > MAXIMALE_GROOTTE) {
+  if (grootte > MAXIMALE_GROOTTE) {
     throw new Error(
       "Een document mag maximaal 20 MB groot zijn."
     );
   }
 
-  return waarde;
+  return { naam, grootte, mimeType };
 }
 
 function valideerUploadSleutel(
@@ -134,6 +150,102 @@ async function huidigeGebruikerId(): Promise<string> {
   }
 
   return user.id;
+}
+
+function maakBestandspad(
+  woningId: number,
+  documentId: number | null,
+  uploadSleutel: string,
+  bestandsnaam: string,
+): string {
+  const map = documentId === null
+    ? "uploads"
+    : String(documentId);
+
+  return [
+    String(woningId),
+    map,
+    `${uploadSleutel}-${veiligeBestandsnaam(bestandsnaam)}`,
+  ].join("/");
+}
+
+async function valideerGeuploadBestand(
+  bestandspad: string,
+  verwachtPad: string,
+  bestandsgegevens: Bestandsgegevens,
+): Promise<void> {
+  if (bestandspad !== verwachtPad) {
+    throw new Error("Ongeldig bestandspad voor deze upload.");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .info(bestandspad);
+
+  if (error || !data) {
+    throw new Error(
+      `Geupload bestand controleren mislukt: ${error?.message ?? "bestand niet gevonden"}`
+    );
+  }
+
+  if (
+    data.size !== bestandsgegevens.grootte ||
+    data.contentType !== bestandsgegevens.mimeType
+  ) {
+    throw new Error(
+      "Het opgeslagen bestand komt niet overeen met de gekozen upload. Probeer opnieuw."
+    );
+  }
+}
+
+export async function prepareDocumentUpload(
+  woningId: number,
+  documentId: number | null,
+  formData: FormData,
+): Promise<DocumentUploadVoorbereiding> {
+  valideerId(woningId, "woning");
+
+  if (documentId !== null) {
+    valideerId(documentId, "document");
+    const document = await getDocumentById(documentId);
+
+    if (!document || document.woning_id !== woningId) {
+      throw new Error("Document niet gevonden.");
+    }
+
+    if (document.status === "gearchiveerd") {
+      throw new Error(
+        "Aan een gearchiveerd document kan geen versie worden toegevoegd."
+      );
+    }
+  }
+
+  const bestandsgegevens = valideerBestandsgegevens(formData);
+  const uploadSleutel = valideerUploadSleutel(
+    formData.get("upload_sleutel")
+  );
+  const bestandspad = maakBestandspad(
+    woningId,
+    documentId,
+    uploadSleutel,
+    bestandsgegevens.naam,
+  );
+  const supabase = await createClient();
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUploadUrl(bestandspad, { upsert: true });
+
+  if (error || !data) {
+    throw new Error(
+      `Upload voorbereiden mislukt: ${error?.message ?? "onbekende fout"}`
+    );
+  }
+
+  return {
+    bestandspad,
+    token: data.token,
+  };
 }
 
 export async function getDocumentenVoorWoning(
@@ -249,9 +361,7 @@ export async function createDocument(
   const vertrouwelijkheid = schoon(
     formData.get("vertrouwelijkheid")
   ) as DocumentVertrouwelijkheid | null;
-  const bestand = valideerBestand(
-    formData.get("bestand")
-  );
+  const bestandsgegevens = valideerBestandsgegevens(formData);
   const uploadSleutel = valideerUploadSleutel(
     formData.get("upload_sleutel")
   );
@@ -292,40 +402,34 @@ export async function createDocument(
     throw new Error("Ongeldige vertrouwelijkheid.");
   }
 
-  const gebruikerId = await huidigeGebruikerId();
-  const supabase = await createClient();
-
-  const veiligeNaam = veiligeBestandsnaam(
-    bestand.name
+  const bestandspad = schoon(formData.get("bestandspad"));
+  const verwachtPad = maakBestandspad(
+    woningId,
+    null,
+    uploadSleutel,
+    bestandsgegevens.naam,
   );
-  const bestandspad = [
-    String(woningId),
-    "uploads",
-    `${uploadSleutel}-${veiligeNaam}`,
-  ].join("/");
 
-  const { error: uploadFout } = await supabase.storage
-    .from(BUCKET)
-    .upload(bestandspad, bestand, {
-      upsert: true,
-      contentType: bestand.type,
-      cacheControl: "3600",
-    });
-
-  if (uploadFout) {
-    throw new Error(
-      `Document uploaden mislukt: ${uploadFout.message}`
-    );
+  if (!bestandspad) {
+    throw new Error("Het uploadpad ontbreekt. Probeer opnieuw.");
   }
+
+  const gebruikerId = await huidigeGebruikerId();
+  await valideerGeuploadBestand(
+    bestandspad,
+    verwachtPad,
+    bestandsgegevens,
+  );
+  const supabase = await createClient();
 
   const { data: documentId, error: registratieFout } =
     await supabase.rpc("registreer_document_upload", {
       p_aangemaakt_door: gebruikerId,
-      p_bestandsnaam: bestand.name,
-      p_bestandsgrootte: bestand.size,
+      p_bestandsnaam: bestandsgegevens.naam,
+      p_bestandsgrootte: bestandsgegevens.grootte,
       p_bestandspad: bestandspad,
       p_document_type: documentType,
-      p_mime_type: bestand.type,
+      p_mime_type: bestandsgegevens.mimeType,
       p_object_id: objectId,
       p_omschrijving: omschrijving,
       p_titel: titel,
@@ -367,50 +471,42 @@ export async function addDocumentVersie(
     );
   }
 
-  const bestand = valideerBestand(
-    formData.get("bestand")
-  );
+  const bestandsgegevens = valideerBestandsgegevens(formData);
   const versieOpmerking = schoon(
     formData.get("versie_opmerking")
   );
   const uploadSleutel = valideerUploadSleutel(
     formData.get("upload_sleutel")
   );
-  const gebruikerId = await huidigeGebruikerId();
-  const supabase = await createClient();
-
-  const veiligeNaam = veiligeBestandsnaam(
-    bestand.name
+  const bestandspad = schoon(formData.get("bestandspad"));
+  const verwachtPad = maakBestandspad(
+    woningId,
+    documentId,
+    uploadSleutel,
+    bestandsgegevens.naam,
   );
-  const bestandspad = [
-    String(woningId),
-    String(documentId),
-    `${uploadSleutel}-${veiligeNaam}`,
-  ].join("/");
 
-  const { error: uploadFout } = await supabase.storage
-    .from(BUCKET)
-    .upload(bestandspad, bestand, {
-      upsert: true,
-      contentType: bestand.type,
-      cacheControl: "3600",
-    });
-
-  if (uploadFout) {
-    throw new Error(
-      `Nieuwe versie uploaden mislukt: ${uploadFout.message}`
-    );
+  if (!bestandspad) {
+    throw new Error("Het uploadpad ontbreekt. Probeer opnieuw.");
   }
+
+  const gebruikerId = await huidigeGebruikerId();
+  await valideerGeuploadBestand(
+    bestandspad,
+    verwachtPad,
+    bestandsgegevens,
+  );
+  const supabase = await createClient();
 
   const { error } = await supabase.rpc(
     "registreer_documentversie_upload",
     {
-      p_bestandsnaam: bestand.name,
-      p_bestandsgrootte: bestand.size,
+      p_bestandsnaam: bestandsgegevens.naam,
+      p_bestandsgrootte: bestandsgegevens.grootte,
       p_bestandspad: bestandspad,
       p_document_id: documentId,
       p_geupload_door: gebruikerId,
-      p_mime_type: bestand.type,
+      p_mime_type: bestandsgegevens.mimeType,
       p_upload_sleutel: uploadSleutel,
       p_versie_opmerking: versieOpmerking,
       p_woning_id: woningId,
