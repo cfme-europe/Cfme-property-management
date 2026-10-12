@@ -1,4 +1,5 @@
 import Link from "next/link";
+import EnergieAnalyseDatumvelden from "@/components/energie/EnergieAnalyseDatumvelden";
 import {
   bepaalEnergieDatumbereik,
   bouwEnergiePortfolioAnalyse,
@@ -215,25 +216,13 @@ export default async function EnergieanalysePage({
             </select>
           </label>
 
-          <label>
-            <span className="mb-1 block text-sm font-semibold">Vanaf meetdatum</span>
-            <input
-              type="date"
-              name="vanaf"
-              defaultValue={vanaf}
-              className="w-full rounded-xl border border-slate-300 px-3 py-3"
-            />
-          </label>
-
-          <label>
-            <span className="mb-1 block text-sm font-semibold">Tot meetdatum</span>
-            <input
-              type="date"
-              name="tot"
-              defaultValue={totEnMet}
-              className="w-full rounded-xl border border-slate-300 px-3 py-3"
-            />
-          </label>
+          <EnergieAnalyseDatumvelden
+            key={`${vanaf}:${totEnMet}`}
+            vanaf={vanaf}
+            totEnMet={totEnMet}
+            minimum={standaardVanaf}
+            maximum={standaardTot}
+          />
 
           <div className="md:col-span-2 xl:col-span-6">
             <button className="rounded-xl bg-emerald-700 px-6 py-3 font-semibold text-white hover:bg-emerald-600">
@@ -242,6 +231,9 @@ export default async function EnergieanalysePage({
             <span className="ml-3 text-sm text-slate-500">
               Klant en pand worden gebruikt zodra het bijbehorende niveau is gekozen.
             </span>
+            <p className="mt-2 text-sm text-slate-500">
+              Kies een begin- en eindmeetdatum en druk daarna op Analyse toepassen.
+            </p>
           </div>
         </form>
 
