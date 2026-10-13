@@ -1,14 +1,20 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import type { Woning } from "@/types/woning";
+import type { Woning, WoningStatus } from "@/types/woning";
 
-export async function getWoningen(): Promise<Woning[]> {
+const woningVelden =
+  "id, created_at, dossiernummer, adres, postcode, plaats, status, gearchiveerd_op, archiefreden, gearchiveerd_door, gearchiveerd_door_naam";
+
+export async function getWoningen(
+  status: WoningStatus = "actief",
+): Promise<Woning[]> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("woningen")
-    .select("id, created_at, dossiernummer, adres, postcode, plaats")
+    .select(woningVelden)
+    .eq("status", status)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -23,7 +29,7 @@ export async function getWoningById(id: number): Promise<Woning | null> {
 
   const { data, error } = await supabase
     .from("woningen")
-    .select("id, created_at, dossiernummer, adres, postcode, plaats")
+    .select(woningVelden)
     .eq("id", id)
     .maybeSingle();
 

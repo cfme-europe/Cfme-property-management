@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { updateOpvolgitem } from "@/services/opvolging";
 import type { OpvolgItem, OpvolgStatus } from "@/types/opvolging";
 
-type Props = { woningId: number; items: OpvolgItem[] };
+type Props = { woningId: number; items: OpvolgItem[]; alleenLezen?: boolean };
 
 const statusLabels: Record<OpvolgStatus, string> = {
   open: "Open",
@@ -36,7 +36,7 @@ function bronLink(item: OpvolgItem): string | null {
   return null;
 }
 
-export default function OpvolgingOverzicht({ woningId, items }: Props) {
+export default function OpvolgingOverzicht({ woningId, items, alleenLezen = false }: Props) {
   const router = useRouter();
   const [bewerken, setBewerken] = useState<OpvolgItem | null>(null);
   const [status, setStatus] = useState<OpvolgStatus>("open");
@@ -93,9 +93,9 @@ export default function OpvolgingOverzicht({ woningId, items }: Props) {
             Meldingen, controleafwijkingen en taken staan hier per kwestie bij elkaar.
           </p>
         </div>
-        <Link href={`/woningen/${woningId}/meldingen/nieuw`} className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white">
+        {!alleenLezen && <Link href={`/woningen/${woningId}/meldingen/nieuw`} className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white">
           Nieuw opvolgpunt
-        </Link>
+        </Link>}
       </div>
 
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
@@ -122,9 +122,9 @@ export default function OpvolgingOverzicht({ woningId, items }: Props) {
                     <h3 className="mt-3 text-lg font-bold">{item.titel}</h3>
                     <p className="mt-1 text-slate-600">{item.omschrijving}</p>
                   </div>
-                  <button type="button" onClick={() => openFormulier(item)} className="rounded-xl border border-emerald-700 px-4 py-2 font-medium text-emerald-800">
+                  {!alleenLezen && <button type="button" onClick={() => openFormulier(item)} className="rounded-xl border border-emerald-700 px-4 py-2 font-medium text-emerald-800">
                     Beheren
-                  </button>
+                  </button>}
                 </div>
 
                 <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
@@ -142,7 +142,7 @@ export default function OpvolgingOverzicht({ woningId, items }: Props) {
         </div>
       )}
 
-      {bewerken && (
+      {!alleenLezen && bewerken && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label="Opvolgitem beheren">
           <form onSubmit={opslaan} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-2xl bg-white p-6 shadow-xl sm:rounded-2xl">
             <div className="flex items-start justify-between gap-4">

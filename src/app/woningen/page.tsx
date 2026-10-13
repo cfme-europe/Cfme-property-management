@@ -173,12 +173,17 @@ export default async function WoningenPage({
             </p>
           </div>
 
-          <Link
-            href="/woningen/nieuw"
-            className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white hover:bg-emerald-600"
-          >
-            Nieuwe woning
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/woningen/archief" className="rounded-xl border border-slate-400 px-5 py-3 font-medium text-slate-800 hover:bg-white">
+              Woningarchief
+            </Link>
+            <Link
+              href="/woningen/nieuw"
+              className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white hover:bg-emerald-600"
+            >
+              Nieuwe woning
+            </Link>
+          </div>
         </div>
 
         <form className="mb-5 grid gap-3 rounded-2xl bg-white p-5 shadow-sm md:grid-cols-[minmax(240px,1fr)_220px_220px_auto]">
