@@ -52,7 +52,7 @@ export async function getActieveControlebriefingVoorWoning(
     await supabase
       .from("intelligence_werkpunten")
       .select("*")
-      .eq("controlebriefing_id", briefing.id)
+      .eq("woning_id", woningId)
       .in("status", ["actief", "opgevolgd", "genegeerd"])
       .order("prioriteit", {
         ascending: false,
@@ -112,7 +112,8 @@ export async function getActieveControlebriefingVoorWoning(
       (b.afgehandeld_at ?? "").localeCompare(
         a.afgehandeld_at ?? "",
       ),
-    );
+    )
+    .slice(0, 20);
 
   werkpunten.sort(
     (a, b) =>

@@ -43,7 +43,9 @@ test("ieder actief werkpunt opent de bron en biedt beide afhandelkeuzes", () => 
 });
 
 test("afgehandelde werkpunten blijven met notitie gebruiker en tijdstip zichtbaar", () => {
+  assert.match(server, /\.eq\("woning_id", woningId\)/);
   assert.match(server, /\["actief", "opgevolgd", "genegeerd"\]/);
+  assert.doesNotMatch(server, /\.eq\("controlebriefing_id", briefing\.id\)/);
   assert.match(server, /afgehandelde_werkpunten/);
   assert.match(overzicht, /Recent afgehandeld/);
   assert.match(overzicht, /werkpunt\.afhandelnotitie/);

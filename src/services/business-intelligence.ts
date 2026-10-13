@@ -42,7 +42,10 @@ type IntelligenceWerkpuntRij = {
   woning_id: number;
   bron_type: string;
   titel: string;
+  details: Record<string, unknown> | null;
 };
+
+type EnergieDrager = "elektriciteit" | "gas" | "water";
 
 const PLANNING_STATUSSEN_MET_AANDACHT = new Set([
   "niet_ingepland",
@@ -51,21 +54,58 @@ const PLANNING_STATUSSEN_MET_AANDACHT = new Set([
   "vandaag",
 ]);
 
-function isEnergieWerkpunt(
-  werkpunt: IntelligenceWerkpuntRij
-): boolean {
-  if (werkpunt.bron_type === "meterstand") {
-    return true;
+function energieDragerUitTekst(waarde: string): EnergieDrager[] {
+  const tekst = waarde.toLocaleLowerCase("nl-NL");
+  const dragers: EnergieDrager[] = [];
+
+  if (tekst.includes("elektric") || tekst.includes("stroom")) {
+    dragers.push("elektriciteit");
   }
 
-  const titel = werkpunt.titel.toLocaleLowerCase("nl-NL");
+  if (tekst.includes("gas")) {
+    dragers.push("gas");
+  }
 
-  return (
-    titel.includes("energie") ||
-    titel.includes("elektriciteitsverbruik") ||
-    titel.includes("gasverbruik") ||
-    titel.includes("waterverbruik")
-  );
+  if (tekst.includes("water")) {
+    dragers.push("water");
+  }
+
+  return dragers;
+}
+
+function energieDragersVoorWerkpunt(
+  werkpunt: IntelligenceWerkpuntRij
+): EnergieDrager[] {
+  if (werkpunt.bron_type === "meterstand") {
+    const analyseResultaat = werkpunt.details?.analyse_resultaat;
+
+    if (
+      typeof analyseResultaat === "object" &&
+      analyseResultaat !== null &&
+      Array.isArray(
+        (analyseResultaat as Record<string, unknown>).dragers,
+      )
+    ) {
+      return (
+        (analyseResultaat as Record<string, unknown>).dragers as unknown[]
+      ).flatMap((drager) => {
+        if (typeof drager !== "object" || drager === null) {
+          return [];
+        }
+
+        const gegevens = drager as Record<string, unknown>;
+        const status = String(gegevens.status ?? "").toLowerCase();
+
+        if (status === "normaal" || status === "") {
+          return [];
+        }
+
+        return energieDragerUitTekst(String(gegevens.drager ?? ""));
+      });
+    }
+  }
+
+  return energieDragerUitTekst(werkpunt.titel);
 }
 
 function fout(
@@ -198,7 +238,7 @@ export async function getBusinessIntelligenceCockpit(): Promise<
 
     supabase
       .from("intelligence_werkpunten")
-      .select("woning_id, bron_type, titel")
+      .select("woning_id, bron_type, titel, details")
       .eq("status", "actief"),
   ]);
 
@@ -239,14 +279,34 @@ export async function getBusinessIntelligenceCockpit(): Promise<
     woningen
   );
 
-  const woningenMetActiefEnergieWerkpunt = new Set(
-    (
-      (actieveWerkpuntenResultaat.data ??
-        []) as IntelligenceWerkpuntRij[]
-    )
-      .filter(isEnergieWerkpunt)
-      .map((werkpunt) => werkpunt.woning_id)
-  );
+  const actieveEnergiedragersPerWoning = new Map<
+    number,
+    Set<EnergieDrager>
+  >();
+
+  for (
+    const werkpunt of
+      (actieveWerkpuntenResultaat.data ?? []) as IntelligenceWerkpuntRij[]
+  ) {
+    const dragers = energieDragersVoorWerkpunt(werkpunt);
+
+    if (dragers.length === 0) {
+      continue;
+    }
+
+    const actieveDragers =
+      actieveEnergiedragersPerWoning.get(werkpunt.woning_id) ??
+      new Set<EnergieDrager>();
+
+    for (const drager of dragers) {
+      actieveDragers.add(drager);
+    }
+
+    actieveEnergiedragersPerWoning.set(
+      werkpunt.woning_id,
+      actieveDragers,
+    );
+  }
 
   const kamers =
     (kamersResultaat.data ??
@@ -453,9 +513,9 @@ export async function getBusinessIntelligenceCockpit(): Promise<
       dashboard.energieAfwijkingen
   ) {
     if (
-      !woningenMetActiefEnergieWerkpunt.has(
-        afwijking.woning.id
-      )
+      !actieveEnergiedragersPerWoning
+        .get(afwijking.woning.id)
+        ?.has(afwijking.soort.toLocaleLowerCase("nl-NL") as EnergieDrager)
     ) {
       continue;
     }

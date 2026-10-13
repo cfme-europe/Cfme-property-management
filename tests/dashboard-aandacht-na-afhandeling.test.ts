@@ -35,18 +35,27 @@ test("afgehandelde energiesignalen blijven historie maar geen open dashboardrede
 
   assert.match(
     service,
-    /\.from\("intelligence_werkpunten"\)[\s\S]*?\.select\("woning_id, bron_type, titel"\)[\s\S]*?\.eq\("status", "actief"\)/
+    /\.from\("intelligence_werkpunten"\)[\s\S]*?\.select\("woning_id, bron_type, titel, details"\)[\s\S]*?\.eq\("status", "actief"\)/
   );
   assert.match(
     service,
-    /const woningenMetActiefEnergieWerkpunt = new Set\(/
+    /const actieveEnergiedragersPerWoning = new Map</
   );
   assert.match(
     service,
-    /!woningenMetActiefEnergieWerkpunt\.has\(\s*afwijking\.woning\.id\s*\)[\s\S]*?continue;/
+    /actieveEnergiedragersPerWoning[\s\S]*?\.has\(afwijking\.soort[\s\S]*?continue;/
   );
   assert.doesNotMatch(
     service,
     /\.delete\(|\.update\(/
   );
+});
+
+test("ieder energiesignaal wordt uitsluitend aan de juiste drager gekoppeld", async () => {
+  const service = await readFile(servicePad, "utf8");
+
+  assert.match(service, /function energieDragersVoorWerkpunt/);
+  assert.match(service, /analyse_resultaat/);
+  assert.match(service, /status === "normaal"/);
+  assert.match(service, /energieDragerUitTekst/);
 });
