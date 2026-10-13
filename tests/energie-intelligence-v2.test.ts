@@ -498,3 +498,48 @@ test("different calendar windows are not a single benchmark cohort", () => {
   const a = bouwEnergiePortfolioAnalyse(b, { ...sel, minimaleDekking: 30 });
   assert.equal(a.mediaan_per_persoon_per_week, null);
 });
+test("trend intervals retain their property and measured-period identity", () => {
+  const b = bron();
+  b.woningen.push({
+    id: 17,
+    adres: "Tweede pand",
+    postcode: "",
+    plaats: "",
+    status: "actief",
+  });
+  b.verhuurperioden.push({
+    id: 13,
+    woning_id: 17,
+    bedrijf_id: 4,
+    startdatum: "2026-08-01",
+  });
+  b.bewoners.push({
+    id: 99,
+    verhuurperiode_id: 13,
+    incheckdatum: "2026-08-01",
+    uitcheckdatum: null,
+  });
+  b.meterstanden.push(
+    { ...stand(80, "2026-09-10", 0, 1), woning_id: 17 },
+    { ...stand(81, "2026-09-26", 200, 1), woning_id: 17 },
+  );
+
+  const trends = analyse(b).trends;
+
+  assert.equal(trends.length, 2);
+  assert.deepEqual(
+    trends.map(({ woning_id, periode, totaal }) => ({
+      woning_id,
+      periode,
+      totaal,
+    })),
+    [
+      { woning_id: 16, periode: "2026-09-07 → 2026-09-23", totaal: 764 },
+      { woning_id: 17, periode: "2026-09-10 → 2026-09-26", totaal: 200 },
+    ],
+  );
+  assert.deepEqual(
+    trends.map((trend) => trend.per_persoon_per_week),
+    [41.78125, 87.5],
+  );
+});

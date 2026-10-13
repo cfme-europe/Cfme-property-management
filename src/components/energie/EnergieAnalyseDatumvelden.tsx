@@ -7,6 +7,11 @@ type Props = {
   totEnMet: string;
   minimum: string;
   maximum: string;
+  onWijzigBereik: (vanaf: string, totEnMet: string) => void;
+  validationError?: {
+    veld: "vanaf" | "tot";
+    bericht: string;
+  };
 };
 
 type DatumveldProps = {
@@ -16,6 +21,7 @@ type DatumveldProps = {
   minimum: string;
   maximum: string;
   wijzig: (waarde: string) => void;
+  fout?: string;
 };
 
 const maanden = [
@@ -69,6 +75,7 @@ function Datumveld({
   minimum,
   maximum,
   wijzig,
+  fout,
 }: DatumveldProps) {
   const { jaar, maand, dag } = datumdelen(waarde);
   const minimumJaar = datumdelen(minimum).jaar;
@@ -87,7 +94,11 @@ function Datumveld({
   );
 
   return (
-    <fieldset className="md:col-span-1 xl:col-span-2">
+    <fieldset
+      className="md:col-span-1 xl:col-span-2"
+      aria-invalid={fout ? true : undefined}
+      aria-describedby={fout ? `${naam}-fout` : undefined}
+    >
       <legend className="mb-1 block text-sm font-semibold">{label}</legend>
       <input type="hidden" name={naam} value={waarde} />
       <div className="grid grid-cols-[minmax(0,1.35fr)_minmax(4.5rem,0.7fr)_minmax(5.5rem,0.8fr)] gap-2">
@@ -151,6 +162,11 @@ function Datumveld({
           ))}
         </select>
       </div>
+      {fout && (
+        <p id={`${naam}-fout`} role="alert" className="mt-2 text-sm text-rose-800">
+          {fout}
+        </p>
+      )}
     </fieldset>
   );
 }
@@ -160,18 +176,24 @@ export default function EnergieAnalyseDatumvelden({
   totEnMet: oorspronkelijkeTot,
   minimum,
   maximum,
+  onWijzigBereik,
+  validationError,
 }: Props) {
   const [vanaf, setVanaf] = useState(oorspronkelijkeVanaf);
   const [totEnMet, setTotEnMet] = useState(oorspronkelijkeTot);
 
   function wijzigVanaf(waarde: string) {
+    const nieuweTot = waarde > totEnMet ? waarde : totEnMet;
     setVanaf(waarde);
-    if (waarde > totEnMet) setTotEnMet(waarde);
+    if (nieuweTot !== totEnMet) setTotEnMet(nieuweTot);
+    onWijzigBereik(waarde, nieuweTot);
   }
 
   function wijzigTot(waarde: string) {
+    const nieuwVanaf = waarde < vanaf ? waarde : vanaf;
     setTotEnMet(waarde);
-    if (waarde < vanaf) setVanaf(waarde);
+    if (nieuwVanaf !== vanaf) setVanaf(nieuwVanaf);
+    onWijzigBereik(nieuwVanaf, waarde);
   }
 
   return (
@@ -183,6 +205,11 @@ export default function EnergieAnalyseDatumvelden({
         minimum={minimum}
         maximum={maximum}
         wijzig={wijzigVanaf}
+        fout={
+          validationError?.veld === "vanaf"
+            ? validationError.bericht
+            : undefined
+        }
       />
       <Datumveld
         label="Tot meetdatum"
@@ -191,6 +218,11 @@ export default function EnergieAnalyseDatumvelden({
         minimum={minimum}
         maximum={maximum}
         wijzig={wijzigTot}
+        fout={
+          validationError?.veld === "tot"
+            ? validationError.bericht
+            : undefined
+        }
       />
     </>
   );

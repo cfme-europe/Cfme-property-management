@@ -85,6 +85,7 @@ export type EnergieInterval = {
   waarde: number | null;
   dag: number | null;
   nacht: number | null;
+  meteridentiteit?: string | null;
   geschat: boolean;
   meldingen: string[];
   bezettingsconflict: boolean;
@@ -114,7 +115,9 @@ export type EnergieAnalyseRij = {
   benchmark_geschikt: boolean;
 };
 export type EnergieAnalyseTrend = {
-  maand: string;
+  woning_id: number;
+  adres: string;
+  periode: string;
   totaal: number;
   persoonsdagen: number;
   per_persoon_per_week: number | null;
@@ -325,6 +328,8 @@ export function maakMeetperioden(
         waarde: bronWaarde === null ? null : bronWaarde * factor,
         dag: electric.dag === null ? null : electric.dag * factor,
         nacht: electric.nacht === null ? null : electric.nacht * factor,
+        meteridentiteit:
+          configs.length === 1 ? configs[0].meteridentiteit : null,
         geschat,
         meldingen,
         bezettingsconflict: conflict,
@@ -504,7 +509,9 @@ export function bouwEnergiePortfolioAnalyse(
       r.intervallen
         .filter((i) => i.betrouwbaar && i.waarde !== null)
         .map((i) => ({
-          maand: `${i.vanDatum} → ${i.totDatum}`,
+          woning_id: r.woning_id,
+          adres: r.adres,
+          periode: `${i.vanDatum} → ${i.totDatum}`,
           totaal: i.waarde!,
           persoonsdagen: i.persoonsdagen,
           per_persoon_per_week:
@@ -514,7 +521,11 @@ export function bouwEnergiePortfolioAnalyse(
           geschat: i.geschat,
         })),
     )
-    .sort((a, b) => a.maand.localeCompare(b.maand));
+    .sort(
+      (a, b) =>
+        a.periode.localeCompare(b.periode) ||
+        a.woning_id - b.woning_id,
+    );
   return {
     selectie: sel,
     eenheid: sel.drager === "elektriciteit" ? "kWh" : "m³",
