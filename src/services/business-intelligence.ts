@@ -38,6 +38,13 @@ type RapportageRij = {
   ontvanger_naam: string | null;
 };
 
+const PLANNING_STATUSSEN_MET_AANDACHT = new Set([
+  "niet_ingepland",
+  "geen_controleur",
+  "achterstallig",
+  "vandaag",
+]);
+
 function fout(
   onderwerp: string,
   error: { message: string } | null
@@ -379,8 +386,9 @@ export async function getBusinessIntelligenceCockpit(): Promise<
 
   for (const woningPlanning of planning) {
     if (
-      woningPlanning.planning_status !==
-      "op_schema"
+      PLANNING_STATUSSEN_MET_AANDACHT.has(
+        woningPlanning.planning_status
+      )
     ) {
       voegOorzaakToe(
         woningPlanning.woning_id,
