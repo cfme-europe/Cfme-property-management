@@ -139,6 +139,13 @@ export default async function WoningDossierPage({
 
           <div className="flex flex-wrap gap-3">
             <Link
+              href="/"
+              className="rounded-xl border border-slate-950 bg-slate-950 px-5 py-3 font-medium text-white hover:bg-slate-800"
+            >
+              Dashboard
+            </Link>
+
+            <Link
               href={`/woningen/${woning.id}/inspecties/nieuw`}
               className="rounded-xl border border-emerald-700 px-5 py-3 font-medium text-emerald-700"
             >
@@ -242,10 +249,7 @@ export default async function WoningDossierPage({
           gegevens={controlebriefing}
         />
 
-        <section
-          id="verhuur"
-          className="mb-8 scroll-mt-6 rounded-2xl bg-white p-6 shadow"
-        >
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Actieve verhuur</h2>
