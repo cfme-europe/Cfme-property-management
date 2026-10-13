@@ -242,7 +242,10 @@ export default async function WoningDossierPage({
           gegevens={controlebriefing}
         />
 
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow">
+        <section
+          id="verhuur"
+          className="mb-8 scroll-mt-6 rounded-2xl bg-white p-6 shadow"
+        >
           <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Actieve verhuur</h2>

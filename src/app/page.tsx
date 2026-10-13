@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import WoningSnelkoppelingen from "@/components/dashboard/WoningSnelkoppelingen";
 import { createClient } from "@/lib/supabase/server";
 import { getBusinessIntelligenceCockpit } from "@/services/business-intelligence";
 import {
@@ -234,6 +235,10 @@ export default async function Home() {
             </p>
           </div>
         </header>
+
+        <WoningSnelkoppelingen
+          woningen={cockpit.woningen}
+        />
 
         <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {kaarten.map((kaart) => (
