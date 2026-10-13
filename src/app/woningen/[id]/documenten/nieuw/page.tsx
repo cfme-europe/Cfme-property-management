@@ -5,27 +5,70 @@ import {
   documentUploadVoorbereiden,
 } from "../actions";
 import { getWoningById } from "@/services/woningen-server";
+import { getComplianceObjectOpties } from "@/services/compliance";
 import DocumentFormulier from "@/components/documenten/DocumentFormulier";
 
 type Props = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{
+    objectId?: string;
+    documentType?: string;
+    titel?: string;
+  }>;
 };
+
+const toegestaneDocumenttypes = new Set([
+  "contract",
+  "certificering",
+  "keuring",
+  "inspectie",
+  "verzekering",
+  "factuur",
+  "rapportage",
+  "handleiding",
+  "identificatie",
+  "overig",
+]);
 
 export default async function NieuwDocumentPage({
   params,
+  searchParams,
 }: Props) {
   const { id } = await params;
+  const voorinvulling = await searchParams;
   const woningId = Number(id);
 
   if (!Number.isInteger(woningId) || woningId <= 0) {
     notFound();
   }
 
-  const woning = await getWoningById(woningId);
+  const [woning, objecten] = await Promise.all([
+    getWoningById(woningId),
+    getComplianceObjectOpties(woningId),
+  ]);
 
   if (!woning) {
     notFound();
   }
+
+  const gevraagdObjectId = Number(
+    voorinvulling.objectId,
+  );
+  const gekoppeldObject = Number.isInteger(
+    gevraagdObjectId,
+  )
+    ? objecten.find(
+        (object) => object.id === gevraagdObjectId,
+      )
+    : undefined;
+  const documentType =
+    voorinvulling.documentType &&
+    toegestaneDocumenttypes.has(
+      voorinvulling.documentType,
+    )
+      ? voorinvulling.documentType
+      : "overig";
+  const titel = voorinvulling.titel?.trim().slice(0, 200) ?? "";
 
   const actie = documentAanmaken.bind(
     null,
@@ -70,6 +113,25 @@ export default async function NieuwDocumentPage({
             uploadSleutel={crypto.randomUUID()}
             className="mt-8 space-y-6"
           >
+            {gekoppeldObject && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
+                <p className="font-semibold">
+                  Gekoppeld aan object
+                </p>
+                <p className="mt-1 text-sm">
+                  {gekoppeldObject.ruimte_naam} — {gekoppeldObject.naam}
+                  {gekoppeldObject.objectnummer
+                    ? ` (${gekoppeldObject.objectnummer})`
+                    : ""}
+                </p>
+                <input
+                  type="hidden"
+                  name="object_id"
+                  value={gekoppeldObject.id}
+                />
+              </div>
+            )}
+
             <div className="grid gap-4 md:grid-cols-2">
               <label>
                 <span className="mb-1 block font-medium">
@@ -78,6 +140,7 @@ export default async function NieuwDocumentPage({
                 <input
                   required
                   name="titel"
+                  defaultValue={titel}
                   className={invoerClass}
                 />
               </label>
@@ -89,7 +152,7 @@ export default async function NieuwDocumentPage({
                 <select
                   required
                   name="document_type"
-                  defaultValue="overig"
+                  defaultValue={documentType}
                   className={invoerClass}
                 >
                   <option value="contract">Contract</option>

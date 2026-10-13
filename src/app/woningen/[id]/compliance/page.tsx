@@ -14,6 +14,7 @@ import {
 import { getWoningById } from "@/services/woningen-server";
 import type {
   ComplianceStatus,
+  ObjectComplianceRegel,
 } from "@/types/compliance";
 
 type Props = {
@@ -43,6 +44,19 @@ const statusClasses: Record<ComplianceStatus, string> = {
   onbekend:
     "bg-slate-100 text-slate-700",
 };
+
+function documentToevoegenHref(
+  woningId: number,
+  regel: ObjectComplianceRegel,
+): string {
+  const zoekparameters = new URLSearchParams({
+    objectId: String(regel.object_id),
+    documentType: regel.document_type ?? "overig",
+    titel: `${regel.verplichting_naam} — ${regel.object_naam}`,
+  });
+
+  return `/woningen/${woningId}/documenten/nieuw?${zoekparameters.toString()}`;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -242,7 +256,26 @@ export default async function CompliancePage({
                         ? "Certificering wijzigen"
                         : "Certificering toevoegen"}
                     </Link>
-                  ) : null}
+                  ) : regel.document_id ? (
+                    <Link
+                      href={`/woningen/${woningId}/documenten/${regel.document_id}`}
+                      className="rounded-lg border border-slate-400 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                    >
+                      Document openen
+                    </Link>
+                  ) : (
+                    <Link
+                      href={documentToevoegenHref(
+                        woningId,
+                        regel,
+                      )}
+                      className="rounded-lg border border-slate-400 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
+                    >
+                      {regel.document_type === "keuring"
+                        ? "Keuringsdocument toevoegen"
+                        : "Document toevoegen"}
+                    </Link>
+                  )}
                 </div>
               </article>
             ))}
