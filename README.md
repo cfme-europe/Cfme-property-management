@@ -2,6 +2,10 @@
 
 CFME Control is het beveiligde property- en facilitymanagementplatform van Complete Facility Management Europe.
 
+## Woningarchief
+
+Woningen die niet meer operationeel worden gebruikt kunnen, na beëindiging van de actieve verhuur en controlesessie, met reden worden gearchiveerd. Het volledige dossier en een onveranderlijk statusauditspoor blijven bewaard. Gearchiveerde woningen verdwijnen uit operationele lijsten, planning en intelligence en kunnen gecontroleerd worden heractiveerd zonder automatisch oude planning of taken te heropenen.
+
 ## Productiescope
 
 - bedrijven, woningen en verhuurperioden

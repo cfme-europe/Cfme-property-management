@@ -32,6 +32,7 @@ import { getActieveWoningplanning } from "@/services/planning";
 import { getControleAfwijkingenVoorWoning } from "@/services/controleafwijkingen-server";
 import { groepeerOpvolging } from "@/services/opvolging-groepering";
 import OpvolgingOverzicht from "@/components/opvolging/OpvolgingOverzicht";
+import WoningArchiefActie from "@/components/woningen/WoningArchiefActie";
 
 export const dynamic = "force-dynamic";
 
@@ -125,53 +126,54 @@ export default async function WoningDossierPage({
     meldingen,
     taken,
   );
+  const gearchiveerd = woning.status === "gearchiveerd";
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-10 text-slate-900">
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <Link
-            href="/woningen"
+            href={gearchiveerd ? "/woningen/archief" : "/woningen"}
             className="font-medium text-emerald-700 hover:underline"
           >
-            ← Terug naar woningen
+            ← Terug naar {gearchiveerd ? "woningarchief" : "woningen"}
           </Link>
 
           <div className="flex flex-wrap gap-3">
-            <Link
+            {!gearchiveerd && <Link
               href="/"
               className="rounded-xl border border-slate-950 bg-slate-950 px-5 py-3 font-medium text-white hover:bg-slate-800"
             >
               Dashboard
-            </Link>
+            </Link>}
 
-            <Link
+            {!gearchiveerd && <Link
               href={`/woningen/${woning.id}/inspecties/nieuw`}
               className="rounded-xl border border-emerald-700 px-5 py-3 font-medium text-emerald-700"
             >
               Nieuwe inspectie
-            </Link>
+            </Link>}
 
-            <Link
+            {!gearchiveerd && <Link
               href={`/woningen/${woning.id}#opvolging`}
               className="rounded-xl border border-amber-700 px-5 py-3 font-medium text-amber-800"
             >
               Opvolging
-            </Link>
+            </Link>}
 
-            <Link
+            {!gearchiveerd && <Link
               href={`/woningen/${woning.id}/compliance`}
               className="rounded-xl border border-emerald-700 px-4 py-3 font-medium text-emerald-800"
             >
               Compliance
-            </Link>
+            </Link>}
 
-            <Link
+            {!gearchiveerd && <Link
               href={`/woningen/${woning.id}/bewerken`}
               className="rounded-xl border border-slate-500 px-5 py-3 font-medium text-slate-800"
             >
               Woninggegevens bewerken
-            </Link>
+            </Link>}
 
             <Link
               href={`/woningen/${woning.id}/configuratie`}
@@ -180,7 +182,7 @@ export default async function WoningDossierPage({
               Woningconfiguratie
             </Link>
 
-          {actieveVerhuur && (
+          {!gearchiveerd && actieveVerhuur && (
             <Link
               href={`/woningen/${woning.id}/verhuur/bewerken`}
               className="rounded-xl border border-amber-600 px-5 py-3 font-medium text-amber-800"
@@ -189,7 +191,7 @@ export default async function WoningDossierPage({
             </Link>
           )}
 
-          {actieveVerhuur ? (
+          {!gearchiveerd && (actieveVerhuur ? (
             <Link
               href={`/woningen/${woning.id}/verhuur/beeindigen`}
               className="rounded-xl bg-red-700 px-5 py-3 font-medium text-white"
@@ -203,7 +205,8 @@ export default async function WoningDossierPage({
             >
               Verhuurperiode starten
             </Link>
-          )}
+          ))}
+          <WoningArchiefActie woningId={woning.id} wijziging={gearchiveerd ? "heractiveren" : "archiveren"} />
           </div>
         </div>
 
@@ -219,6 +222,14 @@ export default async function WoningDossierPage({
           </p>
         </header>
 
+        {gearchiveerd && (
+          <section className="mb-8 rounded-2xl border border-amber-300 bg-amber-50 p-6 text-amber-950">
+            <p className="font-bold">Gearchiveerd woningdossier</p>
+            <p className="mt-2">{woning.archiefreden}</p>
+            <p className="mt-2 text-sm">Gearchiveerd op {woning.gearchiveerd_op ? new Intl.DateTimeFormat("nl-NL").format(new Date(woning.gearchiveerd_op)) : "—"} door {woning.gearchiveerd_door_naam ?? "—"}. Operationele acties zijn in dit overzicht uitgeschakeld.</p>
+          </section>
+        )}
+
         {volledigeSectie && (
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
             <p className="font-medium text-emerald-900">
@@ -233,16 +244,17 @@ export default async function WoningDossierPage({
           </div>
         )}
 
-        <WoningPlanningOverzicht
+        {!gearchiveerd && <WoningPlanningOverzicht
           woningId={woning.id}
           planning={woningplanning}
-        />
+        />}
 
         <WoningDnaOverzicht snapshot={woningDna} />
 
         <OpvolgingOverzicht
           woningId={woning.id}
           items={opvolgitems}
+          alleenLezen={gearchiveerd}
         />
 
         <ControlebriefingOverzicht
@@ -377,12 +389,12 @@ export default async function WoningDossierPage({
               </p>
             </div>
 
-            <Link
+            {!gearchiveerd && <Link
               href={`/woningen/${woning.id}/rapportages/nieuw`}
               className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
             >
               Nieuwe rapportage
-            </Link>
+            </Link>}
           </div>
 
           {maandrapportages.length === 0 ? (
@@ -514,12 +526,12 @@ export default async function WoningDossierPage({
                 Documentarchief
               </Link>
 
-              <Link
+              {!gearchiveerd && <Link
                 href={`/woningen/${woning.id}/documenten/nieuw`}
                 className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
               >
                 Nieuw document
-              </Link>
+              </Link>}
             </div>
           </div>
 
@@ -616,12 +628,12 @@ export default async function WoningDossierPage({
               </p>
             </div>
 
-            <Link
+            {!gearchiveerd && <Link
               href={`/woningen/${woning.id}/certificeringen/nieuw`}
               className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
             >
               Nieuwe certificering
-            </Link>
+            </Link>}
           </div>
 
           {certificeringen.length === 0 ? (
@@ -733,12 +745,12 @@ export default async function WoningDossierPage({
                           </span>
                         </td>
                         <td className="p-4">
-                          <Link
+                          {!gearchiveerd ? <Link
                             href={`/woningen/${woning.id}/certificeringen/${certificering.id}/bewerken`}
                             className="font-medium text-emerald-700 hover:underline"
                           >
                             Bewerken
-                          </Link>
+                          </Link> : <span className="text-slate-500">Alleen-lezen</span>}
                         </td>
                       </tr>
                     );
@@ -772,12 +784,12 @@ export default async function WoningDossierPage({
               </p>
             </div>
 
-            <Link
+            {!gearchiveerd && <Link
               href={`/woningen/${woning.id}/meterstanden/nieuw`}
               className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
             >
               Nieuwe meteropname
-            </Link>
+            </Link>}
           </div>
 
           {meterstanden.length === 0 ? (
@@ -950,12 +962,12 @@ export default async function WoningDossierPage({
               </p>
             </div>
 
-            <Link
+            {!gearchiveerd && <Link
               href={`/woningen/${woning.id}/inspecties/nieuw`}
               className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"
             >
               Nieuwe inspectie
-            </Link>
+            </Link>}
           </div>
 
           {inspecties.length === 0 ? (
@@ -1191,14 +1203,14 @@ export default async function WoningDossierPage({
                   </div>
 
                   <div className="flex flex-wrap gap-3">
-                    <Link
+                    {!gearchiveerd && <Link
                       href={`/woningen/${woning.id}/configuratie`}
                       className="rounded-xl border border-blue-700 px-5 py-3 font-medium text-blue-800"
                     >
                       Capaciteit en kamers
-                    </Link>
+                    </Link>}
 
-                    {actieveVerhuur && (
+                    {!gearchiveerd && actieveVerhuur && (
                       <Link
                         href={`/woningen/${woning.id}/bewoners/nieuw`}
                         className="rounded-xl bg-emerald-700 px-5 py-3 font-medium text-white"

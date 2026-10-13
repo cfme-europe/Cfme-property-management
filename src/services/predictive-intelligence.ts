@@ -42,6 +42,7 @@ export async function getPredictiveIntelligence(): Promise<PredictiveIntelligenc
       .select(
         "id, adres, postcode, plaats",
       )
+      .eq("status", "actief")
       .order("adres"),
 
     supabase

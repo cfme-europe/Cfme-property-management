@@ -199,9 +199,17 @@ function foutmelding(
 export async function getDashboardData(): Promise<DashboardData> {
   const supabase = await createClient();
 
+  const woningenResultaat = await supabase
+    .from("woningen")
+    .select("id, adres, postcode, plaats")
+    .eq("status", "actief")
+    .order("adres", { ascending: true });
+  foutmelding("Woningen ophalen", woningenResultaat.error);
+  const woningen = (woningenResultaat.data ?? []) as DashboardWoning[];
+  const woningIds = woningen.length > 0 ? woningen.map((woning) => woning.id) : [-1];
+
   const [
     bedrijvenResultaat,
-    woningenResultaat,
     verhuurResultaat,
     bewonersResultaat,
     kamersResultaat,
@@ -224,21 +232,13 @@ export async function getDashboardData(): Promise<DashboardData> {
       }),
 
     supabase
-      .from("woningen")
-      .select(
-        "id, adres, postcode, plaats"
-      )
-      .order("adres", {
-        ascending: true,
-      }),
-
-    supabase
       .from("verhuurperiodes")
       .select("*", {
         count: "exact",
         head: true,
       })
-      .eq("status", "actief"),
+      .eq("status", "actief")
+      .in("woning_id", woningIds),
 
     supabase
       .from("bewoners")
@@ -250,8 +250,9 @@ export async function getDashboardData(): Promise<DashboardData> {
 
     supabase
       .from("kamers")
-      .select("id, capaciteit")
-      .eq("actief", true),
+      .select("id, capaciteit, woning_id")
+      .eq("actief", true)
+      .in("woning_id", woningIds),
 
     supabase
       .from("meldingen")
@@ -259,7 +260,8 @@ export async function getDashboardData(): Promise<DashboardData> {
         count: "exact",
         head: true,
       })
-      .neq("status", "opgelost"),
+      .neq("status", "opgelost")
+      .in("woning_id", woningIds),
 
     supabase
       .from("inspecties")
@@ -267,12 +269,14 @@ export async function getDashboardData(): Promise<DashboardData> {
         count: "exact",
         head: true,
       })
-      .eq("status", "open"),
+      .eq("status", "open")
+      .in("woning_id", woningIds),
 
     supabase
       .from("meldingen")
       .select("*")
       .neq("status", "opgelost")
+      .in("woning_id", woningIds)
       .order("melddatum", {
         ascending: false,
       })
@@ -282,6 +286,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       .from("inspecties")
       .select("*")
       .neq("status", "geannuleerd")
+      .in("woning_id", woningIds)
       .order("inspectiedatum", {
         ascending: false,
       })
@@ -290,6 +295,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase
       .from("meterstanden")
       .select("*")
+      .in("woning_id", woningIds)
       .order("opnamedatum", {
         ascending: false,
       })
@@ -302,6 +308,7 @@ export async function getDashboardData(): Promise<DashboardData> {
         "open",
         "in_behandeling",
       ])
+      .in("woning_id", woningIds)
       .order("deadline", {
         ascending: true,
         nullsFirst: false,
@@ -318,6 +325,7 @@ export async function getDashboardData(): Promise<DashboardData> {
         "verloopt_binnenkort",
         "verlopen",
       ])
+      .in("woning_id", woningIds)
       .order("resterende_dagen", {
         ascending: true,
       })
@@ -326,6 +334,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase
       .from("woning_dna_snapshots")
       .select("*")
+      .in("woning_id", woningIds)
       .order("peildatum", {
         ascending: false,
       })
@@ -337,6 +346,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       .from("woning_rayon_toewijzingen")
       .select("woning_id")
       .eq("actief", true)
+      .in("woning_id", woningIds)
       .is("geldig_tot", null),
 
     supabase
@@ -345,16 +355,13 @@ export async function getDashboardData(): Promise<DashboardData> {
         count: "exact",
         head: true,
       })
-      .eq("status", "concept"),
+      .eq("status", "concept")
+      .in("woning_id", woningIds),
   ]);
 
   foutmelding(
     "Bedrijven ophalen",
     bedrijvenResultaat.error
-  );
-  foutmelding(
-    "Woningen ophalen",
-    woningenResultaat.error
   );
   foutmelding(
     "Actieve verhuurperiodes ophalen",
@@ -408,10 +415,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     "Conceptrapportages tellen",
     conceptRapportagesResultaat.error
   );
-
-  const woningen =
-    (woningenResultaat.data ??
-      []) as DashboardWoning[];
 
   const woningenPerId =
     woningMap(woningen);

@@ -37,6 +37,7 @@ export async function getEnergieAnalyseBrondata(): Promise<EnergieAnalyseBrondat
     supabase
       .from("woningen")
       .select("id, adres, postcode, plaats")
+      .eq("status", "actief")
       .order("adres"),
     supabase.from("bedrijven").select("id, naam").order("naam"),
     supabase
@@ -59,11 +60,19 @@ export async function getEnergieAnalyseBrondata(): Promise<EnergieAnalyseBrondat
     throw new Error(`Energieanalyse ophalen mislukt: ${fout.message}`);
   }
 
+  const woningen = (woningenResultaat.data ?? []) as EnergieWoning[];
+  const woningIds = new Set(woningen.map((woning) => woning.id));
+  const verhuurperioden = ((verhuurResultaat.data ?? []) as EnergieVerhuurperiode[])
+    .filter((periode) => woningIds.has(periode.woning_id));
+  const verhuurperiodeIds = new Set(verhuurperioden.map((periode) => periode.id));
+
   return {
-    meterstanden: (meterstandenResultaat.data ?? []) as EnergieMeterstand[],
-    woningen: (woningenResultaat.data ?? []) as EnergieWoning[],
+    meterstanden: ((meterstandenResultaat.data ?? []) as EnergieMeterstand[])
+      .filter((meterstand) => woningIds.has(meterstand.woning_id)),
+    woningen,
     bedrijven: (bedrijvenResultaat.data ?? []) as EnergieBedrijf[],
-    verhuurperioden: (verhuurResultaat.data ?? []) as EnergieVerhuurperiode[],
-    bewoners: (bewonersResultaat.data ?? []) as EnergieBewoner[],
+    verhuurperioden,
+    bewoners: ((bewonersResultaat.data ?? []) as EnergieBewoner[])
+      .filter((bewoner) => verhuurperiodeIds.has(bewoner.verhuurperiode_id)),
   };
 }

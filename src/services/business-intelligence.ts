@@ -202,6 +202,7 @@ export async function getBusinessIntelligenceCockpit(): Promise<
       .select(
         "id, adres, postcode, plaats"
       )
+      .eq("status", "actief")
       .order("adres", {
         ascending: true,
       }),
@@ -278,6 +279,7 @@ export async function getBusinessIntelligenceCockpit(): Promise<
   const woningPerId = maakWoningMap(
     woningen
   );
+  const actieveWoningIds = new Set(woningen.map((woning) => woning.id));
 
   const actieveEnergiedragersPerWoning = new Map<
     number,
@@ -288,6 +290,7 @@ export async function getBusinessIntelligenceCockpit(): Promise<
     const werkpunt of
       (actieveWerkpuntenResultaat.data ?? []) as IntelligenceWerkpuntRij[]
   ) {
+    if (!actieveWoningIds.has(werkpunt.woning_id)) continue;
     const dragers = energieDragersVoorWerkpunt(werkpunt);
 
     if (dragers.length === 0) {
@@ -309,8 +312,9 @@ export async function getBusinessIntelligenceCockpit(): Promise<
   }
 
   const kamers =
-    (kamersResultaat.data ??
-      []) as KamerRij[];
+    ((kamersResultaat.data ?? []) as KamerRij[]).filter((kamer) =>
+      actieveWoningIds.has(kamer.woning_id),
+    );
 
   const bewoners =
     (bewonersResultaat.data ??
@@ -397,8 +401,9 @@ export async function getBusinessIntelligenceCockpit(): Promise<
   );
 
   const compliance =
-    (complianceResultaat.data ??
-      []) as WoningComplianceSamenvatting[];
+    ((complianceResultaat.data ?? []) as WoningComplianceSamenvatting[]).filter(
+      (regel) => actieveWoningIds.has(regel.woning_id),
+    );
 
   const compliancePerWoning =
     new Map(
@@ -418,7 +423,7 @@ export async function getBusinessIntelligenceCockpit(): Promise<
     (
       (rapportagesResultaat.data ??
         []) as RapportageRij[]
-    ).map((rapportage) => {
+    ).filter((rapportage) => actieveWoningIds.has(rapportage.woning_id)).map((rapportage) => {
       const periodeVerstreken =
         rapportage.rapportjaar < huidigJaar ||
         (
@@ -445,6 +450,7 @@ export async function getBusinessIntelligenceCockpit(): Promise<
       onderhoudResultaat.data ??
       []
     )
+      .filter((rij) => actieveWoningIds.has(Number((rij as Record<string, unknown>).woning_id)))
       .map((rij) =>
         kostenUitRij(
           rij as Record<string, unknown>
