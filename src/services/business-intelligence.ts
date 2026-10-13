@@ -38,12 +38,35 @@ type RapportageRij = {
   ontvanger_naam: string | null;
 };
 
+type IntelligenceWerkpuntRij = {
+  woning_id: number;
+  bron_type: string;
+  titel: string;
+};
+
 const PLANNING_STATUSSEN_MET_AANDACHT = new Set([
   "niet_ingepland",
   "geen_controleur",
   "achterstallig",
   "vandaag",
 ]);
+
+function isEnergieWerkpunt(
+  werkpunt: IntelligenceWerkpuntRij
+): boolean {
+  if (werkpunt.bron_type === "meterstand") {
+    return true;
+  }
+
+  const titel = werkpunt.titel.toLocaleLowerCase("nl-NL");
+
+  return (
+    titel.includes("energie") ||
+    titel.includes("elektriciteitsverbruik") ||
+    titel.includes("gasverbruik") ||
+    titel.includes("waterverbruik")
+  );
+}
 
 function fout(
   onderwerp: string,
@@ -128,6 +151,7 @@ export async function getBusinessIntelligenceCockpit(): Promise<
     complianceResultaat,
     rapportagesResultaat,
     onderhoudResultaat,
+    actieveWerkpuntenResultaat,
   ] = await Promise.all([
     getDashboardData(),
     getWoningPlanningIntelligence(),
@@ -171,6 +195,11 @@ export async function getBusinessIntelligenceCockpit(): Promise<
     supabase
       .from("meldingen")
       .select("*"),
+
+    supabase
+      .from("intelligence_werkpunten")
+      .select("woning_id, bron_type, titel")
+      .eq("status", "actief"),
   ]);
 
   fout(
@@ -197,6 +226,10 @@ export async function getBusinessIntelligenceCockpit(): Promise<
     "Kosten ophalen",
     onderhoudResultaat.error
   );
+  fout(
+    "Actieve intelligence-werkpunten ophalen",
+    actieveWerkpuntenResultaat.error
+  );
 
   const woningen =
     (woningenResultaat.data ??
@@ -204,6 +237,15 @@ export async function getBusinessIntelligenceCockpit(): Promise<
 
   const woningPerId = maakWoningMap(
     woningen
+  );
+
+  const woningenMetActiefEnergieWerkpunt = new Set(
+    (
+      (actieveWerkpuntenResultaat.data ??
+        []) as IntelligenceWerkpuntRij[]
+    )
+      .filter(isEnergieWerkpunt)
+      .map((werkpunt) => werkpunt.woning_id)
   );
 
   const kamers =
@@ -410,6 +452,14 @@ export async function getBusinessIntelligenceCockpit(): Promise<
     const afwijking of
       dashboard.energieAfwijkingen
   ) {
+    if (
+      !woningenMetActiefEnergieWerkpunt.has(
+        afwijking.woning.id
+      )
+    ) {
+      continue;
+    }
+
     voegOorzaakToe(
       afwijking.woning.id,
       `${afwijking.soort}: ${
