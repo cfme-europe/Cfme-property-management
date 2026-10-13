@@ -26,3 +26,27 @@ test("afgehandelde woning blijft niet open door een toekomstige controle", async
     /PLANNING_STATUSSEN_MET_AANDACHT\.has\(\s*woningPlanning\.planning_status/
   );
 });
+
+test("afgehandelde energiesignalen blijven historie maar geen open dashboardreden", async () => {
+  const service = await readFile(
+    servicePad,
+    "utf8"
+  );
+
+  assert.match(
+    service,
+    /\.from\("intelligence_werkpunten"\)[\s\S]*?\.select\("woning_id, bron_type, titel"\)[\s\S]*?\.eq\("status", "actief"\)/
+  );
+  assert.match(
+    service,
+    /const woningenMetActiefEnergieWerkpunt = new Set\(/
+  );
+  assert.match(
+    service,
+    /!woningenMetActiefEnergieWerkpunt\.has\(\s*afwijking\.woning\.id\s*\)[\s\S]*?continue;/
+  );
+  assert.doesNotMatch(
+    service,
+    /\.delete\(|\.update\(/
+  );
+});
