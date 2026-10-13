@@ -44,7 +44,7 @@ export function bouwPredictiveEnergieSignaal(
   const periodes =
     berekenVerbruiksperiodes(
       gesorteerdeMeterstanden,
-    );
+    ).slice().reverse();
 
   const analyses = ENERGIEDRAGERS.map(
     ({ naam, sleutel }) => {
@@ -138,7 +138,7 @@ export function bouwPredictiveEnergieSignaal(
     waarnemingen,
     minimum: 4,
     berekening:
-      "Het laatste verbruik per bewoner per week wordt vergeleken met maximaal zes voorafgaande bruikbare meetperioden van dezelfde woning.",
+      "Indicatieve persoonsnorm uit de bewonersaantallen bij de meteropnames; het laatste verbruik wordt vergeleken met maximaal zes eerdere meetperioden. Controleer dit signaal in Energie-intelligence met de volledige bewonershistorie.",
     signaal: heeftVerhoging
       ? `${
           hoogsteAnalyse?.naam ??

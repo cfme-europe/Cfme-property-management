@@ -89,6 +89,7 @@ export default function EnergieVerbruikGrafieken({
 
   return (
     <div className="space-y-8">
+      <p className="text-sm text-slate-600">Indicatieve persoonsnormen op basis van bewonersaantallen bij de meteropnames. De centrale Energie-intelligence controleert de gedateerde bewonersadministratie, kwaliteit en kalenderdekking.</p>
       {reeksen.map((reeks) => {
         const gegevens = [...periodes]
           .reverse()

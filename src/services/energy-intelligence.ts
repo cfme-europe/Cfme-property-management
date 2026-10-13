@@ -389,7 +389,7 @@ export function analyseerMeterstanden(
 
   const huidig = periodes[0];
 
-  if (!huidig) {
+  if (!huidig || huidig.tot_datum !== gesorteerd[0]?.opnamedatum) {
     return {
       status: "onvoldoende_data",
       van_datum: null,
@@ -399,7 +399,7 @@ export function analyseerMeterstanden(
       opvolging_nodig: false,
       dragers: [],
       samenvatting:
-        "Er zijn minimaal twee opeenvolgende meteropnames nodig voor een verbruiksanalyse.",
+        "Geen bruikbaar interval bij de laatste opname. Controleer ontbrekende standen; een oudere analyse wordt niet als actueel getoond.",
     };
   }
 

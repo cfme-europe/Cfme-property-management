@@ -29,7 +29,7 @@ export type RapportageKosten = {
 };
 
 export type RapportagemotorUitkomst = {
-  rekenregels_versie: 1;
+  rekenregels_versie: 1 | 2;
   huidige_periode: {
     vanaf: string;
     tot_en_met: string;
@@ -62,6 +62,7 @@ export type RapportagemotorUitkomst = {
 };
 
 export type RapportagemotorInvoer = {
+  energie_brondata?: import("@/lib/energie/portfolio-analyse").Brondata;
   periode: {
     vanaf: string;
     tot_en_met: string;

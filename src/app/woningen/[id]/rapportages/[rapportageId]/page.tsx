@@ -1,3 +1,5 @@
+import EnergieSnapshotForm from "@/components/rapportages/EnergieSnapshotForm";
+import {getEnergieRapportVersies} from "@/services/energie-rapportage-server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import MaandrapportageInhoud from "@/components/rapportages/MaandrapportageInhoud";
@@ -93,6 +95,8 @@ export default async function RapportageDetailPage({
     notFound();
   }
 
+  const energie = await getEnergieRapportVersies(rapportage.id);
+
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-900 sm:px-6">
       <div className="mx-auto max-w-7xl">
@@ -103,6 +107,7 @@ export default async function RapportageDetailPage({
           ← Terug naar woning
         </Link>
 
+        <EnergieSnapshotForm rapportId={rapportage.id} beschikbaar={energie.beschikbaar}/>
         <div className="rounded-2xl bg-white p-8 shadow">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -138,6 +143,7 @@ export default async function RapportageDetailPage({
               />
 
               <KlantversieButton
+                energiesnapshots={energie.versies}
                 rapportage={rapportage}
               />
 

@@ -127,14 +127,14 @@ test("oplossnelheid gebruikt de historische maandstand en geen latere oplossing"
   );
 });
 
-test("scherm toont CFME-meerwaarde op maximaal twee herkenbare pagina's", async () => {
+test("scherm toont CFME-meerwaarde met optionele energiesupplementpagina", async () => {
   const [component, standaard] = await Promise.all([
     lees("component"),
     lees("standaard"),
   ]);
 
   assert.match(component, /Pagina \{pagina\} van \{totaalPaginas\}/);
-  assert.match(component, /const totaalPaginas = heeftTweedePagina \? 2 : 1/);
+  assert.match(component, /klantversiePaginaAantal\(onderdelen\)/);
   assert.match(component, /CFME-meerwaarde in één oogopslag/);
   assert.match(component, /Gemiddelde oplostijd/);
   assert.match(component, /Probleem → actie → oplossing/);
@@ -165,4 +165,10 @@ test("PDF gebruikt voor de klantvariant maximaal twee pagina's", async () => {
   assert.match(pdf, /Energieverbruik versus vorige periode/);
   assert.match(generator, /templateConfiguratie\.weergave/);
   assert.match(generator, /templateConfiguratie\.max_paginas/);
+});
+
+test("klantprojectie deelt geen interne vrije tekst of bewonersnamen",()=>{
+ const waarde=bouwKlantwaardeRapportage({...rapportData,meldingen:[{titel:"Bewoner PRIVENAAM",oplossing:"INTERN telefoonnr geheim",melddatum:"2026-09-01",oplosdatum:"2026-09-02",status:"opgelost"}]});
+ assert.doesNotMatch(JSON.stringify(waarde),/PRIVENAAM|INTERN|geheim/);
+ assert.equal(waarde.oplossingen.length,1);
 });

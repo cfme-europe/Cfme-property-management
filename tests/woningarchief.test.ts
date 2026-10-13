@@ -39,13 +39,14 @@ test("alleen bevoegde gebruikers wijzigen de woningstatus", () => {
 test("actieve schermen verbergen archiefwoningen en het dossier blijft leesbaar", () => {
   const woningenServer = lees("src/services/woningen-server.ts");
   const dashboard = lees("src/services/dashboard.ts");
-  const energie = lees("src/services/energieanalyse-server.ts");
+  const energie = lees("src/lib/energie/portfolio-analyse.ts");
   const predictive = lees("src/services/predictive-intelligence.ts");
   const archief = lees("src/app/woningen/archief/page.tsx");
 
   assert.match(woningenServer, /getWoningen\([\s\S]*status: WoningStatus = "actief"/);
   assert.match(dashboard, /\.eq\("status", "actief"\)/);
-  assert.match(energie, /\.eq\("status", "actief"\)/);
+  assert.match(energie, /sel\.archief/);
+  assert.match(energie, /status\s*===\s*"actief"/);
   assert.match(predictive, /\.eq\("status", "actief"\)/);
   assert.match(archief, /getWoningen\("gearchiveerd"\)/);
   assert.match(dossier, /Operationele acties zijn in dit overzicht uitgeschakeld/);

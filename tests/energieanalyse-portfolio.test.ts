@@ -29,9 +29,9 @@ function stand(
   return {
     woning_id: woningId,
     opnamedatum: datum,
-    bewoners_aantal: 0,
-    dagstroom_kwh: null,
-    nachtstroom_kwh: null,
+    bewoners_aantal: woningId === 1 ? 2 : 1,
+    dagstroom_kwh: elektriciteit,
+    nachtstroom_kwh: 0,
     elektriciteit_kwh: elektriciteit,
     gas_m3: null,
     water_m3: null,
@@ -84,8 +84,10 @@ test("berekent portefeuillewaarde gewogen uit totaal verbruik en persoonsdagen",
   assert.equal(analyse.per_persoon_per_week, 200 / 3);
   assert.notEqual(
     analyse.per_persoon_per_week,
-    analyse.rijen.reduce((som, rij) => som + rij.per_persoon_per_week, 0) /
-      analyse.rijen.length,
+    analyse.rijen.reduce(
+      (som, rij) => som + (rij.per_persoon_per_week ?? 0),
+      0,
+    ) / analyse.rijen.length,
   );
 });
 
@@ -125,15 +127,13 @@ test("bedrijvenoverzicht ontsluit de energieanalyse", async () => {
   );
 
   assert.match(bron, /href="\/bedrijven\/energieanalyse"/);
-  assert.match(pagina, /Alle panden/);
-  assert.match(pagina, /Per klant/);
-  assert.match(pagina, /Eén pand/);
-  assert.match(pagina, /Persoonsdagen/);
+  assert.match(pagina, /EnergieFilters/);
+  assert.match(pagina, /persoon\/week/);
 });
 
 test("energieanalyse heeft bedienbare datumkeuzes voor tablet en desktop", async () => {
   const pagina = await readFile(
-    "src/app/bedrijven/energieanalyse/page.tsx",
+    "src/components/energie/EnergieFilters.tsx",
     "utf8",
   );
   const datumvelden = await readFile(
@@ -142,9 +142,9 @@ test("energieanalyse heeft bedienbare datumkeuzes voor tablet en desktop", async
   );
 
   assert.match(pagina, /EnergieAnalyseDatumvelden/);
-  assert.match(pagina, /minimum=\{standaardVanaf\}/);
-  assert.match(pagina, /maximum=\{standaardTot\}/);
-  assert.match(pagina, /Kies voor beide meetdatums maand, dag en jaar/);
+  assert.match(pagina, /minimum=\{minimum\}/);
+  assert.match(pagina, /maximum=\{maximum\}/);
+  assert.match(pagina, /Beginmeetdatum inclusief, eindmeetdatum exclusief/);
   assert.match(datumvelden, /type="hidden" name=\{naam\} value=\{waarde\}/);
   assert.match(datumvelden, /id=\{`\$\{naam\}-maand`\}/);
   assert.match(datumvelden, /id=\{`\$\{naam\}-dag`\}/);

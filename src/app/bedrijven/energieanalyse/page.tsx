@@ -1,445 +1,359 @@
 import Link from "next/link";
-import EnergieAnalyseDatumvelden from "@/components/energie/EnergieAnalyseDatumvelden";
+import EnergieFilters from "@/components/energie/EnergieFilters";
 import {
-  bepaalEnergieDatumbereik,
+  getEnergieAnalyseBrondata,
+  getEnergieUitbreiding,
+} from "@/services/energieanalyse-server";
+import {
   bouwEnergiePortfolioAnalyse,
-  type EnergieAnalyseNiveau,
-  type Energiedrager,
+  bepaalEnergieDatumbereik,
 } from "@/lib/energie/portfolio-analyse";
-import { getEnergieAnalyseBrondata } from "@/services/energieanalyse-server";
-
+import { leesSelectie, type Parameters } from "@/lib/energie/selectie";
+import { berekenEnergiekosten } from "@/lib/energie/tarieven";
 export const dynamic = "force-dynamic";
-
-type ZoekParameters = {
-  niveau?: string;
-  bedrijf?: string;
-  woning?: string;
-  drager?: string;
-  vanaf?: string;
-  tot?: string;
-};
-
-const getal = new Intl.NumberFormat("nl-NL", {
-  maximumFractionDigits: 1,
-});
-
-const geheelGetal = new Intl.NumberFormat("nl-NL", {
-  maximumFractionDigits: 0,
-});
-
-function geldigNiveau(waarde?: string): EnergieAnalyseNiveau {
-  return waarde === "bedrijf" || waarde === "woning" ? waarde : "totaal";
-}
-
-function geldigeDrager(waarde?: string): Energiedrager {
-  return waarde === "gas" || waarde === "water" ? waarde : "elektriciteit";
-}
-
-function geldigId(waarde: string | undefined, geldigeIds: Set<number>): number | undefined {
-  const id = Number(waarde);
-  return Number.isInteger(id) && geldigeIds.has(id) ? id : undefined;
-}
-
-function geldigDatum(waarde: string | undefined, terugval: string): string {
-  return waarde && /^\d{4}-\d{2}-\d{2}$/.test(waarde) ? waarde : terugval;
-}
-
-function maandLabel(waarde: string): string {
-  const [jaar, maand] = waarde.split("-").map(Number);
-  return new Intl.DateTimeFormat("nl-NL", {
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(Date.UTC(jaar, maand - 1, 1)));
-}
-
-function signaalStijl(signaal: string): string {
-  if (signaal === "uitschieter") return "bg-rose-100 text-rose-800";
-  if (signaal === "verhoogd") return "bg-amber-100 text-amber-800";
-  if (signaal === "laag") return "bg-sky-100 text-sky-800";
-  return "bg-emerald-100 text-emerald-800";
-}
-
+const getal = (v: number | null, digits = 1) =>
+  v === null
+    ? "—"
+    : new Intl.NumberFormat("nl-NL", { maximumFractionDigits: digits }).format(
+        v,
+      );
 export default async function EnergieanalysePage({
   searchParams,
 }: {
-  searchParams: Promise<ZoekParameters>;
+  searchParams: Promise<Parameters>;
 }) {
-  const [parameters, brondata] = await Promise.all([
+  const [parameters, bron, uitbreiding] = await Promise.all([
     searchParams,
     getEnergieAnalyseBrondata(),
+    getEnergieUitbreiding(),
   ]);
-  const bereik = bepaalEnergieDatumbereik(brondata.meterstanden);
-  const bedrijven = [...brondata.bedrijven].sort((a, b) =>
-    a.naam.localeCompare(b.naam, "nl"),
-  );
-  const woningen = [...brondata.woningen].sort((a, b) =>
-    a.adres.localeCompare(b.adres, "nl"),
-  );
-  const niveau = geldigNiveau(parameters.niveau);
-  const drager = geldigeDrager(parameters.drager);
-  const bedrijfId =
-    geldigId(parameters.bedrijf, new Set(bedrijven.map((bedrijf) => bedrijf.id))) ??
-    bedrijven[0]?.id;
-  const woningId =
-    geldigId(parameters.woning, new Set(woningen.map((woning) => woning.id))) ??
-    woningen[0]?.id;
-  const standaardVanaf = bereik?.vanaf ?? new Date().toISOString().slice(0, 10);
-  const standaardTot = bereik?.totEnMet ?? standaardVanaf;
-  const vanaf = geldigDatum(parameters.vanaf, standaardVanaf);
-  const gekozenTot = geldigDatum(parameters.tot, standaardTot);
-  const totEnMet = gekozenTot >= vanaf ? gekozenTot : standaardTot;
-  const analyse = bouwEnergiePortfolioAnalyse(brondata, {
-    niveau,
-    drager,
-    vanaf,
-    totEnMet,
-    bedrijfId,
-    woningId,
-  });
-  const maximumRij = Math.max(
-    1,
-    ...analyse.rijen.map((rij) => rij.per_persoon_per_week),
-  );
-  const maximumTrend = Math.max(
-    1,
-    ...analyse.trends.map((trend) => trend.per_persoon_per_week),
-  );
-  const scopeNaam =
-    niveau === "bedrijf"
-      ? bedrijven.find((bedrijf) => bedrijf.id === bedrijfId)?.naam ?? "Klant"
-      : niveau === "woning"
-        ? woningen.find((woning) => woning.id === woningId)?.adres ?? "Pand"
-        : "Volledige portefeuille";
-  const dekkingTotaal = analyse.rijen.reduce(
-    (som, rij) => som + rij.beschikbare_meetperioden,
-    0,
-  );
-  const dekkingBruikbaar = analyse.rijen.reduce((som, rij) => som + rij.meetperioden, 0);
-  const dekkingPercentage =
-    dekkingTotaal > 0 ? (dekkingBruikbaar / dekkingTotaal) * 100 : 0;
-
-  return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 md:px-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+  bron.meterconfiguraties = uitbreiding.configuraties;
+  let keuze: ReturnType<typeof leesSelectie>;
+  try {
+    keuze = leesSelectie(parameters, bron);
+  } catch (e) {
+    return (
+      <main className="p-10">
+        <h1 className="text-2xl font-bold">Controleer de selectie</h1>
+        <p role="alert" className="mt-4">
+          {e instanceof Error ? e.message : "Ongeldige selectie"}
+        </p>
         <Link
-          href="/bedrijven"
-          className="inline-block text-sm font-semibold text-emerald-700 hover:underline"
+          href="/bedrijven/energieanalyse"
+          className="mt-5 inline-block underline"
         >
-          ← Terug naar bedrijven
+          Selectie herstellen
         </Link>
-
-        <section className="overflow-hidden rounded-3xl bg-slate-950 text-white shadow-xl">
-          <div className="grid gap-8 px-6 py-8 md:grid-cols-[1.4fr_1fr] md:px-10 md:py-10">
-            <div>
-              <p className="text-sm font-bold uppercase tracking-[0.2em] text-emerald-400">
-                Energie-intelligence
-              </p>
-              <h1 className="mt-3 text-3xl font-bold sm:text-4xl">
-                Verbruik eerlijk vergelijken
-              </h1>
-              <p className="mt-3 max-w-2xl text-slate-300">
-                Vergelijk panden op werkelijk verbruik per aanwezige persoon per week.
-                Zo worden gemiddeldes, uitschieters en besparingskansen zichtbaar zonder
-                lege panden of wisseldagen verkeerd mee te tellen.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              <p className="text-sm text-slate-400">Huidige selectie</p>
-              <p className="mt-1 text-xl font-semibold">{scopeNaam}</p>
-              <p className="mt-4 text-sm text-slate-300">
-                {drager === "elektriciteit"
-                  ? "Elektriciteit"
-                  : drager === "gas"
-                    ? "Gas"
-                    : "Water"}{" "}
-                · {vanaf} t/m meetdatum {totEnMet}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <form className="grid gap-4 rounded-2xl bg-white p-5 shadow-sm md:grid-cols-2 xl:grid-cols-4">
-          <label>
-            <span className="mb-1 block text-sm font-semibold">Vergelijking</span>
-            <select
-              name="niveau"
-              defaultValue={niveau}
-              className="w-full rounded-xl border border-slate-300 px-3 py-3"
-            >
-              <option value="totaal">Alle panden</option>
-              <option value="bedrijf">Per klant</option>
-              <option value="woning">Eén pand</option>
-            </select>
-          </label>
-
-          <label>
-            <span className="mb-1 block text-sm font-semibold">Klant</span>
-            <select
-              name="bedrijf"
-              defaultValue={bedrijfId}
-              className="w-full rounded-xl border border-slate-300 px-3 py-3"
-            >
-              {bedrijven.map((bedrijf) => (
-                <option key={bedrijf.id} value={bedrijf.id}>
-                  {bedrijf.naam}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            <span className="mb-1 block text-sm font-semibold">Pand</span>
-            <select
-              name="woning"
-              defaultValue={woningId}
-              className="w-full rounded-xl border border-slate-300 px-3 py-3"
-            >
-              {woningen.map((woning) => (
-                <option key={woning.id} value={woning.id}>
-                  {woning.adres}, {woning.plaats}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            <span className="mb-1 block text-sm font-semibold">Verbruik</span>
-            <select
-              name="drager"
-              defaultValue={drager}
-              className="w-full rounded-xl border border-slate-300 px-3 py-3"
-            >
-              <option value="elektriciteit">Elektriciteit</option>
-              <option value="gas">Gas</option>
-              <option value="water">Water</option>
-            </select>
-          </label>
-
-          <EnergieAnalyseDatumvelden
-            key={`${vanaf}:${totEnMet}`}
-            vanaf={vanaf}
-            totEnMet={totEnMet}
-            minimum={standaardVanaf}
-            maximum={standaardTot}
-          />
-
-          <div className="md:col-span-2 xl:col-span-4">
-            <button className="rounded-xl bg-emerald-700 px-6 py-3 font-semibold text-white hover:bg-emerald-600">
-              Analyse toepassen
-            </button>
-            <span className="ml-3 text-sm text-slate-500">
-              Klant en pand worden gebruikt zodra het bijbehorende niveau is gekozen.
+      </main>
+    );
+  }
+  const { selectie, dragers } = keuze,
+    bereik = bepaalEnergieDatumbereik(bron.meterstanden);
+  const analyses = dragers.map((drager) =>
+    bouwEnergiePortfolioAnalyse(bron, { ...selectie, drager }),
+  );
+  const actieveTariefIds = new Set(
+    uitbreiding.tarieven.map((t) => t.voorganger_id).filter(Boolean),
+  );
+  const tarieven = uitbreiding.tarieven.filter(
+    (t) => !actieveTariefIds.has(t.id),
+  );
+  return (
+    <main className="min-h-screen bg-slate-100 p-4 text-slate-950 sm:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="flex flex-wrap justify-between gap-4">
+          <Link href="/bedrijven" className="text-emerald-800">
+            ← Bedrijven
+          </Link>
+          <Link
+            href="/bedrijven/energieanalyse/beheer"
+            className="font-semibold text-emerald-800"
+          >
+            Tarieven, meters en maatregelen →
+          </Link>
+        </div>
+        <header className="relative overflow-hidden rounded-3xl bg-slate-950 p-8 text-white sm:p-10">
+          <div className="absolute -right-14 -top-20 h-72 w-72 rounded-full border-[40px] border-emerald-400/10" />
+          <p className="text-xs font-bold uppercase tracking-[.25em] text-emerald-300">
+            CFME · Energie-intelligence
+          </p>
+          <h1 className="relative mt-4 max-w-3xl text-4xl font-bold tracking-tight">
+            Inzicht dat leidt tot
+            <br />
+            aantoonbaar resultaat.
+          </h1>
+          <p className="relative mt-4 max-w-2xl text-slate-300">
+            Volg verbruik, onderzoek afwijkingen en meet het effect van
+            maatregelen. Elke uitkomst houdt haar bron, periode en
+            betrouwbaarheid.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3 text-sm">
+            <span className="rounded-full bg-white/10 px-4 py-2">
+              {selectie.vanaf} → {selectie.totEnMet}
             </span>
-            <p className="mt-2 text-sm text-slate-500">
-              Kies voor beide meetdatums maand, dag en jaar en druk daarna op Analyse toepassen.
-            </p>
+            <span className="rounded-full bg-emerald-400/15 px-4 py-2 text-emerald-200">
+              {selectie.modus === "schatting"
+                ? "Schattingen zichtbaar ingeschakeld"
+                : "Gemeten intervallen"}
+            </span>
           </div>
-        </form>
-
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          {[
-            {
-              label: "Gewogen verbruik",
-              waarde:
-                analyse.per_persoon_per_week === null
-                  ? "—"
-                  : `${getal.format(analyse.per_persoon_per_week)} ${analyse.eenheid}`,
-              detail: "per persoon per week",
-            },
-            {
-              label: "Totaal verbruik",
-              waarde: `${getal.format(analyse.totaal)} ${analyse.eenheid}`,
-              detail: `${geheelGetal.format(analyse.persoonsdagen)} persoonsdagen`,
-            },
-            {
-              label: "Portefeuillemediaan",
-              waarde:
-                analyse.mediaan_per_persoon_per_week === null
-                  ? "—"
-                  : `${getal.format(analyse.mediaan_per_persoon_per_week)} ${analyse.eenheid}`,
-              detail: `${analyse.panden_in_benchmark} vergelijkbare panden`,
-            },
-            {
-              label: "Uitschieters",
-              waarde: geheelGetal.format(analyse.uitschieters),
-              detail: "statistisch bovengemiddeld",
-            },
-            {
-              label: "Besparingsruimte",
-              waarde: `${getal.format(analyse.besparingsruimte_tot_mediaan)} ${analyse.eenheid}`,
-              detail: "theoretisch tot mediaan",
-            },
-          ].map((kaart) => (
-            <article key={kaart.label} className="rounded-2xl bg-white p-5 shadow-sm">
-              <p className="text-sm font-medium text-slate-500">{kaart.label}</p>
-              <p className="mt-2 text-2xl font-bold">{kaart.waarde}</p>
-              <p className="mt-1 text-xs text-slate-500">{kaart.detail}</p>
-            </article>
-          ))}
-        </section>
-
-        <section className="rounded-2xl bg-white p-6 shadow-sm">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <p className="text-sm font-bold uppercase tracking-wider text-emerald-700">
-                Pandvergelijking
+        </header>
+        {!uitbreiding.beschikbaar && (
+          <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+            Verbruiksanalyse beschikbaar. Tarieven, meterconfiguraties,
+            maatregelen en rapportmomentopnames worden beschikbaar na de
+            afzonderlijk goedgekeurde database-uitbreiding.
+          </p>
+        )}
+        <EnergieFilters
+          key={JSON.stringify(selectie)}
+          bron={{
+            woningen: bron.woningen,
+            bedrijven: bron.bedrijven,
+            verhuurperioden: bron.verhuurperioden,
+          }}
+          selectie={selectie}
+          dragers={dragers}
+          minimum={bereik?.vanaf ?? selectie.vanaf}
+          maximum={bereik?.totEnMet ?? selectie.totEnMet}
+        />
+        {analyses.map((a) => {
+          const kosten = berekenEnergiekosten(
+            a.rijen.flatMap((r) => r.intervallen),
+            tarieven,
+            a.selectie.drager,
+            a.eenheid,
+            selectie.modus === "schatting",
+          );
+          return (
+            <section key={a.selectie.drager} className="space-y-5">
+              <div className="flex flex-wrap items-baseline justify-between gap-3">
+                <h2 className="text-2xl font-bold capitalize">
+                  {a.selectie.drager}
+                </h2>
+                <p className="text-sm text-slate-600">
+                  {a.rijen.length} panden · {getal(a.dekking_percentage)}%
+                  kalenderdekking
+                </p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  [
+                    "Verbruik",
+                    `${getal(a.totaal)} ${a.eenheid}`,
+                    a.selectie.drager === "water" && a.totaal !== null
+                      ? `${getal(a.totaal * 1000, 0)} liter`
+                      : "Bruikbare meetintervallen",
+                  ],
+                  [
+                    "Per persoon / week",
+                    `${getal(a.per_persoon_per_week)} ${a.eenheid}`,
+                    `${getal(a.persoonsdagen, 0)} geregistreerde persoonsdagen`,
+                  ],
+                  [
+                    "Kosten bruikbare intervallen",
+                    kosten.totaal === null
+                      ? "Nog niet volledig"
+                      : `${getal(kosten.totaal, 2)} ${kosten.valuta}`,
+                    `${kosten.geschat ? "Geschat · " : ""}${getal(kosten.totaal!==null && a.per_persoon_per_week!==null && a.persoonsdagen>0 ? kosten.totaal/(a.persoonsdagen/7) : null,2)} ${kosten.valuta??""} per persoon/week`,
+                  ],
+                  [
+                    "Benchmarkmediaan",
+                    `${getal(a.mediaan_per_persoon_per_week)} ${a.eenheid}`,
+                    `${a.panden_in_benchmark} geschikte panden`,
+                  ],
+                ].map(([label, value, detail]) => (
+                  <article
+                    key={label}
+                    className="rounded-2xl bg-white p-5 shadow-sm"
+                  >
+                    <p className="text-sm text-slate-500">{label}</p>
+                    <p className="mt-3 text-3xl font-bold tracking-tight">
+                      {value}
+                    </p>
+                    <p className="mt-2 text-xs text-slate-500">{detail}</p>
+                  </article>
+                ))}
+              </div>
+              <p className="rounded-xl bg-slate-200/70 p-4 text-sm">
+                {a.benchmark_toelichting}
               </p>
-              <h2 className="mt-1 text-2xl font-bold">Hoogste verbruik direct zichtbaar</h2>
-            </div>
-            <p className="text-sm text-slate-500">
-              Dekking {getal.format(dekkingPercentage)}% · {analyse.uitgesloten_meetperioden}{" "}
-              meetperioden uitgesloten
-            </p>
-          </div>
-
-          {analyse.rijen.length === 0 ? (
-            <p className="mt-6 rounded-xl bg-amber-50 p-4 text-amber-900">
-              Voor deze selectie zijn geen volledige meetperioden met bewoningsdekking beschikbaar.
-            </p>
-          ) : (
-            <div className="mt-7 space-y-5">
-              {analyse.rijen.map((rij) => (
-                <article key={rij.woning_id}>
-                  <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
-                    <div>
-                      <p className="font-bold">{rij.adres}</p>
-                      <p className="text-xs text-slate-500">
-                        {rij.postcode} {rij.plaats}
-                        {rij.bedrijven.length > 0 ? ` · ${rij.bedrijven.join(", ")}` : ""}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${signaalStijl(rij.signaal)}`}>
-                        {rij.signaal}
-                      </span>
-                      <span className="font-bold">
-                        {getal.format(rij.per_persoon_per_week)} {analyse.eenheid}/p.p./week
-                      </span>
-                    </div>
-                  </div>
-                  <div className="h-4 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className={
-                        rij.signaal === "uitschieter"
-                          ? "h-full rounded-full bg-rose-500"
-                          : rij.signaal === "verhoogd"
-                            ? "h-full rounded-full bg-amber-500"
-                            : "h-full rounded-full bg-emerald-600"
-                      }
-                      style={{
-                        width: `${Math.max(2, (rij.per_persoon_per_week / maximumRij) * 100)}%`,
-                      }}
-                    />
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      {[
+                        "Pand / gebruikte periode",
+                        "Verbruik",
+                        "Per persoon/week",
+                        "Kalenderdekking",
+                        "Betrouwbaarheid",
+                        "Mediaanverschil",
+                      ].map((h) => (
+                        <th key={h} className="p-4">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {a.rijen.map((r) => (
+                      <tr
+                        key={r.woning_id}
+                        className="border-t border-slate-100"
+                      >
+                        <td className="p-4">
+                          <Link
+                            href={`/woningen/${r.woning_id}`}
+                            className="font-bold underline decoration-emerald-300 underline-offset-4"
+                          >
+                            {r.adres}
+                          </Link>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {r.bedrijven.join(", ")}
+                          </p>
+                          <details className="mt-3 max-w-md">
+                            <summary className="cursor-pointer text-xs text-emerald-800">
+                              Bronnen en rekenstappen ({r.intervallen.length})
+                            </summary>
+                            {r.intervallen.map((i, index) => (
+                              <div
+                                key={index}
+                                className="mt-2 rounded-lg bg-slate-50 p-3 text-xs"
+                              >
+                                <p>
+                                  {i.vanDatum} → {i.totDatum}
+                                  {i.geschat ? " · geschat" : ""}
+                                </p>
+                                <p>
+                                  Bronopnames {i.bronIds.join(" → ")} ·{" "}
+                                  {i.bronVanaf} → {i.bronTot}
+                                </p>
+                                <p>
+                                  {getal(i.waarde, 3)} {a.eenheid} ·{" "}
+                                  {getal(i.persoonsdagen)} persoonsdagen
+                                </p>
+                                <p>Norm = verbruik ÷ (persoonsdagen / 7)</p>
+                                {i.meldingen.map((m) => (
+                                  <p key={m} className="mt-1 text-amber-900">
+                                    {m}
+                                  </p>
+                                ))}
+                              </div>
+                            ))}
+                          </details>
+                        </td>
+                        <td className="p-4 font-semibold">
+                          {getal(r.totaal)} {a.eenheid}
+                        </td>
+                        <td className="p-4">{getal(r.per_persoon_per_week)}</td>
+                        <td className="min-w-36 p-4">
+                          <span>{getal(r.dekking_percentage)}%</span>
+                          <div className="mt-2 h-2 rounded-full bg-slate-100">
+                            <div
+                              className="h-2 rounded-full bg-emerald-600"
+                              style={{ width: `${r.dekking_percentage}%` }}
+                            />
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {getal(r.exacte_dekking_percentage)}% exact
+                          </p>
+                        </td>
+                        <td className="p-4">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${r.betrouwbaarheid === "exact" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}
+                          >
+                            {r.betrouwbaarheid.replaceAll("_", " ")}
+                          </span>
+                          <p className="mt-2 text-xs">
+                            {r.signaal === "onvoldoende_data"
+                              ? "Geen betrouwbare vergelijking"
+                              : r.signaal}
+                          </p>
+                        </td>
+                        <td className="p-4">
+                          {getal(r.afwijking_mediaan_percentage)}
+                          {r.afwijking_mediaan_percentage !== null ? "%" : ""}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!a.rijen.length && (
+                  <p className="p-6">Geen panden binnen deze selectie.</p>
+                )}
+              </div>
+              <div className="grid gap-5 lg:grid-cols-2">
+                <article className="rounded-2xl bg-white p-6">
+                  <h3 className="font-bold">Werkelijke meetperioden</h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Grensoverschrijdende intervallen worden niet als volledige
+                    maand gepresenteerd.
+                  </p>
+                  <div className="mt-4 max-h-64 space-y-3 overflow-y-auto">
+                    {a.trends.map((t, n) => (
+                      <div
+                        key={n}
+                        className="flex justify-between gap-4 border-b pb-2 text-sm"
+                      >
+                        <span>
+                          {t.maand}
+                          {t.geschat ? " · geschat" : ""}
+                        </span>
+                        <strong>
+                          {getal(t.totaal)} {a.eenheid}
+                        </strong>
+                      </div>
+                    ))}
                   </div>
                 </article>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="grid gap-6 xl:grid-cols-[1.1fr_1fr]">
-          <article className="rounded-2xl bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-bold">Ontwikkeling door de tijd</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Genormaliseerd per aanwezige persoon per week.
-            </p>
-            <div className="mt-6 flex min-h-64 items-end gap-3 overflow-x-auto border-b border-slate-200 pb-2">
-              {analyse.trends.map((trend) => (
-                <div key={trend.maand} className="flex min-w-20 flex-1 flex-col items-center">
-                  <span className="mb-2 text-xs font-bold">
-                    {getal.format(trend.per_persoon_per_week)}
-                  </span>
-                  <div
-                    className="w-full max-w-14 rounded-t-lg bg-emerald-600"
-                    style={{
-                      height: `${Math.max(8, (trend.per_persoon_per_week / maximumTrend) * 180)}px`,
-                    }}
-                  />
-                  <span className="mt-2 text-center text-xs text-slate-500">
-                    {maandLabel(trend.maand)}
-                  </span>
-                </div>
-              ))}
-              {analyse.trends.length === 0 ? (
-                <p className="self-center text-sm text-slate-500">Geen trendgegevens beschikbaar.</p>
-              ) : null}
-            </div>
-          </article>
-
-          <article className="rounded-2xl bg-slate-900 p-6 text-white shadow-sm">
-            <p className="text-sm font-bold uppercase tracking-wider text-emerald-400">
-              Betekenis voor maatregelen
-            </p>
-            <h2 className="mt-2 text-xl font-bold">Van uitschieter naar gerichte actie</h2>
-            <ul className="mt-5 space-y-4 text-sm text-slate-300">
-              <li>
-                <strong className="text-white">Prioriteer rood en oranje.</strong>{" "}
-                Controleer installaties, thermostaatinstellingen, isolatie en gebruikersgedrag.
-              </li>
-              <li>
-                <strong className="text-white">Vergelijk dezelfde eenheid.</strong>{" "}
-                Het gemiddelde is gewogen op werkelijke persoonsdagen, niet op losse pandgemiddelden.
-              </li>
-              <li>
-                <strong className="text-white">Beoordeel dekking.</strong>{" "}
-                Een interval zonder meterwaarde of bewoners wordt zichtbaar uitgesloten.
-              </li>
-              <li>
-                <strong className="text-white">Meet na een ingreep opnieuw.</strong>{" "}
-                Gebruik dezelfde selectie om effect in de volgende meetperiode te controleren.
-              </li>
-            </ul>
-          </article>
-        </section>
-
-        <section className="overflow-hidden rounded-2xl bg-white shadow-sm">
-          <div className="p-6">
-            <h2 className="text-xl font-bold">Onderliggende meetbare waarden</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Volledig controleerbaar per pand, zonder persoonsgegevens te tonen.
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-100 text-slate-700">
-                <tr>
-                  <th className="px-5 py-3">Pand</th>
-                  <th className="px-5 py-3">Totaal</th>
-                  <th className="px-5 py-3">Persoonsdagen</th>
-                  <th className="px-5 py-3">Per persoon/week</th>
-                  <th className="px-5 py-3">T.o.v. mediaan</th>
-                  <th className="px-5 py-3">Dekking</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {analyse.rijen.map((rij) => (
-                  <tr key={rij.woning_id}>
-                    <td className="px-5 py-4 font-semibold">{rij.adres}</td>
-                    <td className="px-5 py-4">{getal.format(rij.totaal)} {analyse.eenheid}</td>
-                    <td className="px-5 py-4">{geheelGetal.format(rij.persoonsdagen)}</td>
-                    <td className="px-5 py-4 font-semibold">
-                      {getal.format(rij.per_persoon_per_week)} {analyse.eenheid}
-                    </td>
-                    <td className="px-5 py-4">
-                      {rij.afwijking_mediaan_percentage === null
-                        ? "—"
-                        : `${rij.afwijking_mediaan_percentage >= 0 ? "+" : ""}${getal.format(rij.afwijking_mediaan_percentage)}%`}
-                    </td>
-                    <td className="px-5 py-4">{getal.format(rij.dekking_percentage)}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <aside className="rounded-2xl border border-slate-300 bg-white p-5 text-sm text-slate-600">
-          <strong className="text-slate-900">Rekenmethode:</strong> ieder meetinterval loopt van
-          de vorige meetdatum tot, maar niet inclusief, de volgende meetdatum. Daardoor wordt een
-          bewonerswissel op een grensdag nooit dubbel geteld. Het verbruik is exact per pand en de
-          bezetting is exact op dagniveau. Zonder individuele tussenmeters kan het systeem geen
-          werkelijk verbruik aan één specifieke bewoner toeschrijven.
+                <article className="rounded-2xl bg-white p-6">
+                  <h3 className="font-bold">Kosten en tariefverantwoording</h3>
+                  <p className="mt-3 text-sm">
+                    Variabel {getal(kosten.variabel, 2)} · vast{" "}
+                    {getal(kosten.vast, 2)} · belastingen{" "}
+                    {getal(kosten.belastingen, 2)} · btw {getal(kosten.btw, 2)}{" "}
+                    {kosten.valuta ?? ""}
+                  </p>
+                  {kosten.ontbrekend.map((m) => (
+                    <p key={m} className="mt-2 text-xs text-amber-900">
+                      {m}
+                    </p>
+                  ))}
+                  <details className="mt-4 text-sm">
+                    <summary className="cursor-pointer">
+                      Tariefregels ({kosten.regels.length})
+                    </summary>
+                    {kosten.regels.map((r, n) => (
+                      <p key={n} className="mt-2 text-xs">
+                        {r.vanaf} → {r.tot} · {r.soort} ·{" "}
+                        {getal(r.hoeveelheid, 3)} × {r.eenheidsprijs} ·{" "}
+                        {getal(r.totaal, 2)} {r.valuta} · {r.bron}
+                        {r.geschat ? " · geschat" : ""}
+                      </p>
+                    ))}
+                  </details>
+                </article>
+              </div>
+            </section>
+          );
+        })}
+        <aside className="rounded-3xl bg-slate-900 p-7 text-white">
+          <h2 className="text-xl font-bold">
+            Van afwijking naar aantoonbaar resultaat
+          </h2>
+          <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-300">
+            Leg een onderzoek of maatregel vast, kies vooraf de
+            referentieperiode en controleer na uitvoering opnieuw. Onverklaard
+            verbruik is geen bewijs van misbruik. Verschil met een mediaan is
+            een onderzoekskans, geen gerealiseerde besparing.
+          </p>
+          <Link
+            href="/bedrijven/energieanalyse/beheer"
+            className="mt-5 inline-block rounded-xl bg-emerald-400 px-5 py-3 font-bold text-slate-950"
+          >
+            Maatregelen en resultaat volgen
+          </Link>
         </aside>
       </div>
     </main>

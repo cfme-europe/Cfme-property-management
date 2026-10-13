@@ -269,6 +269,7 @@ async function analyseerEnBewaarMeterstand(
       .from("meterstanden")
       .select("*")
       .eq("woning_id", meterstand.woning_id)
+      .lte("opnamedatum", meterstand.opnamedatum)
       .order("opnamedatum", { ascending: false })
       .limit(8);
 

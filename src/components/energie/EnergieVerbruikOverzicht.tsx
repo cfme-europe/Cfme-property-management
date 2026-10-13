@@ -53,6 +53,7 @@ export default function EnergieVerbruikOverzicht({
 
   return (
     <div className="overflow-x-auto">
+      <p className="mb-4 text-sm text-slate-600">Historische opnamevergelijking: persoonsnormen gebruiken het gemiddelde bewonersaantal van de twee meteropnames en zijn indicatief. Gebruik Energie-intelligence voor normalisatie met de volledige bewonershistorie en datakwaliteitscontrole.</p>
       <table className="w-full min-w-[1450px]">
         <thead className="border-b bg-slate-100">
           <tr>

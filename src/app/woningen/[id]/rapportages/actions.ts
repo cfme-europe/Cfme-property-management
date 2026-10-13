@@ -24,6 +24,10 @@ export async function rapportageSamenstellen(
     );
   }
 
+  if (rapportage.rapport_data.gegenereerd_op || rapportage.status !== "concept") {
+    throw new Error("Deze rapportage heeft al een momentopname. Maak een nieuwe rapportage; bestaande rapportgegevens blijven behouden.");
+  }
+
   const rapportData =
     await genereerMaandrapportageData(
       rapportage
@@ -38,6 +42,8 @@ export async function rapportageSamenstellen(
     })
     .eq("id", rapportage.id)
     .eq("woning_id", rapportage.woning_id)
+    .eq("status", "concept")
+    .is("rapport_data->>gegenereerd_op", null)
     .select("id")
     .maybeSingle();
 
