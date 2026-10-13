@@ -1,3 +1,5 @@
+import {bouwEnergiePortfolioAnalyse,type Brondata,type Energiedrager} from "@/lib/energie/portfolio-analyse";
+import {volgendeDag} from "@/lib/energie/rekenregels";
 import { berekenVerbruiksperiodes } from "@/services/energieverbruik";
 import type {
   EnergieKengetal,
@@ -223,20 +225,12 @@ export function bouwRapportagemotor(
 
   const huidigeVerbruiksperiodes =
     alleVerbruiksperiodes.filter((periode) =>
-      binnen(
-        periode.tot_datum,
-        huidig.vanaf,
-        huidig.tot_en_met,
-      ),
+      periode.van_datum >= huidig.vanaf && periode.tot_datum <= volgendeDag(huidig.tot_en_met),
     );
 
   const vorigeVerbruiksperiodes =
     alleVerbruiksperiodes.filter((periode) =>
-      binnen(
-        periode.tot_datum,
-        vorig.vanaf,
-        vorig.tot_en_met,
-      ),
+      periode.van_datum >= vorig.vanaf && periode.tot_datum <= volgendeDag(vorig.tot_en_met),
     );
 
   const energie = {
@@ -272,20 +266,22 @@ export function bouwRapportagemotor(
     ),
   };
 
-  const onvolledigeMeetperioden =
-    alleVerbruiksperiodes.filter(
-      (periode) =>
-        binnen(
-          periode.tot_datum,
-          huidig.vanaf,
-          huidig.tot_en_met,
-        ) &&
-        [
-          periode.elektriciteit.totaal,
-          periode.gas.totaal,
-          periode.water.totaal,
-        ].every((waarde) => waarde === null),
-    ).length;
+  const woningIds = [...new Set(invoer.meterstanden.map(m => m.woning_id))];
+  const bron: Brondata = invoer.energie_brondata ?? {
+    meterstanden: invoer.meterstanden,
+    woningen: woningIds.map(id => ({id,adres:"",postcode:"",plaats:""})), bedrijven: [],
+    verhuurperioden: woningIds.map(id=>({id,woning_id:id,bedrijf_id:0})),
+    bewoners: woningIds.length === 1 ? invoer.bewoners.map((b,i)=>({...b,id:i+1,verhuurperiode_id:woningIds[0]})) : [],
+  };
+  let onvolledigeMeetperioden = 0;
+  for (const drager of ["elektriciteit","gas","water"] as Energiedrager[]) {
+    const analyse = (vanaf:string,tot:string) => bouwEnergiePortfolioAnalyse(bron,{niveau:"totaal",drager,vanaf,totEnMet:volgendeDag(tot),archief:true});
+    const a = analyse(huidig.vanaf,huidig.tot_en_met), b = analyse(vorig.vanaf,vorig.tot_en_met);
+    const comparable = a.dekking_percentage === 100 && b.dekking_percentage === 100 && a.rijen.every(r=>r.betrouwbaarheid==="exact") && b.rijen.every(r=>r.betrouwbaarheid==="exact");
+    const delta = comparable && a.per_persoon_per_week!==null && b.per_persoon_per_week!==null && b.per_persoon_per_week>0 ? 100*(a.per_persoon_per_week-b.per_persoon_per_week)/b.per_persoon_per_week : null;
+    energie[drager] = {totaal:a.totaal,persoonsweken:a.persoonsdagen/7,per_persoon_per_week:a.per_persoon_per_week,vorige_per_persoon_per_week:comparable?b.per_persoon_per_week:null,afwijking_percentage:delta,signalering:delta===null?"onvoldoende_data":delta>=35?"kritiek":delta>=20?"waarschuwing":"normaal"};
+    onvolledigeMeetperioden += a.uitgesloten_meetperioden;
+  }
 
   let werkelijk = 0;
   let geschat = 0;
@@ -337,9 +333,7 @@ export function bouwRapportagemotor(
         "veiligheidsrisico",
     );
 
-  const kritiekeEnergieSignalen = Object.values(
-    energie,
-  ).filter((item) => item.signalering === "kritiek").length;
+  const kritiekeEnergieSignalen = [energie.elektriciteit, energie.gas, energie.water].filter((item) => item.signalering === "kritiek").length;
 
   const risicofactoren: string[] = [];
   let risicoscore = 0;
@@ -455,7 +449,7 @@ export function bouwRapportagemotor(
   }
 
   return {
-    rekenregels_versie: 1,
+    rekenregels_versie: 2,
     huidige_periode: {
       vanaf: huidig.vanaf,
       tot_en_met: huidig.tot_en_met,
@@ -517,7 +511,7 @@ export function bouwRapportagemotor(
     acties,
     toelichting_rekenregels: [
       "De vorige periode is de direct voorafgaande kalendermaand.",
-      "Verbruik wordt toegerekend aan de maand waarin de eindmeterstand is opgenomen.",
+      "Alleen volledig ingesloten meetintervallen worden exact toegerekend; ontbrekende kalenderdagen worden niet geschat.",
       "Verbruik per persoon per week gebruikt persoonsdagen binnen de exacte meetperiode.",
       "Werkelijke kosten gaan vóór geschatte kosten; beide worden nooit bij dezelfde afwijking dubbel geteld.",
       "Een energieafwijking vanaf 20% geeft een waarschuwing en vanaf 35% een kritisch signaal.",

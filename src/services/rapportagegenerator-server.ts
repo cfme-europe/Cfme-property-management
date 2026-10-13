@@ -1,3 +1,5 @@
+import {leesAlleRijen} from "@/lib/energie/paginering";
+import {getEnergieAnalyseBrondata,getEnergieUitbreiding} from "@/services/energieanalyse-server";
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
@@ -98,11 +100,7 @@ export async function genereerMaandrapportageData(
       .eq("woning_id", rapportage.woning_id)
       .order("melddatum", { ascending: false }),
 
-    supabase
-      .from("meterstanden")
-      .select("*")
-      .eq("woning_id", rapportage.woning_id)
-      .order("opnamedatum", { ascending: false }),
+    leesAlleRijen((van,tot)=>supabase.from("meterstanden").select("*").eq("woning_id",rapportage.woning_id).order("id").range(van,tot)).then(data=>({data,error:null as {message:string}|null})),
 
     rapportage.verhuurperiode_id
       ? supabase
@@ -265,7 +263,11 @@ export async function genereerMaandrapportageData(
     vorigeMaandDatum.getUTCMonth() + 1,
   );
 
+  const [energieBron,energieUitbreiding] = await Promise.all([getEnergieAnalyseBrondata(),getEnergieUitbreiding()]);
+  const huurIds = new Set(energieBron.verhuurperioden.filter(v=>v.woning_id===rapportage.woning_id).map(v=>v.id));
+  const rapportEnergieBron = {...energieBron,woningen:energieBron.woningen.filter(w=>w.id===rapportage.woning_id),meterstanden:energieBron.meterstanden.filter(m=>m.woning_id===rapportage.woning_id),bewoners:energieBron.bewoners.filter(b=>huurIds.has(b.verhuurperiode_id)),meterconfiguraties:energieUitbreiding.configuraties};
   const rapportagemotor = bouwRapportagemotor({
+    energie_brondata: rapportEnergieBron,
     periode: {
       vanaf,
       tot_en_met: totEnMet,
@@ -334,11 +336,7 @@ export async function genereerMaandrapportageData(
   const verbruiksperiodes =
     berekenVerbruiksperiodes(meterstanden).filter(
       (verbruiksperiode) =>
-        binnenPeriode(
-          verbruiksperiode.tot_datum,
-          vanaf,
-          totEnMet
-        )
+        verbruiksperiode.van_datum >= vanaf && verbruiksperiode.tot_datum <= new Date(Date.UTC(rapportage.rapportjaar,rapportage.rapportmaand,1)).toISOString().slice(0,10)
     );
 
   const openMeldingen = periodeMeldingen.filter(

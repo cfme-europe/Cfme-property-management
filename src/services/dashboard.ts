@@ -1,7 +1,8 @@
+import {leesAlleRijen} from "@/lib/energie/paginering";
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import { berekenVerbruiksperiodes } from "@/services/energieverbruik";
+import { maakMeetperioden, type Brondata, type Energiedrager } from "@/lib/energie/portfolio-analyse";
 import type { Inspectie } from "@/types/inspectie";
 import type { Melding } from "@/types/melding";
 import type { Meterstand } from "@/types/meterstand";
@@ -292,14 +293,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       })
       .limit(8),
 
-    supabase
-      .from("meterstanden")
-      .select("*")
-      .in("woning_id", woningIds)
-      .order("opnamedatum", {
-        ascending: false,
-      })
-      .limit(500),
+    leesAlleRijen((van,tot)=>supabase.from("meterstanden").select("*").in("woning_id",woningIds).order("id").range(van,tot)).then(data=>({data,error:null})),
 
     supabase
       .from("taken")
@@ -582,123 +576,27 @@ export async function getDashboardData(): Promise<DashboardData> {
   const energieAfwijkingen: DashboardEnergieAfwijking[] =
     [];
 
-  for (
-    const [
-      woningId,
-      woningMeterstanden,
-    ] of meterstandenPerWoning
-  ) {
-    const woning =
-      woningenPerId.get(woningId);
-
-    if (!woning) {
-      continue;
-    }
-
-    const periodes =
-      berekenVerbruiksperiodes(
-        woningMeterstanden
-      );
-
-    if (periodes.length < 2) {
-      continue;
-    }
-
-    const laatste = periodes[0];
-    const eerdere = periodes.slice(1, 7);
-
-    const reeksen = [
-      {
-        soort: "Elektriciteit" as const,
-        eenheid: "kWh" as const,
-        laatste:
-          laatste.elektriciteit
-            .per_bewoner_per_week,
-        eerdere: eerdere
-          .map(
-            (periode) =>
-              periode.elektriciteit
-                .per_bewoner_per_week
-          )
-          .filter(
-            (waarde): waarde is number =>
-              waarde !== null
-          ),
-      },
-      {
-        soort: "Gas" as const,
-        eenheid: "m³" as const,
-        laatste:
-          laatste.gas
-            .per_bewoner_per_week,
-        eerdere: eerdere
-          .map(
-            (periode) =>
-              periode.gas
-                .per_bewoner_per_week
-          )
-          .filter(
-            (waarde): waarde is number =>
-              waarde !== null
-          ),
-      },
-      {
-        soort: "Water" as const,
-        eenheid: "m³" as const,
-        laatste:
-          laatste.water
-            .per_bewoner_per_week,
-        eerdere: eerdere
-          .map(
-            (periode) =>
-              periode.water
-                .per_bewoner_per_week
-          )
-          .filter(
-            (waarde): waarde is number =>
-              waarde !== null
-          ),
-      },
-    ];
-
-    for (const reeks of reeksen) {
-      const gemiddeldeEerdere =
-        gemiddelde(reeks.eerdere);
-
-      if (
-        reeks.laatste === null ||
-        gemiddeldeEerdere === null ||
-        gemiddeldeEerdere <= 0
-      ) {
-        continue;
-      }
-
-      const afwijking =
-        (
-          (reeks.laatste -
-            gemiddeldeEerdere) /
-          gemiddeldeEerdere
-        ) * 100;
-
-      if (Math.abs(afwijking) < 20) {
-        continue;
-      }
-
-      energieAfwijkingen.push({
-        woning,
-        soort: reeks.soort,
-        eenheid: reeks.eenheid,
-        laatste_waarde:
-          reeks.laatste,
-        gemiddelde_eerdere:
-          gemiddeldeEerdere,
-        afwijking_percentage:
-          afwijking,
-        periode_van:
-          laatste.van_datum,
-        periode_tot:
-          laatste.tot_datum,
-      });
+  const [huurBron, bewonersBron] = await Promise.all([
+    leesAlleRijen((van,tot)=>supabase.from("verhuurperiodes").select("id,woning_id,bedrijf_id,startdatum,werkelijke_einddatum").in("woning_id",woningIds).order("id").range(van,tot)),
+    leesAlleRijen((van,tot)=>supabase.from("bewoners").select("id,verhuurperiode_id,incheckdatum,uitcheckdatum").order("id").range(van,tot)),
+  ]);
+  const {error:configFout}=await supabase.from("energie_meterconfiguraties").select("id").limit(1);
+  if(configFout && !["42P01","PGRST205"].includes(configFout.code)) throw new Error(configFout.message);
+  const configs=configFout?[]:await leesAlleRijen((van,tot)=>supabase.from("energie_meterconfiguraties").select("*").order("id").range(van,tot));
+  const vervangenConfigs=new Set(configs.map(c=>c.voorganger_id));
+  for(const [woningId,woningMeterstanden] of meterstandenPerWoning) {
+    const woning=woningenPerId.get(woningId); if(!woning||woningMeterstanden.length<2)continue;
+    const dates=woningMeterstanden.map(m=>m.opnamedatum).sort();
+    const bron:Brondata={woningen:[woning],bedrijven:[],meterstanden:woningMeterstanden,verhuurperioden:huurBron as Brondata["verhuurperioden"],bewoners:bewonersBron as Brondata["bewoners"],meterconfiguraties:configs.filter(c=>!vervangenConfigs.has(c.id)) as Brondata["meterconfiguraties"]};
+    for(const drager of ["elektriciteit","gas","water"] as Energiedrager[]){
+      const periodes=maakMeetperioden(bron,{niveau:"woning",woningId,drager,vanaf:dates[0],totEnMet:dates.at(-1)!}).sort((a,b)=>b.totDatum.localeCompare(a.totDatum));
+      const laatste=periodes[0];
+      if(!laatste||laatste.totDatum!==dates.at(-1)||!laatste.betrouwbaar||laatste.bezettingsconflict||!laatste.persoonsdagen||laatste.waarde===null)continue;
+      const norm=laatste.waarde/(laatste.persoonsdagen/7);
+      const eerdere=periodes.slice(1).filter(i=>i.betrouwbaar&&!i.bezettingsconflict&&i.persoonsdagen>0&&i.waarde!==null).slice(0,6).map(i=>i.waarde!/(i.persoonsdagen/7));
+      const referentie=gemiddelde(eerdere);if(referentie===null||referentie<=0)continue;
+      const afwijking=100*(norm-referentie)/referentie;if(Math.abs(afwijking)<20)continue;
+      energieAfwijkingen.push({woning,soort:drager==="elektriciteit"?"Elektriciteit":drager==="gas"?"Gas":"Water",eenheid:drager==="elektriciteit"?"kWh":"m³",laatste_waarde:norm,gemiddelde_eerdere:referentie,afwijking_percentage:afwijking,periode_van:laatste.vanDatum,periode_tot:laatste.totDatum});
     }
   }
 

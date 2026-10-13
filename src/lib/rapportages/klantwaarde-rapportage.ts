@@ -136,15 +136,17 @@ export function bouwKlantwaardeRapportage(
     )
     .slice(0, 6)
     .map((melding) => ({
-      titel: tekst(melding, "titel", "Probleem"),
+      // Legacy free-text titles can contain resident names or internal notes.
+      // Preserve source history, but only release explicitly approved customer text.
+      titel: melding.klant_goedgekeurd === true
+        ? tekst(melding, "klant_titel", "Afgeronde melding")
+        : "Afgeronde melding",
       melddatum: tekst(melding, "melddatum"),
       oplosdatum: tekst(melding, "oplosdatum"),
       doorlooptijd_dagen: melding.doorlooptijd,
-      oplossing: tekst(
-        melding,
-        "oplossing",
-        "Oplossing geregistreerd",
-      ),
+      oplossing: melding.klant_goedgekeurd === true
+        ? tekst(melding, "klant_toelichting", "Oplossing geregistreerd")
+        : "Oplossing geregistreerd; interne dossierdetails worden niet gedeeld.",
     }));
 
   const meerwaarde: string[] = [];

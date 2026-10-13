@@ -1,3 +1,5 @@
+import {elektriciteitsMeting} from "@/lib/energie/metingen";
+import {datumTijd,verschil} from "@/lib/energie/rekenregels";
 import type { Meterstand } from "@/types/meterstand";
 
 export type Verbruikswaarde = {
@@ -17,40 +19,6 @@ export type Verbruiksperiode = {
   gas: Verbruikswaarde;
   water: Verbruikswaarde;
 };
-
-function datumNaarTijd(waarde: string): number {
-  const [jaar, maand, dag] = waarde
-    .split("-")
-    .map(Number);
-
-  return Date.UTC(jaar, maand - 1, dag);
-}
-
-function verschil(
-  beginstand: number | null,
-  eindstand: number | null
-): number | null {
-  if (
-    beginstand === null ||
-    eindstand === null ||
-    eindstand < beginstand
-  ) {
-    return null;
-  }
-
-  return eindstand - beginstand;
-}
-
-function som(
-  eerste: number | null,
-  tweede: number | null
-): number | null {
-  if (eerste === null && tweede === null) {
-    return null;
-  }
-
-  return (eerste ?? 0) + (tweede ?? 0);
-}
 
 function verbruikswaarde(
   totaal: number | null,
@@ -82,8 +50,8 @@ export function berekenVerbruiksperiodes(
 ): Verbruiksperiode[] {
   const oplopend = [...meterstanden].sort(
     (a, b) =>
-      datumNaarTijd(a.opnamedatum) -
-      datumNaarTijd(b.opnamedatum)
+      datumTijd(a.opnamedatum) -
+      datumTijd(b.opnamedatum)
   );
 
   const periodes: Verbruiksperiode[] = [];
@@ -98,13 +66,13 @@ export function berekenVerbruiksperiodes(
 
     const aantalDagen = Math.round(
       (
-        datumNaarTijd(huidige.opnamedatum) -
-        datumNaarTijd(vorige.opnamedatum)
+        datumTijd(huidige.opnamedatum) -
+        datumTijd(vorige.opnamedatum)
       ) /
         86400000
     );
 
-    if (aantalDagen <= 0) {
+    if (aantalDagen <= 0 || vorige.woning_id !== huidige.woning_id) {
       continue;
     }
 
@@ -124,10 +92,7 @@ export function berekenVerbruiksperiodes(
       vorige.nachtstroom_kwh,
       huidige.nachtstroom_kwh
     );
-    const elektriciteitTotaal = som(
-      dagstroomTotaal,
-      nachtstroomTotaal
-    );
+    const elektriciteitTotaal = elektriciteitsMeting(vorige, huidige).waarde;
     const gasTotaal = verschil(
       vorige.gas_m3,
       huidige.gas_m3

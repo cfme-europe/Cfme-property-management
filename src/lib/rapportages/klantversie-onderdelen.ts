@@ -3,6 +3,7 @@ export const klantversieOnderdelen = [
   ["opvolging", "Meldingen en opvolgsnelheid"],
   ["reparaties", "Reparaties en oplossingen"],
   ["energie", "Energieverbruik en vergelijking"],
+  ["energie_intelligence", "Extra energiepagina (optioneel)"],
   ["inspecties", "Inspecties"],
   ["aandachtspunten", "Openstaande aandachtspunten"],
 ] as const;
@@ -29,6 +30,10 @@ export function leesKlantversieOnderdelen(
 
 export function alleKlantversieOnderdelen(): Set<KlantversieOnderdeel> {
   return new Set(
-    klantversieOnderdelen.map(([sleutel]) => sleutel),
+    klantversieOnderdelen.filter(([sleutel]) => sleutel !== "energie_intelligence").map(([sleutel]) => sleutel),
   );
+}
+
+export function klantversiePaginaAantal(onderdelen: ReadonlySet<KlantversieOnderdeel>): number {
+  return 1 + Number(onderdelen.has("reparaties")) + Number(onderdelen.has("energie_intelligence"));
 }

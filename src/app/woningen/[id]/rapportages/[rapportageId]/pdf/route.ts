@@ -1,3 +1,5 @@
+import {getEnergieRapportSnapshot} from "@/services/energie-rapportage-server";
+import {tekenEnergieRapportPagina} from "@/lib/energie/rapport-pdf";
 import { NextResponse } from "next/server";
 import { jsPDF } from "jspdf";
 import { createClient } from "@/lib/supabase/server";
@@ -16,6 +18,7 @@ import {
 } from "@/lib/rapportages/klantwaarde-rapportage";
 import {
   alleKlantversieOnderdelen,
+  klantversiePaginaAantal,
   leesKlantversieOnderdelen,
   type KlantversieOnderdeel,
 } from "@/lib/rapportages/klantversie-onderdelen";
@@ -37,7 +40,7 @@ function tekenKlantwaardePdf(
   const toon = (onderdeel: KlantversieOnderdeel) =>
     onderdelen.has(onderdeel);
   const heeftTweedePagina = toon("reparaties");
-  const totaalPaginas = heeftTweedePagina ? 2 : 1;
+  const totaalPaginas = klantversiePaginaAantal(onderdelen);
 
   function kop(pagina: number) {
     document.setTextColor(4, 120, 87);
@@ -256,7 +259,7 @@ function tekenKlantwaardePdf(
     vervolgY += 33;
   }
 
-  if (toon("energie")) {
+  if (toon("energie") && !toon("energie_intelligence")) {
     tekenEnergie(vervolgY);
   }
 
@@ -525,6 +528,11 @@ export async function GET(
     );
   }
 
+  let energiesnapshot;
+  if(onderdelen.has("energie_intelligence")){
+    try { energiesnapshot=await getEnergieRapportSnapshot(zoekparameters.get("energie_snapshot")??"",rapportage.id,woningId); } catch { return NextResponse.json({fout:"Kies een energiesnapshot die bij deze rapportage hoort."},{status:400}); }
+  }
+
   if (!rapportage.rapport_data.gegenereerd_op) {
     return NextResponse.json(
       {
@@ -577,6 +585,7 @@ export async function GET(
               rapportage.rapportmaand,
             variant: klantversie ? "klantwaarde" : "standaard",
             onderdelen: klantversie ? [...onderdelen] : null,
+            energie_snapshot_id: energiesnapshot ? zoekparameters.get("energie_snapshot") : null,
           },
         })
         .select("id")
@@ -1039,6 +1048,8 @@ export async function GET(
     }
 
     }
+
+    if(energiesnapshot) tekenEnergieRapportPagina(document,energiesnapshot,woning.adres);
 
     const paginaAantal =
       document.getNumberOfPages();

@@ -50,7 +50,7 @@ test("voorbeeld en export gebruiken dezelfde goedgekeurde klantindeling", async 
   assert.match(weergave, /Energieverbruik versus vorige periode/);
   assert.match(pdf, /percentageBreedte/);
   assert.match(pdf, /document\.roundedRect\(balkX/);
-  assert.match(pdf, /const totaalPaginas = heeftTweedePagina \? 2 : 1/);
+  assert.match(pdf, /klantversiePaginaAantal\(onderdelen\)/);
 });
 
 test("verkeerde tweede template verdwijnt uit keuze en beheer", async () => {

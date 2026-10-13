@@ -117,7 +117,7 @@ test("vergelijkt huidige en vorige kalendermaand", () => {
 });
 
 test("berekent energie per persoon per week met persoonsdagen", () => {
-  const uitkomst = bouwRapportagemotor(basis);
+  const uitkomst = bouwRapportagemotor({...basis,meterstanden:basis.meterstanden.map(m=>m.id===2?{...m,opnamedatum:"2026-07-01"}:m)});
 
   assert.equal(
     uitkomst.energie.elektriciteit.totaal,
@@ -125,11 +125,11 @@ test("berekent energie per persoon per week met persoonsdagen", () => {
   );
   assert.equal(
     uitkomst.energie.elektriciteit.persoonsweken,
-    62 / 7,
+    60 / 7,
   );
   assert.equal(
     uitkomst.energie.elektriciteit.per_persoon_per_week,
-    150 / (62 / 7),
+    150 / (60 / 7),
   );
 });
 
@@ -185,4 +185,10 @@ test("open afwijking met hoge urgentie krijgt minimaal middel risico", () => {
         factor.includes("hoge urgentie"),
     ),
   );
+});
+
+test("interval starting before the report month is not a complete exact month",()=>{
+ const result=bouwRapportagemotor(basis);
+ assert.equal(result.energie.elektriciteit.totaal,null);
+ assert.equal(result.energie.elektriciteit.afwijking_percentage,null);
 });

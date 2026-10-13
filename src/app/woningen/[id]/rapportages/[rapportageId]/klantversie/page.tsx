@@ -1,3 +1,4 @@
+import {getEnergieRapportSnapshot} from "@/services/energie-rapportage-server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import KlantwaardeMaandrapportage from "@/components/rapportages/KlantwaardeMaandrapportage";
@@ -12,7 +13,7 @@ export default async function KlantversieVoorbeeldPage({
   searchParams,
 }: {
   params: Promise<{ id: string; rapportageId: string }>;
-  searchParams: Promise<{ onderdelen?: string }>;
+  searchParams: Promise<{ onderdelen?: string; energie_snapshot?:string }>;
 }) {
   const { id, rapportageId } = await params;
   const woningId = Number(id);
@@ -45,8 +46,10 @@ export default async function KlantversieVoorbeeldPage({
     notFound();
   }
 
+  const energie = onderdelen.has("energie_intelligence") ? await getEnergieRapportSnapshot(zoekparameters.energie_snapshot??"",rapportage.id,woningId) : undefined;
   const query = new URLSearchParams({
     variant: "klantwaarde",
+    ...(energie ? {energie_snapshot:zoekparameters.energie_snapshot!} : {}),
     onderdelen: [...onderdelen].join(","),
   }).toString();
 
@@ -68,9 +71,11 @@ export default async function KlantversieVoorbeeldPage({
           </a>
         </div>
 
+        {energie && <a className="mb-4 inline-block font-semibold text-emerald-800 print:hidden" href={`/woningen/${woning.id}/rapportages/${rapportage.id}/energie-excel?energie_snapshot=${zoekparameters.energie_snapshot}`}>Energiespecificatie downloaden (Excel)</a>}
         <KlantwaardeMaandrapportage
           rapportage={rapportage}
           onderdelen={onderdelen}
+          energiesnapshot={energie}
         />
       </div>
     </main>

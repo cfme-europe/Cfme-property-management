@@ -1,3 +1,5 @@
+import EnergieRapportPagina from "./EnergieRapportPagina";
+import type {EnergieKlantSnapshot} from "@/lib/energie/snapshot";
 import {
   alsObject,
   tekst,
@@ -7,6 +9,7 @@ import {
 } from "@/lib/rapportages/klantwaarde-rapportage";
 import {
   alleKlantversieOnderdelen,
+  klantversiePaginaAantal,
   type KlantversieOnderdeel,
 } from "@/lib/rapportages/klantversie-onderdelen";
 import type { Maandrapportage } from "@/types/maandrapportage";
@@ -62,9 +65,11 @@ function RapportKop({
 
 export default function KlantwaardeMaandrapportage({
   rapportage,
+  energiesnapshot,
   onderdelen = alleKlantversieOnderdelen(),
 }: {
   rapportage: Maandrapportage;
+  energiesnapshot?: EnergieKlantSnapshot;
   onderdelen?: ReadonlySet<KlantversieOnderdeel>;
 }) {
   const waarde = bouwKlantwaardeRapportage(
@@ -74,7 +79,7 @@ export default function KlantwaardeMaandrapportage({
   const toon = (onderdeel: KlantversieOnderdeel) =>
     onderdelen.has(onderdeel);
   const heeftTweedePagina = toon("reparaties");
-  const totaalPaginas = heeftTweedePagina ? 2 : 1;
+  const totaalPaginas = klantversiePaginaAantal(onderdelen);
 
   const kpis = [
     toon("inspecties")
@@ -167,14 +172,14 @@ export default function KlantwaardeMaandrapportage({
           </section>
         )}
 
-        {toon("energie") && <section className="mt-8 rounded-2xl border border-slate-200 p-6">
+        {toon("energie") && !toon("energie_intelligence") && <section className="mt-8 rounded-2xl border border-slate-200 p-6">
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
               <h3 className="text-xl font-black text-slate-950">
                 Energieverbruik versus vorige periode
               </h3>
               <p className="mt-1 text-xs text-slate-500">
-                Verbruik per persoon per week; zo blijft ontwikkeling eerlijk vergelijkbaar.
+                Verbruik per persoon per week uit historische rapportwaarden; kalenderdekking en vergelijkbaarheid zijn in deze oudere momentopname niet bewezen.
               </p>
             </div>
             <div className="flex gap-4 text-xs text-slate-500">
@@ -257,6 +262,7 @@ export default function KlantwaardeMaandrapportage({
           </p>
         </div>
       </section>}
+      {toon("energie_intelligence") && energiesnapshot && <EnergieRapportPagina snapshot={energiesnapshot} adres={tekst(alsObject(rapportage.rapport_data.woning),"adres")} pagina={totaalPaginas} totaalPaginas={totaalPaginas}/>}
     </div>
   );
 }
