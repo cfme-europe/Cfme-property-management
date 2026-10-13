@@ -48,6 +48,7 @@ export type CockpitKosten = {
 };
 
 export type BusinessIntelligenceCockpit = {
+  woningen: CockpitWoning[];
   kpis: {
     controles_vandaag: number;
     woningen_met_aandacht: number;

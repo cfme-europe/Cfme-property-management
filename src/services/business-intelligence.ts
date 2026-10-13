@@ -652,6 +652,7 @@ export async function getBusinessIntelligenceCockpit(): Promise<
     );
 
   return {
+    woningen,
     kpis: {
       controles_vandaag:
         planningSamenvatting.vandaag,
