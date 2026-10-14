@@ -96,19 +96,23 @@ export default function EnergieMaandSelectie({
   const [homeSelectionMode, setHomeSelectionMode] = useState(woningselectie);
   const [selectedMonths, setSelectedMonths] = useState(maanden);
   const [selectedReference, setSelectedReference] = useState(referentiemaand);
-  const [monthToAddMonth, setMonthToAddMonth] = useState(
-    maanden[0]?.slice(5) ?? "01",
-  );
   const [monthToAddYear, setMonthToAddYear] = useState(Number(maanden[0]?.slice(0, 4) ?? new Date().getUTCFullYear()));
   const [search, setSearch] = useState("");
+  const [selectionOpen, setSelectionOpen] = useState(
+    weergave === "selectie" ||
+      (weergave === "klant" && bedrijfIds.length === 0) ||
+      Boolean(validationError),
+  );
+  const [monthSelectionError, setMonthSelectionError] = useState("");
   const [editingHomes, setEditingHomes] = useState(
     weergave === "selectie" || woningselectie !== "automatisch",
   );
   const validationErrorRef = useRef<HTMLParagraphElement>(null);
+  const displayedValidationError = validationError ?? monthSelectionError;
 
   useEffect(() => {
-    if (validationError) validationErrorRef.current?.focus();
-  }, [validationError]);
+    if (displayedValidationError) validationErrorRef.current?.focus();
+  }, [displayedValidationError]);
 
   const jaaropties = useMemo(() => {
     const selectedYears = selectedMonths.map((month) => Number(month.slice(0, 4)));
@@ -122,7 +126,11 @@ export default function EnergieMaandSelectie({
     return new Set(
       woningen
         .filter((woning) => {
-          if (!selectedMonths.length) return false;
+          if (
+            !selectedMonths.length ||
+            (weergave === "klant" && selectedCompanySet.size === 0)
+          )
+            return false;
           const matchingRelations = relaties.filter(
             (relation) =>
               relation.woning_id === woning.id &&
@@ -138,7 +146,10 @@ export default function EnergieMaandSelectie({
               ),
           );
           if (weergave === "selectie") return matchingRelations.length > 0;
-          return selectedCompanySet.size === 0 || matchingRelations.length > 0;
+          return (
+            (selectedCompanySet.size === 0 && weergave !== "klant") ||
+            matchingRelations.length > 0
+          );
         })
         .map((woning) => woning.id),
     );
@@ -165,7 +176,11 @@ export default function EnergieMaandSelectie({
     const applicableHomes = new Set(
       woningen
         .filter((woning) => {
-          if (!monthSelection.length) return false;
+          if (
+            !monthSelection.length ||
+            (weergave === "klant" && companies.size === 0)
+          )
+            return false;
           const matchingRelations = relaties.filter(
             (relation) =>
               relation.woning_id === woning.id &&
@@ -182,7 +197,8 @@ export default function EnergieMaandSelectie({
           );
           return weergave === "selectie"
             ? matchingRelations.length > 0
-            : companies.size === 0 || matchingRelations.length > 0;
+            : (companies.size === 0 && weergave !== "klant") ||
+                matchingRelations.length > 0;
         })
         .map((woning) => woning.id),
     );
@@ -192,6 +208,13 @@ export default function EnergieMaandSelectie({
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
+    if (!selectedMonths.length) {
+      event.preventDefault();
+      setMonthSelectionError("Selecteer minimaal één kalendermaand.");
+      setSelectionOpen(true);
+      return;
+    }
+    setMonthSelectionError("");
     if (weergave === "selectie") return;
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
@@ -205,10 +228,15 @@ export default function EnergieMaandSelectie({
   }
 
   function toggleCompany(id: number) {
-    const next = selectedCompanies.includes(id)
-      ? selectedCompanies.filter((item) => item !== id)
-      : [...selectedCompanies, id];
+    const next =
+      weergave === "klant"
+        ? [id]
+        : selectedCompanies.includes(id)
+          ? selectedCompanies.filter((item) => item !== id)
+          : [...selectedCompanies, id];
     setSelectedCompanies(next);
+    setHomeSelectionMode("automatisch");
+    setSelectedHomes([]);
     updateHomesForSelection(next, selectedMonths);
   }
 
@@ -221,10 +249,27 @@ export default function EnergieMaandSelectie({
   }
 
   function updateMonths(next: string[]) {
-    setSelectedMonths(next);
-    if (!next.includes(selectedReference))
-      setSelectedReference(next[0] ?? "");
+    const sorted = [...new Set(next)].sort();
+    setSelectedMonths(sorted);
+    setMonthSelectionError("");
+    if (!sorted.includes(selectedReference))
+      setSelectedReference(sorted[0] ?? "");
     updateHomesForSelection(selectedCompanies, next);
+  }
+
+  function toggleMonth(month: string) {
+    if (
+      !selectedMonths.includes(month) &&
+      selectedMonths.length >= 36
+    ) {
+      setMonthSelectionError("Selecteer maximaal 36 kalendermaanden tegelijk.");
+      return;
+    }
+    updateMonths(
+      selectedMonths.includes(month)
+        ? selectedMonths.filter((item) => item !== month)
+        : [...selectedMonths, month],
+    );
   }
 
   return (
@@ -259,6 +304,7 @@ export default function EnergieMaandSelectie({
                 : "leeg"
         }
       />
+      <input type="hidden" name="maanden_ingediend" value="1" />
       {selectedMonths.map((month) => (
         <input key={month} type="hidden" name="maand" value={month} />
       ))}
@@ -267,6 +313,29 @@ export default function EnergieMaandSelectie({
           <input key={home.id} type="hidden" name="woning" value={home.id} />
         ))}
 
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="min-w-0 text-sm text-slate-700">
+        {displayedHomes.length} {displayedHomes.length === 1 ? "pand" : "panden"} ·{" "}
+        {selectedMonths.length
+          ? `${selectedMonths.map(maandnaam).join(" · ")} · ${
+              producten.find(([key]) => key === drager)?.[1] ?? ""
+            } · ${maat === "verbruik" ? "Verbruik" : "Kosten"} · ${
+              aggregatie === "persoon" ? "per persoon/week" : "totaal pand"
+            } · sorteren op ${selectedReference ? maandnaam(selectedReference) : "—"}`
+          : "Geen maanden geselecteerd"}
+        </p>
+        <button
+        type="button"
+        aria-expanded={selectionOpen}
+        onClick={() => setSelectionOpen((open) => !open)}
+        className="min-h-11 rounded-lg border border-emerald-800 px-4 text-sm font-semibold text-emerald-950"
+        >
+        {selectionOpen ? "Selectie sluiten" : "Selectie wijzigen"}
+        </button>
+      </div>
+
+      {selectionOpen && (
+      <>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         {weergave !== "selectie" && (
           <details className="min-w-0">
@@ -285,7 +354,7 @@ export default function EnergieMaandSelectie({
                   className="flex min-h-11 items-center gap-3 px-2 text-sm hover:bg-emerald-50"
                 >
                   <input
-                    type="checkbox"
+                    type={weergave === "klant" ? "radio" : "checkbox"}
                     name="bedrijf"
                     value={bedrijf.id}
                     checked={selectedCompanies.includes(bedrijf.id)}
@@ -372,7 +441,7 @@ export default function EnergieMaandSelectie({
                     setHomeSelectionMode("automatisch");
                     setSelectedHomes([]);
                   }}
-                  className="mt-2 min-h-10 text-sm font-semibold text-emerald-800 underline underline-offset-4"
+                  className="mt-2 min-h-11 text-sm font-semibold text-emerald-800 underline underline-offset-4"
                 >
                   Automatische selectie herstellen
                 </button>
@@ -458,33 +527,28 @@ export default function EnergieMaandSelectie({
         </label>
       </div>
 
-      <fieldset className="border-t border-stone-200 pt-3">
+      <fieldset
+        aria-invalid={Boolean(
+          displayedValidationError?.toLowerCase().includes("maand"),
+        )}
+        aria-describedby={
+          displayedValidationError?.toLowerCase().includes("maand")
+            ? "maandselectiefout"
+            : undefined
+        }
+        className="border-t border-stone-200 pt-3"
+      >
         <legend className="px-1 text-sm font-semibold text-emerald-950">
           Kalendermaanden
         </legend>
-        <div className="grid gap-2 sm:grid-cols-[minmax(8rem,1fr)_minmax(7rem,0.7fr)_auto]">
-          <label className="text-sm font-medium">
-            Maand
-            <select
-              value={monthToAddMonth}
-              onChange={(event) => setMonthToAddMonth(event.target.value)}
-              className={`${veld} mt-1`}
-              aria-label="Maand toevoegen"
-            >
-              {maandenVanJaar.map((month) => (
-                <option key={month} value={String(month).padStart(2, "0")}>
-                  {maandnamen.format(new Date(Date.UTC(2024, month - 1, 1)))}
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="max-w-48">
           <label className="text-sm font-medium">
             Jaar
             <select
               value={monthToAddYear}
               onChange={(event) => setMonthToAddYear(Number(event.target.value))}
               className={`${veld} mt-1`}
-              aria-label="Jaar toevoegen"
+              aria-label="Jaar voor maandselectie"
             >
               {jaaropties.map((year) => (
                 <option key={year} value={year}>
@@ -493,80 +557,78 @@ export default function EnergieMaandSelectie({
               ))}
             </select>
           </label>
-          <button
-            type="button"
-            disabled={selectedMonths.includes(
-              `${monthToAddYear}-${monthToAddMonth}`,
-            )}
-            onClick={() => {
-              const next = [
-                ...selectedMonths,
-                `${monthToAddYear}-${monthToAddMonth}`,
-              ].sort();
-              updateMonths(next);
-            }}
-            className="min-h-11 self-end rounded-lg border border-emerald-800 px-4 font-semibold text-emerald-900 disabled:opacity-50"
-          >
-            Maand toevoegen
-          </button>
         </div>
-        <ul className="mt-3 flex flex-wrap gap-2">
+        <div
+          aria-label={`Maanden in ${monthToAddYear}`}
+          className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4"
+        >
+          {maandenVanJaar.map((month) => {
+            const key = `${monthToAddYear}-${String(month).padStart(2, "0")}`;
+            const selected = selectedMonths.includes(key);
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => toggleMonth(key)}
+                className={`min-h-11 rounded-lg border px-2 text-sm font-semibold capitalize ${
+                  selected
+                    ? "border-emerald-900 bg-emerald-900 text-white"
+                    : "border-emerald-900/30 bg-white text-emerald-950 hover:bg-emerald-50"
+                }`}
+              >
+                {maandnamen.format(new Date(Date.UTC(2024, month - 1, 1)))}
+              </button>
+            );
+          })}
+        </div>
+        <ul aria-label="Geselecteerde maanden" className="mt-3 flex flex-wrap gap-2">
           {selectedMonths.map((month) => (
             <li
               key={month}
               className="flex items-center gap-1 border-b border-emerald-800/30 py-1 pl-2"
             >
-              <label className="flex min-h-9 items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="sorteermaand"
-                  value={month}
-                  checked={month === selectedReference}
-                  onChange={() => setSelectedReference(month)}
-                  aria-label={`Sorteren op ${maandnaam(month)}`}
-                />
-                <span>{maandnaam(month)}</span>
-              </label>
+              <span className="text-sm">{maandnaam(month)}</span>
               <button
                 type="button"
                 aria-label={`${maandnaam(month)} verwijderen`}
                 onClick={() =>
                   updateMonths(selectedMonths.filter((item) => item !== month))
                 }
-                className="min-h-9 min-w-9 rounded-full text-slate-700 hover:bg-emerald-50"
+                className="min-h-11 min-w-11 rounded-full text-slate-700 hover:bg-emerald-50"
               >
                 ×
-              </button>
+                </button>
             </li>
           ))}
         </ul>
         <p className="mt-2 text-xs text-slate-600">
-          Niet-aaneengesloten maanden zijn toegestaan; markeer de referentiemaand
-          om de sortering te wijzigen.
+          Selecteer maanden in meerdere jaren zonder de overige maanden te verliezen.
         </p>
       </fieldset>
 
-      {validationError && (
+      {displayedValidationError && (
         <p
+          id="maandselectiefout"
           ref={validationErrorRef}
           role="alert"
           tabIndex={-1}
           className="border-l-4 border-rose-700 bg-rose-50 p-3 text-sm text-rose-950 outline-none"
         >
-          {validationError}
+          {displayedValidationError}
         </p>
       )}
       <button
         type="submit"
-        disabled={pending || selectedMonths.length === 0}
+        disabled={pending}
         className="min-h-12 rounded-lg bg-emerald-900 px-5 py-3 font-bold text-white hover:bg-emerald-950 disabled:opacity-60"
       >
         {pending
           ? "Analyse wordt bijgewerkt…"
-          : weergave === "selectie"
-            ? "Toon anonieme preview"
-            : "Analyse toepassen"}
+          : "Toon vergelijking"}
       </button>
+      </>
+      )}
     </form>
   );
 }

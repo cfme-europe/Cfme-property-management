@@ -2,6 +2,7 @@ import {
   bouwEnergiePortfolioAnalyse,
   type Brondata,
   type EnergieAnalyseRij,
+  type EnergieInterval,
   type Energiedrager,
 } from "./portfolio-analyse";
 import { dagen, datumTijd } from "./rekenregels";
@@ -38,9 +39,20 @@ export type EnergieMaandMeting = {
   perPersoonPerWeek: number | null;
   dekking: number;
   status: "volledig" | "gedeeltelijk" | "geen";
+  betrouwbaarheid: string | null;
+  waarschuwingen: string[];
   kosten: Energiekosten;
   kostenPerPersoonPerWeek: number | null;
-  periodes: Array<{ vanaf: string; tot: string; verbruik: number }>;
+  periodes: Array<{
+    vanaf: string;
+    tot: string;
+    verbruik: number;
+    bronVanaf: string;
+    bronTot: string;
+    bronVelden: string[];
+    persoonsdagen: number;
+    geschat: boolean;
+  }>;
   laatsteMeetdatum: string | null;
   naarRato: boolean;
 };
@@ -140,6 +152,7 @@ export function herstelEnergieSelectieNaValidatiefout(
     "woning",
     "woningselectie",
     "maand",
+    "maanden_ingediend",
     "referentiemaand",
     "drager",
     "maat",
@@ -224,6 +237,8 @@ export function leesEnergieMaandSelectie(
       return id;
     });
   const rawMonths = list("maand");
+  if (!rawMonths.length && single("maanden_ingediend", "0") === "1")
+    throw new Error("Selecteer minimaal één kalendermaand.");
   const { maanden, referentiemaand } = controleerEnergieMaandselectie(
     rawMonths.length ? rawMonths : ["2026-09"],
     single("referentiemaand", rawMonths[0] ?? "2026-09"),
@@ -400,32 +415,10 @@ function productHeeftMeting(
       ));
 }
 
-function laatsteMeetdatum(
-  bron: Brondata,
-  woningId: number,
-  drager: Energiedrager,
-  tot: string,
-): string | null {
-  const waardeAanwezig = (meter: Brondata["meterstanden"][number]) => {
-    if (drager === "gas") return meter.gas_m3 !== null;
-    if (drager === "water") return meter.water_m3 !== null;
-    if (drager === "dagstroom") return meter.dagstroom_kwh !== null;
-    if (drager === "nachtstroom") return meter.nachtstroom_kwh !== null;
-    return (
-      meter.elektriciteit_kwh !== null ||
-      meter.dagstroom_kwh !== null ||
-      meter.nachtstroom_kwh !== null
-    );
-  };
+function laatsteMeetdatum(intervallen: EnergieInterval[]): string | null {
   return (
-    bron.meterstanden
-      .filter(
-        (meter) =>
-          meter.woning_id === woningId &&
-          meter.opnamedatum <= tot &&
-          waardeAanwezig(meter),
-      )
-      .map((meter) => meter.opnamedatum)
+    intervallen
+      .map((interval) => interval.bronTot)
       .sort()
       .at(-1) ?? null
   );
@@ -546,6 +539,8 @@ export function bouwEnergieMaandAnalyse(
         dagen: periode.dagen,
         verbruik,
         persoonsdagen,
+        betrouwbaarheid: rij?.betrouwbaarheid ?? null,
+        waarschuwingen: [...new Set(rij?.meldingen ?? [])],
         perPersoonPerWeek:
           status === "volledig" && rij ? rij.per_persoon_per_week : null,
         dekking,
@@ -561,13 +556,13 @@ export function bouwEnergieMaandAnalyse(
           vanaf: interval.vanDatum,
           tot: interval.totDatum,
           verbruik: interval.waarde!,
+          bronVanaf: interval.bronVanaf,
+          bronTot: interval.bronTot,
+          bronVelden: interval.bronVelden ?? [],
+          persoonsdagen: interval.persoonsdagen,
+          geschat: interval.geschat,
         })),
-        laatsteMeetdatum: laatsteMeetdatum(
-          beschikbareBrondata,
-          woning.id,
-          selectie.drager,
-          periode.tot,
-        ),
+        laatsteMeetdatum: laatsteMeetdatum(rij?.intervallen ?? []),
         naarRato: intervallen.some((interval) => interval.geschat),
       };
     }),

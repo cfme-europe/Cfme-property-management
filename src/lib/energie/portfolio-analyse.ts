@@ -544,16 +544,14 @@ export function bouwEnergiePortfolioAnalyse(
       (100 * gedekteDagen(usable)) / dagen(sel.vanaf, sel.totEnMet);
     const norm =
       pd > 0 &&
-      dekking === 100 &&
-      !usable.some((i) => i.bezettingsconflict)
+      dekking === 100
       ? totaal! / (pd / 7)
       : null;
     const normPerPeriode =
       pd > 0 &&
-      dekking === 100 &&
-      !usable.some((i) => i.bezettingsconflict)
-        ? totaal! / (pd / dagen(sel.vanaf, sel.totEnMet))
-        : null;
+      dekking === 100
+      ? totaal! / (pd / dagen(sel.vanaf, sel.totEnMet))
+      : null;
     const exact =
       (100 * gedekteDagen(usable.filter((i) => !i.geschat))) /
       dagen(sel.vanaf, sel.totEnMet);

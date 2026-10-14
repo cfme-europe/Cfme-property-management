@@ -285,8 +285,8 @@ async function maakEnergiePdf(
     const pageWidth = document.internal.pageSize.getWidth();
     const pageHeight = document.internal.pageSize.getHeight();
     const margin = 15;
-    const barStart = margin + 35;
-    const barWidth = 65;
+    const barStart = margin + 66;
+    const barWidth = 52;
     const selectedMonths = analyse.selectie.maanden;
     const measureLabel =
       analyse.selectie.maat === "verbruik" ? "Verbruik" : "Kosten";
@@ -294,11 +294,10 @@ async function maakEnergiePdf(
       analyse.selectie.aggregatie === "persoon"
         ? "Per persoon/week"
         : "Totaal pand per maand";
-    const referenceLabel = monthLabel(analyse.selectie.referentiemaand);
     const reportScope =
       `${selectedMonths.map(monthLabel).join(" · ")} · ` +
       `${productLabel[analyse.selectie.drager]} · ${measureLabel} · ` +
-      `${aggregationLabel} · Gesorteerd op ${referenceLabel} · geselecteerde selectie`;
+      `${aggregationLabel} · geselecteerde selectie`;
     const maximum = maximumEnergieMaandwaarde(
       analyse.woningen,
       analyse.selectie.maat,
@@ -330,7 +329,211 @@ async function maakEnergiePdf(
           sourceId: home.id,
         }));
 
+    const monthPages = Array.from(
+      { length: Math.ceil(selectedMonths.length / 12) },
+      (_, index) => selectedMonths.slice(index * 12, index * 12 + 12),
+    );
     let chartPageCount = 0;
+    for (const pageMonths of monthPages) {
+      const legendMonths = pageMonths.includes(analyse.selectie.referentiemaand)
+        ? pageMonths
+        : [...pageMonths, analyse.selectie.referentiemaand];
+      const rows = buildings.flatMap((home) =>
+        pageMonths.flatMap((monthName) => {
+          const month = home.months.find((entry) => entry.maand === monthName);
+          return month ? [{ home, month, monthName }] : [];
+        }),
+      );
+      const rowsPerPage = 22;
+      const rowPages = Array.from(
+        { length: Math.ceil(rows.length / rowsPerPage) },
+        (_, index) => rows.slice(index * rowsPerPage, (index + 1) * rowsPerPage),
+      );
+
+      for (const [pageIndex, pageRows] of rowPages.entries()) {
+        if (chartPageCount > 0) document.addPage();
+        chartPageCount += 1;
+        const pageScope =
+          `${pageMonths.map(monthLabel).join(" · ")} · ` +
+          `${productLabel[analyse.selectie.drager]} · ${measureLabel} · ` +
+          `${aggregationLabel}`;
+        let y = 15;
+        document.setFont("helvetica", "normal");
+        document.setFontSize(6);
+        const selectedPeriodLabel = document.splitTextToSize(
+          `${pageScope}${pageIndex ? " · vervolg" : ""}`,
+          pageWidth - margin * 2,
+        ) as string[];
+        const headerHeight = Math.max(
+          39,
+          32 + selectedPeriodLabel.length * 3.2 + 7,
+        );
+        document.setFillColor(20, 83, 45);
+        document.rect(0, 0, pageWidth, headerHeight, "F");
+        document.setFont("helvetica", "bold");
+        document.setFontSize(8);
+        document.setTextColor(110, 231, 183);
+        document.text("CFME CONTROL", margin, y);
+        y += 9;
+        document.setFontSize(16);
+        document.setTextColor(255, 255, 255);
+        document.text("Verbruik in beeld", margin, y);
+        y += 8;
+        document.setFont("helvetica", "normal");
+        document.setFontSize(7);
+        document.setTextColor(226, 232, 240);
+        document.text(selectedPeriodLabel, margin, y);
+
+        y = headerHeight + 8;
+        document.setFont("helvetica", "normal");
+        document.setFontSize(6);
+        document.setTextColor(71, 85, 105);
+        legendMonths.forEach((monthName, monthIndex) => {
+          const color = pdfKleur(monthName);
+          const column = Math.floor(monthIndex / 7);
+          const row = monthIndex % 7;
+          const legendX = margin + column * 89;
+          const legendY = y + row * 4;
+          document.setFillColor(color[0], color[1], color[2]);
+          document.rect(legendX, legendY - 2, 3, 3, "F");
+          document.text(
+            `${monthLabel(monthName)}${
+              monthName === analyse.selectie.referentiemaand
+                ? " · sorteermaand"
+                : ""
+            }`,
+            legendX + 5,
+            legendY,
+          );
+        });
+        y += 31;
+
+        document.setFont("helvetica", "bold");
+        document.setFontSize(6);
+        document.setTextColor(71, 85, 105);
+        document.text("Pand", margin, y);
+        document.text("Maand", margin + 38, y);
+        document.text(
+          `Vergelijking · gezamenlijke schaal (${analyse.eenheid})`,
+          barStart,
+          y,
+        );
+        document.text("Waarde", barStart + barWidth + 2, y);
+        document.text(
+          analyse.selectie.maat === "kosten" ? "Verbruik" : "Kosten",
+          pageWidth - margin,
+          y,
+          { align: "right" },
+        );
+        y += 3;
+        document.setFont("helvetica", "normal");
+        document.setFontSize(5.5);
+        document.setTextColor(71, 85, 105);
+        document.setDrawColor(100, 116, 139);
+        document.line(barStart, y, barStart + barWidth, y);
+        [0, 0.25, 0.5, 0.75, 1].forEach((fraction) => {
+          const x = barStart + barWidth * fraction;
+          document.line(x, y - 1, x, y + 1);
+          document.text(
+            formatted(maximum * fraction, 2),
+            x,
+            y + 3,
+            {
+              align:
+                fraction === 0 ? "left" : fraction === 1 ? "right" : "center",
+            },
+          );
+        });
+        y += 6;
+
+        let previousHome = "";
+        for (const { home, month, monthName } of pageRows) {
+          const value = waardeEnergieMaand(
+            month,
+            analyse.selectie.maat,
+            analyse.selectie.aggregatie,
+          );
+          const full = month.status === "volledig" && value !== null;
+          const unit =
+            analyse.selectie.maat === "kosten"
+              ? `${month.kosten.valuta ?? "kosten"}${
+                  analyse.selectie.aggregatie === "persoon"
+                    ? " per persoon/week"
+                    : " maandtotaal"
+                }`
+              : analyse.selectie.aggregatie === "persoon"
+                ? `${analyse.eenheid} per persoon/week`
+                : `${analyse.eenheid} maandtotaal`;
+          const state =
+            month.status === "geen"
+              ? monthName > new Date().toISOString().slice(0, 7)
+                ? "Nog geen meetgegevens"
+                : "Geen gegevens"
+              : month.status === "gedeeltelijk"
+                ? `Onvolledig · ${formatted(month.verbruik)} ${analyse.eenheid} gemeten`
+                : value === null && analyse.selectie.maat === "kosten"
+                  ? "Kosten onbekend"
+                  : value === null
+                    ? "Bewoning onbekend"
+                    : `${analyse.selectie.maat === "kosten"
+                        ? currency(value, month.kosten.valuta) ?? "Kosten onbekend"
+                        : formatted(value)} ${unit}`;
+          const color = pdfKleur(monthName);
+          document.setFont("helvetica", "normal");
+          document.setFontSize(6);
+          document.setTextColor(51, 65, 85);
+          const homeKey =
+            home.sourceId === undefined ? home.label : String(home.sourceId);
+          if (homeKey !== previousHome) {
+            const labelLines = document.splitTextToSize(home.label, 34) as string[];
+            document.text(
+              `${labelLines[0]}${labelLines.length > 1 ? "…" : ""}`,
+              margin,
+              y,
+            );
+            previousHome = homeKey;
+          }
+          document.text(monthLabel(monthName), margin + 38, y);
+          document.setFillColor(236, 242, 235);
+          document.roundedRect(barStart, y - 2.3, barWidth, 2.2, 1, 1, "F");
+          if (full && maximum > 0) {
+            document.setFillColor(color[0], color[1], color[2]);
+            document.roundedRect(
+              barStart,
+              y - 2.3,
+              Math.max(0.2, (barWidth * value!) / maximum),
+              2.2,
+              1,
+              1,
+              "F",
+            );
+          } else if (month.status === "gedeeltelijk") {
+            document.setDrawColor(color[0], color[1], color[2]);
+            document.setLineDashPattern([1, 1], 0);
+            document.line(barStart, y - 1.2, barStart + barWidth, y - 1.2);
+            document.setLineDashPattern([], 0);
+          }
+          document.setTextColor(15, 23, 42);
+          document.setFont("helvetica", "bold");
+          document.setFontSize(6);
+          document.text(
+            document.splitTextToSize(state, 49) as string[],
+            barStart + barWidth + 2,
+            y,
+          );
+          const secondary =
+            analyse.selectie.maat === "kosten"
+              ? `${formatted(month.verbruik)} ${analyse.eenheid}`
+              : currency(month.kosten.totaal, month.kosten.valuta) ?? "—";
+          document.setFont("helvetica", "normal");
+          document.setFontSize(6);
+          document.setTextColor(71, 85, 105);
+          document.text(secondary, pageWidth - margin, y, { align: "right" });
+          y += 8.2;
+        }
+      }
+    }
+
     for (const home of buildings) {
       const measures =
         anonymous || home.sourceId === undefined
@@ -343,173 +546,7 @@ async function maakEnergiePdf(
               measure,
               result: getMeasureResult(measure, bron),
             }));
-      const monthPages = Array.from(
-        { length: Math.ceil(selectedMonths.length / 12) },
-        (_, index) => selectedMonths.slice(index * 12, index * 12 + 12),
-      );
-
-      for (const [pageIndex, pageMonths] of monthPages.entries()) {
-        if (chartPageCount > 0) document.addPage();
-        chartPageCount += 1;
-        const pageScope =
-          `${pageMonths.map(monthLabel).join(" · ")} · ` +
-          `${productLabel[analyse.selectie.drager]} · ${measureLabel} · ` +
-          `${aggregationLabel} · Gesorteerd op ${referenceLabel}`;
-        let y = 15;
-        document.setFont("helvetica", "normal");
-        document.setFontSize(6);
-        const selectedPeriodLabel = document.splitTextToSize(
-          pageScope,
-          pageWidth - margin * 2,
-        ) as string[];
-        const headerHeight = Math.max(
-          39,
-          32 + selectedPeriodLabel.length * 3.2 + 7,
-        );
-        document.setFillColor(15, 23, 42);
-        document.rect(0, 0, pageWidth, headerHeight, "F");
-        document.setFont("helvetica", "bold");
-        document.setFontSize(8);
-        document.setTextColor(110, 231, 183);
-        document.text("CFME CONTROL", margin, y);
-        y += 9;
-        document.setFontSize(16);
-        document.setTextColor(255, 255, 255);
-        document.text(
-          anonymous
-            ? "Anonieme energiepresentatie"
-            : "Energieanalyse voor de klant",
-          margin,
-          y,
-        );
-        y += 8;
-        document.setFont("helvetica", "normal");
-        document.setFontSize(7);
-        document.setTextColor(226, 232, 240);
-        document.text(selectedPeriodLabel, margin, y);
-
-        y = headerHeight + 8;
-        document.setFont("helvetica", "bold");
-        document.setFontSize(12);
-        document.setTextColor(15, 23, 42);
-        const continuation = pageIndex ? " · vervolg" : "";
-        document.text(
-          document
-            .splitTextToSize(`${home.label}${continuation}`, pageWidth - margin * 2)
-            .slice(0, 2),
-          margin,
-          y,
-        );
-        y += 7;
-
-        document.setFont("helvetica", "normal");
-        document.setFontSize(6);
-        document.setTextColor(71, 85, 105);
-        pageMonths.forEach((monthName, monthIndex) => {
-          const color = pdfKleur(monthName);
-          const column = Math.floor(monthIndex / 6);
-          const row = monthIndex % 6;
-          const legendX = margin + column * 89;
-          const legendY = y + row * 4;
-          document.setFillColor(color[0], color[1], color[2]);
-          document.rect(legendX, legendY - 2, 3, 3, "F");
-          document.text(monthLabel(monthName), legendX + 5, legendY);
-        });
-        y += 27;
-
-        document.setFont("helvetica", "bold");
-        document.setFontSize(6);
-        document.setTextColor(71, 85, 105);
-        document.text("Maand", margin, y);
-        document.text("Vergelijking · gezamenlijke schaal", barStart, y);
-        document.text("Waarde", barStart + barWidth + 2, y);
-        document.text(
-          analyse.selectie.maat === "kosten" ? "Verbruik" : "Kosten",
-          pageWidth - margin,
-          y,
-          { align: "right" },
-        );
-        y += 3;
-        const rowHeight = 9;
-        for (const monthName of pageMonths) {
-        const month = home.months.find((entry) => entry.maand === monthName);
-        if (!month) continue;
-        const value = waardeEnergieMaand(
-          month,
-          analyse.selectie.maat,
-          analyse.selectie.aggregatie,
-        );
-        const full = month.status === "volledig" && value !== null;
-        const unit =
-          analyse.selectie.maat === "kosten"
-            ? `${month.kosten.valuta ?? "kosten"}${
-                analyse.selectie.aggregatie === "persoon"
-                  ? " per persoon/week"
-                  : " maandtotaal"
-              }`
-            : analyse.selectie.aggregatie === "persoon"
-              ? `${analyse.eenheid} per persoon/week`
-              : `${analyse.eenheid} maandtotaal`;
-        const state =
-          month.status === "geen"
-            ? monthName > new Date().toISOString().slice(0, 7)
-              ? "Nog geen meetgegevens"
-              : "Geen gegevens"
-            : month.status === "gedeeltelijk"
-              ? `Onvolledig · ${formatted(month.verbruik)} ${analyse.eenheid} gemeten`
-              : value === null && analyse.selectie.maat === "kosten"
-                ? "Kosten onbekend"
-                : value === null
-                  ? "Bewoning onbekend"
-                  : `${analyse.selectie.maat === "kosten"
-                      ? currency(value, month.kosten.valuta) ?? "Kosten onbekend"
-                      : formatted(value)} ${unit}`;
-        const color = pdfKleur(monthName);
-        document.setFont("helvetica", "normal");
-        document.setFontSize(7);
-        document.setTextColor(51, 65, 85);
-        document.text(monthLabel(monthName), margin, y);
-        document.setFillColor(241, 245, 249);
-        document.roundedRect(barStart, y - 2.3, barWidth, 2.2, 1, 1, "F");
-        if (full && maximum > 0) {
-          document.setFillColor(color[0], color[1], color[2]);
-          document.roundedRect(
-            barStart,
-            y - 2.3,
-            Math.max(0.2, (barWidth * value!) / maximum),
-            2.2,
-            1,
-            1,
-            "F",
-          );
-        } else if (month.status === "gedeeltelijk") {
-          document.setDrawColor(color[0], color[1], color[2]);
-          document.setLineDashPattern([1, 1], 0);
-          document.line(barStart, y - 1.2, barStart + barWidth, y - 1.2);
-          document.setLineDashPattern([], 0);
-        }
-        document.setTextColor(15, 23, 42);
-        document.setFont("helvetica", "bold");
-        document.setFontSize(6.5);
-        document.text(
-          document.splitTextToSize(state, 36) as string[],
-          barStart + barWidth + 2,
-          y,
-        );
-        const secondary =
-          analyse.selectie.maat === "kosten"
-            ? `${formatted(month.verbruik)} ${analyse.eenheid}`
-            : currency(month.kosten.totaal, month.kosten.valuta) ?? "—";
-        document.setFont("helvetica", "normal");
-        document.setFontSize(6.5);
-        document.setTextColor(71, 85, 105);
-        document.text(secondary, pageWidth - margin, y, { align: "right" });
-        y += rowHeight;
-      }
-      }
-      if (measures.length) {
-        addMeasuresPage(document, home.label, measures);
-      }
+      if (measures.length) addMeasuresPage(document, home.label, measures);
     }
 
     const pageCount = document.getNumberOfPages();

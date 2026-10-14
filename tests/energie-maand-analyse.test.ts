@@ -153,6 +153,22 @@ test("selectie ondersteunt niet-aaneengesloten maanden en een gekozen referentie
   );
 });
 
+test("een expliciet lege maandselectie wordt afgewezen in plaats van vervangen", () => {
+  const bron = source([]);
+  assert.throws(
+    () =>
+      leesEnergieMaandSelectie(
+        { maand: undefined, maanden_ingediend: "1" },
+        bron,
+      ),
+    /Selecteer minimaal één kalendermaand/,
+  );
+  assert.deepEqual(
+    leesEnergieMaandSelectie({}, bron).selectie.maanden,
+    ["2026-09"],
+  );
+});
+
 test("anonieme previewsessie bewaart haar geldige selectie in een cookie-token", () => {
   const selection = {
     maanden: ["2026-09", "2026-11"],
@@ -453,6 +469,58 @@ test("volledige maand gebruikt meterstanden buiten maandgrenzen en geen fictieve
   assert.equal(september.persoonsdagen, 0);
   assert.equal(september.perPersoonPerWeek, null);
   assert.equal(september.naarRato, true);
+});
+
+test("Heirstraat-achtige maandnorm gebruikt bewonersdagen ondanks afwijkend meteraantal", () => {
+  const bron = source(
+    [
+      { date: "2026-09-01", total: 0 },
+      { date: "2026-09-07", total: 23 },
+      { date: "2026-09-18", total: 112 },
+      { date: "2026-10-05", total: 213 },
+    ],
+    Array.from({ length: 9 }, () => ({
+      incheckdatum: "2026-09-01",
+      uitcheckdatum: "2026-10-01",
+    })),
+  );
+  bron.meterstanden.forEach((meter) => {
+    meter.bewoners_aantal = 1;
+  });
+
+  const result = bouwEnergieMaandAnalyse(
+    bron,
+    [],
+    {
+      maanden: ["2026-09"],
+      referentiemaand: "2026-09",
+      drager: "elektriciteit",
+      bedrijfIds: [20],
+      woningIds: [10],
+      maat: "verbruik",
+      aggregatie: "persoon",
+    },
+    "2026-10-05",
+  );
+  const september = result.woningen[0].maanden[0];
+  const expected = ((23 + 89 + (101 * 13) / 17) / 270) * 7;
+
+  assert.equal(september.status, "volledig");
+  assert.equal(september.dekking, 100);
+  assert.equal(september.persoonsdagen, 270);
+  assert.ok(
+    Math.abs(september.verbruik! - (23 + 89 + (101 * 13) / 17)) < 1e-10,
+  );
+  assert.ok(Math.abs(september.perPersoonPerWeek! - expected) < 1e-10);
+  assert.equal(Number(september.perPersoonPerWeek!.toFixed(2)), 4.91);
+  assert.equal(september.laatsteMeetdatum, "2026-10-05");
+  assert.equal(september.periodes.at(-1)?.bronTot, "2026-10-05");
+  assert.ok(september.verbruik !== null);
+  assert.ok(
+    september.waarschuwingen.some((warning) =>
+      warning.includes("Bewonersadministratie en meteropname spreken elkaar tegen"),
+    ),
+  );
 });
 
 test("sortering plaatst grootste referentiemaand eerst en ontbrekende waarden onderaan", () => {

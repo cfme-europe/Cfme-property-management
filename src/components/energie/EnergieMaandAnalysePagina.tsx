@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import {
-  bouwAnoniemeEnergieDataset,
   bouwEnergieMaandAnalyse,
   decodeerEnergieAnoniemeSelectie,
   ENERGIE_ANONIEME_SELECTIE_COOKIE,
@@ -61,20 +60,36 @@ function monthColor(month: string) {
   return kleurEnergieMaand(month);
 }
 
-function MonthLegend({ months }: { months: string[] }) {
+function MonthLegend({
+  months,
+  referenceMonth,
+}: {
+  months: string[];
+  referenceMonth: string;
+}) {
   return (
     <ul
       aria-label="Legenda maandkleuren"
       className="flex flex-wrap gap-x-4 gap-y-2 border-y border-stone-200 py-3 text-sm text-slate-700"
     >
       {months.map((month) => (
-        <li key={month} className="inline-flex items-center gap-2">
+        <li
+          key={month}
+          className={`inline-flex items-center gap-2 rounded px-1 py-1 ${
+            month === referenceMonth
+              ? "bg-emerald-100 font-semibold text-emerald-950 ring-1 ring-emerald-800/30"
+              : ""
+          }`}
+        >
           <span
             aria-hidden="true"
             className="h-3 w-3 rounded-sm"
             style={{ backgroundColor: monthColor(month) }}
           />
           <span className="capitalize">{monthTitle(month)}</span>
+          {month === referenceMonth && (
+            <span className="text-xs text-emerald-900">sorteermaand</span>
+          )}
         </li>
       ))}
     </ul>
@@ -161,6 +176,11 @@ function herstelSelectieVoorPagina(
       }
     })
     .slice(0, 36);
+  if (
+    enkeleWaarde("maanden_ingediend") === "1" &&
+    maanden.length === 0
+  )
+    return { ...fallback, maanden: [], referentiemaand: "" };
   const restoredMonths = maanden.length ? maanden : fallback.maanden;
   const referentie = enkeleWaarde("referentiemaand");
   const drager = enkeleWaarde("drager");
@@ -242,8 +262,8 @@ function MonthDetails({
 }) {
   return (
     <details className="mt-2 border-t border-slate-100 pt-1">
-      <summary className="min-h-10 cursor-pointer py-2 text-sm font-semibold text-emerald-900">
-        Details · meetperiode, dekking en kosten
+      <summary className="min-h-11 cursor-pointer py-2 text-sm font-semibold text-emerald-900">
+        Details
       </summary>
       <div className="space-y-2 pb-2 text-sm text-slate-700">
         <p>
@@ -254,6 +274,19 @@ function MonthDetails({
           Meetgegevens beschikbaar t/m{" "}
           {month.laatsteMeetdatum ? datum(month.laatsteMeetdatum) : "onbekend"}.
         </p>
+        <p>
+          Gegevenskwaliteit: {month.betrouwbaarheid ?? "onvoldoende_data"}.
+        </p>
+        {month.waarschuwingen.length > 0 && (
+          <div>
+            <p className="font-semibold">Waarschuwingen</p>
+            <ul className="list-inside list-disc">
+              {month.waarschuwingen.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {month.status === "gedeeltelijk" && (
           <p>
             Werkelijk toegerekend verbruik: {getal(month.verbruik)} {analyse.eenheid}
@@ -278,8 +311,11 @@ function MonthDetails({
         )}
         {month.periodes.map((period) => (
           <p key={`${period.vanaf}:${period.tot}`}>
-            Verbruiksinterval {period.vanaf}–{period.tot} (einddatum exclusief):{" "}
-            {getal(period.verbruik)} {analyse.eenheid}.
+            {period.vanaf}–{period.tot} (einddatum exclusief):{" "}
+            {getal(period.verbruik)} {analyse.eenheid}, bronopnames{" "}
+            {period.bronVanaf}–{period.bronTot}, bronvelden{" "}
+            {period.bronVelden.join(", ") || "onbekend"}, {getal(period.persoonsdagen, 1)} persoonsdagen
+            {period.geschat ? ", naar rato geïnterpoleerd" : ""}.
           </p>
         ))}
         {month.status === "geen" && (
@@ -345,11 +381,19 @@ function MetricRow({
       <div
         role="img"
         aria-label={`${monthTitle(month.maand)}: ${state ?? `${valueDetails(month, analyse)} ${valueUnit(month, analyse)}`}`}
-        className="h-4 overflow-hidden rounded-full bg-slate-100"
+        className="relative h-4 overflow-hidden rounded-full bg-emerald-50"
       >
+        {[25, 50, 75].map((position) => (
+          <span
+            key={position}
+            aria-hidden="true"
+            className="absolute inset-y-0 z-20 border-l border-emerald-950/20"
+            style={{ left: `${position}%` }}
+          />
+        ))}
         {canDrawBar && (
           <div
-            className="h-full rounded-full"
+            className="relative z-10 h-full rounded-full"
             style={{
               width: `${percent}%`,
               minWidth: value === 0 ? "0" : undefined,
@@ -359,7 +403,7 @@ function MetricRow({
         )}
         {month.status === "gedeeltelijk" && (
           <div
-            className="h-full border-y border-dashed"
+            className="absolute inset-0 border-y border-dashed"
             style={{ width: "100%", borderColor: monthColor(month.maand) }}
           />
         )}
@@ -398,27 +442,25 @@ function PresentationChart({
     analyse.selectie.aggregatie,
   );
   const referenceMonth = analyse.selectie.referentiemaand;
-  const rows = analyse.woningen.map((woning, index) => (
+  const anonymousLabels = new Map<number, string>(
+    [...analyse.woningen]
+      .sort((a, b) => a.id - b.id)
+      .map((woning, index) => [
+        woning.id,
+        `Pand ${String(index + 1).padStart(2, "0")}`,
+      ] as const),
+  );
+  const rows = analyse.woningen.map((woning) => (
     <article
       key={woning.id}
-      className="border-b border-emerald-900/15 py-4 sm:py-5"
+      className="border-b border-emerald-900/20 py-3"
     >
-      <header className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="font-bold">
+      <header className="mb-1">
+        <h3 className="font-bold text-emerald-950">
           {presentation
-            ? `Pand ${String(index + 1).padStart(2, "0")}`
+            ? anonymousLabels.get(woning.id) ?? "Pand"
             : woning.adres}
         </h3>
-        {!presentation && (
-          <p className="text-xs text-slate-600">
-            Meetgegevens t/m{" "}
-            {woning.maanden
-              .map((month) => month.laatsteMeetdatum)
-              .filter((date): date is string => date !== null)
-              .sort()
-              .at(-1) ?? "onbekend"}
-          </p>
-        )}
       </header>
       {woning.maanden.map((month) => (
         <MetricRow
@@ -437,8 +479,21 @@ function PresentationChart({
     </article>
   ));
   return (
-    <div>
-      <MonthLegend months={analyse.selectie.maanden} />
+    <div className="min-w-0">
+      <MonthLegend
+        months={analyse.selectie.maanden}
+        referenceMonth={referenceMonth}
+      />
+      <div className="grid grid-cols-[minmax(6rem,0.8fr)_minmax(2.5rem,1.5fr)_minmax(5.5rem,1fr)] items-end gap-2 border-b border-stone-300 py-2 text-[10px] text-slate-500 sm:grid-cols-[minmax(9rem,1fr)_minmax(8rem,2fr)_minmax(7rem,1fr)_minmax(7rem,1fr)] sm:gap-4">
+        <span aria-hidden="true" />
+        <div className="relative flex justify-between border-b border-l border-stone-500 pb-1">
+          {[0, 0.25, 0.5, 0.75, 1].map((fraction) => (
+            <span key={fraction}>{getal(maximum * fraction)}</span>
+          ))}
+        </div>
+        <span className="text-right">{analyse.eenheid}</span>
+        <span className="hidden sm:block">Waarde / kosten</span>
+      </div>
       <div>{rows}</div>
     </div>
   );
@@ -536,21 +591,21 @@ function PageTabs({
   view: EnergieMaandWeergave;
 }) {
   const tabs: Array<[EnergieMaandWeergave, string]> = [
-    ["intern", "Analyse bekijken"],
+    ["intern", "Analyse"],
     ["klant", "Klantversie"],
-    ["selectie", "Anonieme presentatie"],
+    ["selectie", "Anoniem"],
   ];
   return (
     <nav
       aria-label="Energieanalyse weergave"
-      className="grid grid-cols-1 gap-2 rounded-2xl bg-white p-2 sm:grid-cols-3"
+      className="grid grid-cols-3 gap-1 border-b border-emerald-900/20 bg-[#fffefa] p-1"
     >
       {tabs.map(([key, label]) => (
         <Link
           key={key}
           href={tabsHref(selection, key)}
           aria-current={view === key || (key === "selectie" && view === "anoniem") ? "page" : undefined}
-          className={`flex min-h-11 items-center justify-center rounded-xl px-3 text-center text-sm font-semibold ${
+          className={`flex min-h-11 items-center justify-center rounded-lg px-2 text-center text-sm font-semibold ${
             view === key || (key === "selectie" && view === "anoniem")
               ? "bg-emerald-800 text-white"
               : "text-emerald-900 hover:bg-emerald-50"
@@ -560,112 +615,6 @@ function PageTabs({
         </Link>
       ))}
     </nav>
-  );
-}
-
-function AnoniemeGrafiek({
-  dataset,
-}: {
-  dataset: ReturnType<typeof bouwAnoniemeEnergieDataset>;
-}) {
-  const values = dataset.woningen.flatMap((woning) =>
-    woning.maanden
-      .filter((month) => month.status === "volledig")
-      .map((month) =>
-        dataset.maat === "kosten"
-          ? dataset.aggregatie === "persoon"
-            ? month.kostenPerPersoonPerWeek
-            : month.kosten
-          : dataset.aggregatie === "persoon"
-            ? month.perPersoonPerWeek
-            : month.verbruik,
-      )
-      .filter((value): value is number => value !== null),
-  );
-  const maximum = Math.max(0, ...values);
-  return (
-    <div>
-      <MonthLegend months={dataset.maanden} />
-      {dataset.woningen.map((woning) => (
-        <article key={woning.pand} className="border-b border-emerald-900/15 py-4 sm:py-5">
-          <h3 className="pb-2 font-semibold text-emerald-950">{woning.pand}</h3>
-          {woning.maanden.map((month) => {
-            const value =
-              dataset.maat === "kosten"
-                ? dataset.aggregatie === "persoon"
-                  ? month.kostenPerPersoonPerWeek
-                  : month.kosten
-                : dataset.aggregatie === "persoon"
-                  ? month.perPersoonPerWeek
-                  : month.verbruik;
-            const unit =
-              dataset.maat === "kosten"
-                ? `${month.valuta ?? "kosten"}${
-                    dataset.aggregatie === "persoon"
-                      ? " per persoon/week"
-                      : " maandtotaal"
-                  }`
-                : dataset.aggregatie === "persoon"
-                  ? `${dataset.eenheid} per persoon/week`
-                  : `${dataset.eenheid} maandtotaal`;
-            const complete = month.status === "volledig" && value !== null;
-            const secondaryValue =
-              dataset.maat === "kosten"
-                ? `${getal(month.verbruik)} ${dataset.eenheid} verbruik`
-                : month.kosten === null
-                  ? null
-                  : euro(month.kosten, month.valuta);
-            const status =
-              month.status === "geen"
-                ? month.maand > new Date().toISOString().slice(0, 7)
-                  ? "Nog geen meetgegevens"
-                  : "Geen gegevens"
-                : month.status === "gedeeltelijk"
-                  ? "Onvolledig"
-                  : value === null
-                    ? dataset.maat === "kosten"
-                      ? "Kosten onbekend"
-                      : "Bewoning onbekend"
-                    : `${getal(value)} ${unit}`;
-            return (
-              <div
-                key={month.maand}
-                className="grid grid-cols-[minmax(6rem,0.8fr)_minmax(2.5rem,1.5fr)_minmax(5.5rem,1fr)] items-center gap-2 border-b border-stone-100 py-3 sm:grid-cols-[minmax(9rem,1fr)_minmax(8rem,2fr)_minmax(7rem,1fr)_minmax(7rem,1fr)] sm:gap-4"
-              >
-                <span className="text-sm capitalize text-slate-700">
-                  {monthTitle(month.maand)}
-                </span>
-                <div
-                  role="img"
-                  aria-label={`${monthTitle(month.maand)}: ${status}`}
-                  className="h-4 overflow-hidden rounded-full bg-stone-100"
-                >
-                  {complete && value !== null && maximum > 0 && (
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${Math.min(100, (value / maximum) * 100)}%`,
-                        backgroundColor: monthColor(month.maand),
-                      }}
-                    />
-                  )}
-                  {month.status === "gedeeltelijk" && (
-                    <div
-                      className="h-full border-y border-dashed"
-                      style={{ borderColor: monthColor(month.maand) }}
-                    />
-                  )}
-                </div>
-                <strong className="text-right text-sm tabular-nums">{status}</strong>
-                <span className="col-span-3 text-right text-xs text-slate-600 sm:col-span-1">
-                  {secondaryValue ?? ""}
-                </span>
-              </div>
-            );
-          })}
-        </article>
-      ))}
-    </div>
   );
 }
 
@@ -710,7 +659,8 @@ export default async function EnergieMaandAnalysePagina({
     requestedView === "selectie" &&
     parameters.maand === undefined &&
     parameters.woning === undefined &&
-    parameters.bedrijf === undefined
+    parameters.bedrijf === undefined &&
+    parameters.maanden_ingediend === undefined
   ) {
     const cookieValue = (await cookies()).get(
       ENERGIE_ANONIEME_SELECTIE_COOKIE,
@@ -768,25 +718,17 @@ export default async function EnergieMaandAnalysePagina({
     analysis &&
     analysis.woningen.length > 0 &&
     (view === "klant" || view === "anoniem");
-  const title =
-    view === "klant"
-      ? "Energieanalyse voor de klant"
-      : view === "anoniem"
-        ? "Anonieme energiepresentatie"
-        : "Energieanalyse";
+  const title = "Verbruik in beeld";
   const selectedCompany =
     view === "klant"
       ? bron.bedrijven.find((bedrijf) => bedrijf.id === selection.bedrijfIds[0])
       : null;
-  const monthNames = selection.maanden.map(monthTitle);
   const today = new Date().toISOString().slice(0, 10);
-  const latestData = analysis
-    ? analysis.woningen
-        .flatMap((woning) => woning.maanden.map((month) => month.laatsteMeetdatum))
-        .filter((date): date is string => date !== null)
-        .sort()
-        .at(-1)
-    : null;
+  const energyUnit = ["elektriciteit", "dagstroom", "nachtstroom"].includes(
+    selection.drager,
+  )
+    ? "kWh"
+    : "m³";
 
   return (
     <main className="min-h-screen bg-[#f7f7f2] p-3 text-slate-950 sm:p-6">
@@ -800,7 +742,12 @@ export default async function EnergieMaandAnalysePagina({
               <Link href="/bedrijven" className="text-sm font-semibold text-emerald-800">
                 ← Bedrijven
               </Link>
-              <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Energieanalyse</h1>
+              <h1 className="mt-1 text-2xl font-bold text-emerald-950 sm:text-3xl">
+                {title}
+              </h1>
+              <p className="text-sm text-slate-600">
+                {productNamen[selection.drager]} · {energyUnit}
+              </p>
             </div>
             <Link
               href="/bedrijven/energieanalyse/beheer"
@@ -843,9 +790,9 @@ export default async function EnergieMaandAnalysePagina({
           <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4">
             <div>
               <p className="font-bold tracking-wide text-emerald-800">CFME CONTROL</p>
-              <h1 className="mt-1 text-2xl font-bold">{title}</h1>
+              <h1 className="mt-1 text-2xl font-bold text-emerald-950">{title}</h1>
               <p className="mt-1 text-sm text-slate-600">
-                Geselecteerde panden · {monthNames.join(", ")} · {productNamen[selection.drager]}
+                {productNamen[selection.drager]} · {energyUnit} · geselecteerde panden
               </p>
             </div>
             <Link
@@ -858,16 +805,13 @@ export default async function EnergieMaandAnalysePagina({
         )}
 
         {!presentationError && view === "klant" && (
-          <header className="border-b border-emerald-900/20 bg-emerald-950 px-5 py-5 text-white sm:px-7">
-            <p className="text-sm font-bold tracking-wide text-emerald-300">CFME CONTROL</p>
-            <h1 className="mt-2 text-2xl font-bold">{title}</h1>
-            <p className="mt-2 text-slate-200">
-              {selectedCompany?.naam} · {monthNames.join(", ")} · {productNamen[selection.drager]}
+          <header className="border-b border-emerald-900/20 bg-[#fffefa] px-4 py-4 sm:px-6">
+            <p className="text-sm font-bold tracking-wide text-emerald-800">CFME CONTROL</p>
+            <h1 className="mt-1 text-2xl font-bold text-emerald-950">{title}</h1>
+            <p className="mt-1 text-sm text-slate-700">
+              {selectedCompany?.naam} · {productNamen[selection.drager]} · {energyUnit}
             </p>
-            <p className="mt-1 text-sm text-slate-300">
-              Bijgewerkt {datum(today)}
-              {latestData ? ` · meetgegevens t/m ${datum(latestData)}` : ""}
-            </p>
+            <p className="mt-1 text-xs text-slate-500">Bijgewerkt {datum(today)}</p>
           </header>
         )}
 
@@ -875,7 +819,7 @@ export default async function EnergieMaandAnalysePagina({
           <section className="border-y border-emerald-900/15 bg-[#fffefa] px-4 py-4">
             <Link
               href="/bedrijven/energieanalyse"
-              className="text-sm font-semibold text-emerald-800"
+              className="inline-flex min-h-11 items-center text-sm font-semibold text-emerald-800"
             >
               ← Terug naar analyse
             </Link>
@@ -883,7 +827,7 @@ export default async function EnergieMaandAnalysePagina({
               CFME CONTROL
             </p>
             <h1 className="mt-1 text-2xl font-semibold text-emerald-950">
-              Anonieme presentatie
+              Verbruik in beeld
             </h1>
             <p className="mt-2 text-sm text-slate-600">
               Kies rechtstreeks de panden en maanden. Adressen zijn alleen
@@ -894,7 +838,7 @@ export default async function EnergieMaandAnalysePagina({
 
         {!presentationError && view !== "anoniem" && (
           <EnergieMaandSelectie
-            key={`${view}:${view === "selectie" ? "" : selection.bedrijfIds.join(",")}:${selection.woningIds.join(",")}:${selection.maanden.join(",")}:${selection.woningselectie}`}
+            key={`${view}:${view === "selectie" ? "" : selection.bedrijfIds.join(",")}:${selection.woningIds.join(",")}:${selection.maanden.join(",")}:${selection.woningselectie}:${selection.drager}:${selection.maat}:${selection.aggregatie}:${selection.referentiemaand}`}
             bedrijven={view === "selectie" ? [] : bron.bedrijven}
             woningen={optionsWoningen}
             relaties={bron.verhuurperioden.map(
@@ -923,23 +867,37 @@ export default async function EnergieMaandAnalysePagina({
           />
         )}
 
+        {exportAvailable && (
+          <form
+            action="/bedrijven/energieanalyse/export"
+            method="post"
+            className="flex justify-end"
+          >
+            {[...exportParams].map(([name, value], index) => (
+              <input
+                key={`${name}:${index}`}
+                type="hidden"
+                name={name}
+                value={value}
+              />
+            ))}
+            <button
+              type="submit"
+              className="inline-flex min-h-11 items-center rounded-lg border border-emerald-900 bg-[#fffefa] px-4 font-semibold text-emerald-950"
+            >
+              PDF
+            </button>
+          </form>
+        )}
+
         {!presentationError && analysis && view !== "selectie" && view !== "anoniem" && (
           <section className="space-y-3">
             <header className="flex flex-wrap items-end justify-between gap-2">
               <div>
-                {view === "intern" && (
-                  <h2 className="text-lg font-bold">
-                    {productNamen[analysis.selectie.drager]}
-                  </h2>
-                )}
                 <p className="text-sm text-slate-600">
-                  {monthNames.join(" · ")} · Gesorteerd op{" "}
-                  {monthTitle(analysis.selectie.referentiemaand)}
+                  {analysis.selectie.maanden.length} kalendermaanden geselecteerd
                 </p>
               </div>
-              <p className="text-xs text-slate-500">
-                Alle volledige vergelijkingsbalken gebruiken één schaal.
-              </p>
             </header>
             <PresentationChart
               analyse={analysis}
@@ -951,38 +909,11 @@ export default async function EnergieMaandAnalysePagina({
 
         {!presentationError && analysis && view === "anoniem" && (
           <>
-            <section className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-950">
-              Dit is een selectie van {analysis.woningen.length} pand(en) en{" "}
-              {analysis.selectie.maanden.length} kalendermaand(en), geen
-              automatische weergave van een volledige portefeuille.{" "}
-              {productNamen[analysis.selectie.drager]} · Gesorteerd op{" "}
-              {monthTitle(analysis.selectie.referentiemaand)} · bijgewerkt{" "}
-              {datum(today)}
-              {latestData ? ` · meetgegevens t/m ${datum(latestData)}` : ""}
-            </section>
-            <AnoniemeGrafiek dataset={bouwAnoniemeEnergieDataset(analysis)} />
-            {exportAvailable && (
-              <form
-                action="/bedrijven/energieanalyse/export"
-                method="post"
-                className="inline-flex"
-              >
-                {[...exportParams].map(([name, value], index) => (
-                  <input
-                    key={`${name}:${index}`}
-                    type="hidden"
-                    name={name}
-                    value={value}
-                  />
-                ))}
-                <button
-                  type="submit"
-                  className="inline-flex min-h-11 items-center rounded-lg bg-emerald-900 px-4 font-semibold text-white"
-                >
-                  Download anonieme PDF
-                </button>
-              </form>
-            )}
+            <PresentationChart
+              analyse={analysis}
+              presentation
+              intern={false}
+            />
           </>
         )}
 
@@ -993,28 +924,6 @@ export default async function EnergieMaandAnalysePagina({
               bron={bron}
               analyse={analysis}
             />
-            {exportAvailable && (
-              <form
-                action="/bedrijven/energieanalyse/export"
-                method="post"
-                className="inline-flex"
-              >
-                {[...exportParams].map(([name, value], index) => (
-                  <input
-                    key={`${name}:${index}`}
-                    type="hidden"
-                    name={name}
-                    value={value}
-                  />
-                ))}
-                <button
-                  type="submit"
-                  className="inline-flex min-h-11 items-center rounded-lg bg-emerald-900 px-4 font-semibold text-white"
-                >
-                  Download klant-PDF
-                </button>
-              </form>
-            )}
           </>
         )}
 
@@ -1022,7 +931,6 @@ export default async function EnergieMaandAnalysePagina({
           <section className="border-t border-stone-200 py-4 text-sm text-slate-600">
             <p>
               Product: {productNamen[selection.drager]} · bijgewerkt {datum(today)}
-              {latestData ? ` · meetgegevens t/m ${datum(latestData)}` : ""}
             </p>
             {analysis.woningen.length === 0 && (
               <p className="mt-2">Geen panden beschikbaar voor deze selectie.</p>
