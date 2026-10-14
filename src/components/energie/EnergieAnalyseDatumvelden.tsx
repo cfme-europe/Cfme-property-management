@@ -224,6 +224,10 @@ export default function EnergieAnalyseDatumvelden({
             : undefined
         }
       />
+      <p className="text-sm text-slate-600 md:col-span-2">
+        Een analyse kan niet vóór 1 september 2026 beginnen. Latere
+        begindatums zijn toegestaan.
+      </p>
     </>
   );
 }

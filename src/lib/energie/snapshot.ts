@@ -9,7 +9,13 @@ import {
   type Tariefplan,
   type Energiekosten,
 } from "./tarieven";
-import { ENERGIE_REKENREGELS, dagen, datumNaDagen } from "./rekenregels";
+import {
+  ENERGIE_ANALYSE_STARTDATUM,
+  ENERGIE_REKENREGELS,
+  dagen,
+  controleerEnergieAnalysePeriode,
+  datumNaDagen,
+} from "./rekenregels";
 export type EnergieKlantProduct = {
   product: string;
   eenheid: string;
@@ -53,18 +59,25 @@ export function bouwEnergieSnapshot(
   gebruiker: string,
   codeversie: string,
 ) {
+  controleerEnergieAnalysePeriode(selectie.vanaf, selectie.totEnMet);
   const analyses = dragers.map((drager) =>
     bouwEnergiePortfolioAnalyse(bron, { ...selectie, drager }),
   );
   const duur = dagen(selectie.vanaf, selectie.totEnMet);
   const producten = analyses.map((a): EnergieKlantProduct => {
-    const vorig = bouwEnergiePortfolioAnalyse(bron, {
-      ...selectie,
-      drager: a.selectie.drager,
-      vanaf: datumNaDagen(selectie.vanaf, -duur),
-      totEnMet: selectie.vanaf,
-    });
+    const vorigeVanaf = datumNaDagen(selectie.vanaf, -duur);
+    const vergelijkingsperiodeBinnenGrens =
+      vorigeVanaf >= ENERGIE_ANALYSE_STARTDATUM;
+    const vorig = vergelijkingsperiodeBinnenGrens
+      ? bouwEnergiePortfolioAnalyse(bron, {
+          ...selectie,
+          drager: a.selectie.drager,
+          vanaf: vorigeVanaf,
+          totEnMet: selectie.vanaf,
+        })
+      : null;
     const vergelijkbaar =
+      vorig !== null &&
       a.rijen.length > 0 &&
       a.rijen.every((r) => r.betrouwbaarheid === "exact") &&
       vorig.rijen.every((r) => r.betrouwbaarheid === "exact") &&
@@ -96,10 +109,10 @@ export function bouwEnergieSnapshot(
       norm: a.per_persoon_per_week,
       persoonsdagen: a.persoonsdagen,
       kosten_per_persoon_per_week: kosten.totaal !== null && a.per_persoon_per_week !== null && a.persoonsdagen > 0 ? kosten.totaal/(a.persoonsdagen/7) : null,
-      vorige_norm: vergelijkbaar ? vorig.per_persoon_per_week : null,
+      vorige_norm: vergelijkbaar ? vorig!.per_persoon_per_week : null,
       verschil_percentage: vergelijkbaar
-        ? (100 * (a.per_persoon_per_week! - vorig.per_persoon_per_week!)) /
-          vorig.per_persoon_per_week!
+        ? (100 * (a.per_persoon_per_week! - vorig!.per_persoon_per_week!)) /
+          vorig!.per_persoon_per_week!
         : null,
       dekking: a.dekking_percentage,
       exacte_dekking: a.rijen.length
@@ -126,7 +139,16 @@ export function bouwEnergieSnapshot(
           ),
         ),
       ],
-      meldingen: [...new Set(a.rijen.flatMap((r) => r.meldingen))],
+      meldingen: [
+        ...new Set([
+          ...a.rijen.flatMap((r) => r.meldingen),
+          ...(!vergelijkingsperiodeBinnenGrens
+            ? [
+                `De vergelijkingsperiode begint vóór ${ENERGIE_ANALYSE_STARTDATUM}; historische verbruiksgegevens zijn niet in deze nieuwe energiesnapshot opgenomen.`,
+              ]
+            : []),
+        ]),
+      ],
     };
   });
   const klant: EnergieKlantSnapshot = {

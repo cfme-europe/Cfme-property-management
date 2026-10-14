@@ -117,7 +117,16 @@ test("vergelijkt huidige en vorige kalendermaand", () => {
 });
 
 test("berekent energie per persoon per week met persoonsdagen", () => {
-  const uitkomst = bouwRapportagemotor({...basis,meterstanden:basis.meterstanden.map(m=>m.id===2?{...m,opnamedatum:"2026-07-01"}:m)});
+  const uitkomst = bouwRapportagemotor({
+    ...basis,
+    periode: { vanaf: "2026-09-01", tot_en_met: "2026-09-30" },
+    vorige_periode: { vanaf: "2026-08-01", tot_en_met: "2026-08-31" },
+    meterstanden: [
+      { ...basis.meterstanden[0], opnamedatum: "2026-09-01", dagstroom_kwh: 0, nachtstroom_kwh: 0, gas_m3: 0, water_m3: 0 },
+      { ...basis.meterstanden[1], opnamedatum: "2026-09-08", dagstroom_kwh: 0, nachtstroom_kwh: 0, gas_m3: 0, water_m3: 0 },
+      { ...basis.meterstanden[2], opnamedatum: "2026-09-22", dagstroom_kwh: 100, nachtstroom_kwh: 50, gas_m3: 25, water_m3: 13 },
+    ],
+  });
 
   assert.equal(
     uitkomst.energie.elektriciteit.totaal,
@@ -125,11 +134,28 @@ test("berekent energie per persoon per week met persoonsdagen", () => {
   );
   assert.equal(
     uitkomst.energie.elektriciteit.persoonsweken,
-    60 / 7,
+    42 / 7,
   );
   assert.equal(
     uitkomst.energie.elektriciteit.per_persoon_per_week,
-    150 / (60 / 7),
+    150 / (42 / 7),
+  );
+  assert.equal(
+    uitkomst.energie.elektriciteit.vorige_per_persoon_per_week,
+    null,
+  );
+});
+
+test("historical report periods do not include energy before the central date", () => {
+  const uitkomst = bouwRapportagemotor(basis);
+  assert.equal(uitkomst.energie.dagstroom.totaal, null);
+  assert.equal(uitkomst.energie.elektriciteit.totaal, null);
+  assert.equal(uitkomst.energie.gas.totaal, null);
+  assert.equal(uitkomst.energie.water.totaal, null);
+  assert.ok(
+    uitkomst.toelichting_rekenregels.some((regel) =>
+      regel.includes("2026-09-01"),
+    ),
   );
 });
 

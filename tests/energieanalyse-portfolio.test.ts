@@ -41,8 +41,8 @@ function stand(
 function brondata(verbruiken: number[]) {
   return {
     meterstanden: verbruiken.flatMap((verbruik, index) => [
-      stand(index + 1, "2026-01-01", 0),
-      stand(index + 1, "2026-01-08", verbruik),
+      stand(index + 1, "2026-09-01", 0),
+      stand(index + 1, "2026-09-08", verbruik),
     ]),
     woningen: verbruiken.map((_, index) => ({
       id: index + 1,
@@ -64,7 +64,7 @@ function brondata(verbruiken: number[]) {
       return Array.from({ length: aantal }, (__, bewonerIndex) => ({
         id: index * 10 + bewonerIndex + 1,
         verhuurperiode_id: index + 1,
-        incheckdatum: "2026-01-01",
+        incheckdatum: "2026-09-01",
         uitcheckdatum: null,
       }));
     }),
@@ -75,8 +75,8 @@ test("berekent portefeuillewaarde gewogen uit totaal verbruik en persoonsdagen",
   const analyse = bouwEnergiePortfolioAnalyse(brondata([100, 100]), {
     niveau: "totaal",
     drager: "elektriciteit",
-    vanaf: "2026-01-01",
-    totEnMet: "2026-01-08",
+    vanaf: "2026-09-01",
+    totEnMet: "2026-09-08",
   });
 
   assert.equal(analyse.totaal, 200);
@@ -96,8 +96,8 @@ test("filtert klant exact via bewoner en verhuurperiode", () => {
     niveau: "bedrijf",
     bedrijfId: 1,
     drager: "elektriciteit",
-    vanaf: "2026-01-01",
-    totEnMet: "2026-01-08",
+    vanaf: "2026-09-01",
+    totEnMet: "2026-09-08",
   });
 
   assert.deepEqual(
@@ -110,8 +110,8 @@ test("markeert statistische uitschieters pas met voldoende vergelijkbare panden"
   const analyse = bouwEnergiePortfolioAnalyse(brondata([10, 11, 12, 13, 100]), {
     niveau: "totaal",
     drager: "elektriciteit",
-    vanaf: "2026-01-01",
-    totEnMet: "2026-01-08",
+    vanaf: "2026-09-01",
+    totEnMet: "2026-09-08",
   });
 
   assert.equal(analyse.panden_in_benchmark, 5);
@@ -132,6 +132,10 @@ test("bedrijvenoverzicht ontsluit de energieanalyse", async () => {
 });
 
 test("energieanalyse heeft bedienbare datumkeuzes voor tablet en desktop", async () => {
+  const serverPagina = await readFile(
+    "src/app/bedrijven/energieanalyse/page.tsx",
+    "utf8",
+  );
   const pagina = await readFile(
     "src/components/energie/EnergieFilters.tsx",
     "utf8",
@@ -144,6 +148,11 @@ test("energieanalyse heeft bedienbare datumkeuzes voor tablet en desktop", async
   assert.match(pagina, /EnergieAnalyseDatumvelden/);
   assert.match(pagina, /minimum=\{minimum\}/);
   assert.match(pagina, /maximum=\{maximum\}/);
+  assert.match(serverPagina, /minimum=\{ENERGIE_ANALYSE_STARTDATUM\}/);
+  assert.match(
+    datumvelden,
+    /Een analyse kan niet vóór 1 september 2026 beginnen/,
+  );
   assert.match(pagina, /Beginmeetdatum inclusief, eindmeetdatum exclusief/);
   assert.match(datumvelden, /type="hidden" name=\{naam\} value=\{waarde\}/);
   assert.match(datumvelden, /id=\{`\$\{naam\}-maand`\}/);

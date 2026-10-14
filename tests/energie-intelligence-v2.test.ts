@@ -7,7 +7,11 @@ import {
   type EnergieMeterstand,
   type EnergieInterval,
 } from "../src/lib/energie/portfolio-analyse";
-import { datumTijd, kwartiel } from "../src/lib/energie/rekenregels";
+import {
+  datumTijd,
+  ENERGIE_ANALYSE_STARTDATUM,
+  kwartiel,
+} from "../src/lib/energie/rekenregels";
 import { elektriciteitsMeting } from "../src/lib/energie/metingen";
 import {
   berekenEnergiekosten,
@@ -91,6 +95,67 @@ test("exact boundaries and missing boundaries are distinct", () => {
   b.meterstanden.pop();
   assert.equal(analyse(b).totaal, null);
   assert.equal(analyse(b).rijen.length, 1);
+});
+test("the central analysis date is the default and rejects old URL selections", () => {
+  const b = bron();
+  const standaard = leesSelectie({}, b).selectie;
+  assert.equal(standaard.vanaf, ENERGIE_ANALYSE_STARTDATUM);
+
+  assert.throws(
+    () =>
+      leesSelectie(
+        { vanaf: "2026-08-31", tot: "2026-09-23", drager: "elektriciteit" },
+        b,
+      ),
+    (error: unknown) =>
+      error instanceof Error &&
+      /niet vóór 2026-09-01/.test(error.message) &&
+      "veld" in error &&
+      error.veld === "vanaf",
+  );
+  assert.equal(
+    leesSelectie(
+      { vanaf: "2026-09-07", tot: "2026-09-23", drager: "elektriciteit" },
+      b,
+    ).selectie.vanaf,
+    "2026-09-07",
+  );
+  assert.throws(
+    () =>
+      analyse(b, {
+        ...sel,
+        vanaf: "2026-08-31",
+      }),
+    /niet vóór 2026-09-01/,
+  );
+});
+test("a boundary-crossing interval is excluded exactly and estimated consistently", () => {
+  const b = bron();
+  b.bewoners = b.bewoners.slice(0, 2);
+  b.meterstanden = [
+    stand(1, "2026-08-25", 100, 2),
+    stand(2, "2026-09-11", 270, 2),
+    stand(3, "2026-09-21", 370, 2),
+  ];
+  const keuze = {
+    ...sel,
+    vanaf: ENERGIE_ANALYSE_STARTDATUM,
+    totEnMet: "2026-09-21",
+  };
+  const exact = analyse(b, keuze);
+  assert.equal(exact.totaal, 100);
+  assert.equal(exact.persoonsdagen, 20);
+  assert.match(exact.rijen[0].meldingen.join(" "), /kruist de analysedatum/);
+  assert.deepEqual(
+    exact.trends.map((interval) => interval.periode),
+    ["2026-09-11 → 2026-09-21"],
+  );
+
+  const geschat = analyse(b, { ...keuze, modus: "schatting" });
+  assert.equal(geschat.totaal, 200);
+  assert.equal(geschat.persoonsdagen, 40);
+  assert.equal(geschat.rijen[0].betrouwbaarheid, "geschat");
+  assert.ok(geschat.trends.some((interval) => interval.geschat));
 });
 test("interpolation only in explicit mode and never extrapolates", () => {
   const b = bron();
@@ -406,6 +471,11 @@ test("snapshot replay is independent of subsequent corrections and customer allo
     "commit",
   );
   const saved = JSON.parse(JSON.stringify(snapshot));
+  assert.equal(saved.klant.producten[0].vorige_norm, null);
+  assert.match(
+    saved.klant.producten[0].meldingen.join(" "),
+    /vergelijkingsperiode begint vóór 2026-09-01/,
+  );
   b.meterstanden[1].dagstroom_kwh = 70000;
   assert.equal(saved.klant.producten[0].verbruik, 764);
   const publicModel = klantSnapshot({

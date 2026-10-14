@@ -48,14 +48,14 @@ function bron(): Brondata {
         id: 200,
         woning_id: 2,
         bedrijf_id: 10,
-        startdatum: "2026-02-01",
+        startdatum: "2026-09-01",
         werkelijke_einddatum: null,
       },
       {
         id: 300,
         woning_id: 3,
         bedrijf_id: 20,
-        startdatum: "2026-03-01",
+        startdatum: "2026-09-30",
         werkelijke_einddatum: null,
       },
     ],
@@ -65,8 +65,8 @@ function bron(): Brondata {
 }
 
 const periode = {
-  vanaf: "2026-02-01",
-  tot: "2026-03-15",
+  vanaf: "2026-09-01",
+  tot: "2026-10-01",
   producten_ingediend: "1",
   drager: "elektriciteit",
 };
@@ -133,8 +133,8 @@ test("datumvalidatie koppelt foutmeldingen aan het ongeldige datumveld", () => {
       leesSelectie(
         {
           niveau: "totaal",
-          vanaf: "2026-03-15",
-          tot: "2026-03-01",
+          vanaf: "2026-09-15",
+          tot: "2026-09-01",
         },
         bron(),
       ),

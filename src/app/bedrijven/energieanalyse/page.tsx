@@ -9,6 +9,10 @@ import {
   bepaalEnergieDatumbereik,
 } from "@/lib/energie/portfolio-analyse";
 import {
+  ENERGIE_ANALYSE_STARTDATUM,
+  volgendeDag,
+} from "@/lib/energie/rekenregels";
+import {
   EnergieSelectieValidatieFout,
   leesSelectie,
   type EnergieSelectieVeld,
@@ -50,7 +54,11 @@ export default async function EnergieanalysePage({
     keuze = leesSelectie({}, bron);
   }
   const { selectie, dragers } = keuze,
-    bereik = bepaalEnergieDatumbereik(bron.meterstanden);
+    bereik = bepaalEnergieDatumbereik(bron.meterstanden),
+    maximum = bereik?.totEnMet &&
+    bereik.totEnMet > ENERGIE_ANALYSE_STARTDATUM
+      ? bereik.totEnMet
+      : volgendeDag(ENERGIE_ANALYSE_STARTDATUM);
   const analyses = validatiefout
     ? []
     : dragers.map((drager) =>
@@ -127,8 +135,8 @@ export default async function EnergieanalysePage({
           }}
           selectie={selectie}
           dragers={dragers}
-          minimum={bereik?.vanaf ?? selectie.vanaf}
-          maximum={bereik?.totEnMet ?? selectie.totEnMet}
+          minimum={ENERGIE_ANALYSE_STARTDATUM}
+          maximum={maximum}
           initialValues={parameters}
           validationError={
             validatiefout

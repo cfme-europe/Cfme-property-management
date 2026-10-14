@@ -1,7 +1,8 @@
 import {
-  controleerPeriode,
+  controleerEnergieAnalysePeriode,
   dagen,
   datumTijd,
+  ENERGIE_ANALYSE_STARTDATUM,
   gedekteDagen,
   kwartiel,
   verschil,
@@ -206,6 +207,7 @@ export function maakMeetperioden(
   bron: Brondata,
   sel: EnergieAnalyseSelectie,
 ): EnergieInterval[] {
+  controleerEnergieAnalysePeriode(sel.vanaf, sel.totEnMet);
   const result: EnergieInterval[] = [];
   for (const woning of bron.woningen) {
     const bewoners = bewonersVoorWoning(bron, woning.id);
@@ -344,7 +346,7 @@ export function bouwEnergiePortfolioAnalyse(
   bron: Brondata,
   sel: EnergieAnalyseSelectie,
 ): EnergiePortfolioAnalyse {
-  controleerPeriode(sel.vanaf, sel.totEnMet);
+  controleerEnergieAnalysePeriode(sel.vanaf, sel.totEnMet);
   const min = sel.minimaleDekking ?? 100;
   if (!Number.isFinite(min) || min < 0 || min > 100)
     throw new Error("Dekking moet tussen 0 en 100 liggen.");
@@ -378,6 +380,34 @@ export function bouwEnergiePortfolioAnalyse(
     );
     const usable = accepted.filter((i) => i.waarde !== null && i.betrouwbaar);
     const meldingen = [...new Set(all.flatMap((i) => i.meldingen))];
+    if (
+      sel.modus !== "schatting" &&
+      sel.vanaf === ENERGIE_ANALYSE_STARTDATUM
+    ) {
+      const grensoverschrijdend = bron.meterstanden
+        .filter(
+          (m) =>
+            m.woning_id === w.id &&
+            (sel.drager === "gas"
+              ? m.gas_m3 !== null
+              : sel.drager === "water"
+                ? m.water_m3 !== null
+                : m.elektriciteit_kwh !== null ||
+                  m.dagstroom_kwh !== null ||
+                  m.nachtstroom_kwh !== null),
+        )
+        .sort((a, b) => a.opnamedatum.localeCompare(b.opnamedatum))
+        .some(
+          (m, index, standen) =>
+            index > 0 &&
+            standen[index - 1].opnamedatum < ENERGIE_ANALYSE_STARTDATUM &&
+            m.opnamedatum > ENERGIE_ANALYSE_STARTDATUM,
+        );
+      if (grensoverschrijdend)
+        meldingen.push(
+          `Een meetinterval kruist de analysedatum ${ENERGIE_ANALYSE_STARTDATUM} en is niet meegeteld. Exact verbruik is pas beschikbaar over meetintervallen die volledig vanaf deze datum lopen.`,
+        );
+    }
     if (accepted.length !== all.length)
       meldingen.push(
         "Interval met klantwissel niet exact aan één klant toerekenbaar",

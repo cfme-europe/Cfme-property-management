@@ -1,5 +1,5 @@
 import {bouwEnergiePortfolioAnalyse,type Brondata,type Energiedrager} from "@/lib/energie/portfolio-analyse";
-import {volgendeDag} from "@/lib/energie/rekenregels";
+import { ENERGIE_ANALYSE_STARTDATUM, volgendeDag } from "@/lib/energie/rekenregels";
 import { berekenVerbruiksperiodes } from "@/services/energieverbruik";
 import type {
   EnergieKengetal,
@@ -222,16 +222,26 @@ export function bouwRapportagemotor(
 
   const alleVerbruiksperiodes =
     berekenVerbruiksperiodes(invoer.meterstanden);
+  const huidigeEnergieperiodeBinnenGrens =
+    huidig.vanaf >= ENERGIE_ANALYSE_STARTDATUM;
+  const vorigeEnergieperiodeBinnenGrens =
+    vorig.vanaf >= ENERGIE_ANALYSE_STARTDATUM;
 
   const huidigeVerbruiksperiodes =
-    alleVerbruiksperiodes.filter((periode) =>
-      periode.van_datum >= huidig.vanaf && periode.tot_datum <= volgendeDag(huidig.tot_en_met),
-    );
+    huidigeEnergieperiodeBinnenGrens
+      ? alleVerbruiksperiodes.filter((periode) =>
+          periode.van_datum >= huidig.vanaf &&
+          periode.tot_datum <= volgendeDag(huidig.tot_en_met),
+        )
+      : [];
 
   const vorigeVerbruiksperiodes =
-    alleVerbruiksperiodes.filter((periode) =>
-      periode.van_datum >= vorig.vanaf && periode.tot_datum <= volgendeDag(vorig.tot_en_met),
-    );
+    vorigeEnergieperiodeBinnenGrens
+      ? alleVerbruiksperiodes.filter((periode) =>
+          periode.van_datum >= vorig.vanaf &&
+          periode.tot_datum <= volgendeDag(vorig.tot_en_met),
+        )
+      : [];
 
   const energie = {
     dagstroom: kengetal(
@@ -276,10 +286,24 @@ export function bouwRapportagemotor(
   let onvolledigeMeetperioden = 0;
   for (const drager of ["elektriciteit","gas","water"] as Energiedrager[]) {
     const analyse = (vanaf:string,tot:string) => bouwEnergiePortfolioAnalyse(bron,{niveau:"totaal",drager,vanaf,totEnMet:volgendeDag(tot),archief:true});
-    const a = analyse(huidig.vanaf,huidig.tot_en_met), b = analyse(vorig.vanaf,vorig.tot_en_met);
-    const comparable = a.dekking_percentage === 100 && b.dekking_percentage === 100 && a.rijen.every(r=>r.betrouwbaarheid==="exact") && b.rijen.every(r=>r.betrouwbaarheid==="exact");
-    const delta = comparable && a.per_persoon_per_week!==null && b.per_persoon_per_week!==null && b.per_persoon_per_week>0 ? 100*(a.per_persoon_per_week-b.per_persoon_per_week)/b.per_persoon_per_week : null;
-    energie[drager] = {totaal:a.totaal,persoonsweken:a.persoonsdagen/7,per_persoon_per_week:a.per_persoon_per_week,vorige_per_persoon_per_week:comparable?b.per_persoon_per_week:null,afwijking_percentage:delta,signalering:delta===null?"onvoldoende_data":delta>=35?"kritiek":delta>=20?"waarschuwing":"normaal"};
+    if (!huidigeEnergieperiodeBinnenGrens) {
+      energie[drager] = {
+        totaal: null,
+        persoonsweken: 0,
+        per_persoon_per_week: null,
+        vorige_per_persoon_per_week: null,
+        afwijking_percentage: null,
+        signalering: "onvoldoende_data",
+      };
+      continue;
+    }
+    const a = analyse(huidig.vanaf,huidig.tot_en_met);
+    const b = vorigeEnergieperiodeBinnenGrens
+      ? analyse(vorig.vanaf,vorig.tot_en_met)
+      : null;
+    const comparable = !!b && a.dekking_percentage === 100 && b.dekking_percentage === 100 && a.rijen.every(r=>r.betrouwbaarheid==="exact") && b.rijen.every(r=>r.betrouwbaarheid==="exact");
+    const delta = comparable && a.per_persoon_per_week!==null && b!.per_persoon_per_week!==null && b!.per_persoon_per_week>0 ? 100*(a.per_persoon_per_week-b!.per_persoon_per_week)/b!.per_persoon_per_week : null;
+    energie[drager] = {totaal:a.totaal,persoonsweken:a.persoonsdagen/7,per_persoon_per_week:a.per_persoon_per_week,vorige_per_persoon_per_week:comparable?b!.per_persoon_per_week:null,afwijking_percentage:delta,signalering:delta===null?"onvoldoende_data":delta>=35?"kritiek":delta>=20?"waarschuwing":"normaal"};
     onvolledigeMeetperioden += a.uitgesloten_meetperioden;
   }
 
@@ -511,6 +535,7 @@ export function bouwRapportagemotor(
     acties,
     toelichting_rekenregels: [
       "De vorige periode is de direct voorafgaande kalendermaand.",
+      `Nieuwe energieanalyses beginnen niet vóór ${ENERGIE_ANALYSE_STARTDATUM}; perioden die daarvoor beginnen en vergelijkingen ermee zijn niet opgenomen.`,
       "Alleen volledig ingesloten meetintervallen worden exact toegerekend; ontbrekende kalenderdagen worden niet geschat.",
       "Verbruik per persoon per week gebruikt persoonsdagen binnen de exacte meetperiode.",
       "Werkelijke kosten gaan vóór geschatte kosten; beide worden nooit bij dezelfde afwijking dubbel geteld.",
