@@ -10,11 +10,14 @@ import {
 import {
   datumTijd,
   ENERGIE_ANALYSE_STARTDATUM,
+  gedekteDagen,
   kwartiel,
 } from "../src/lib/energie/rekenregels";
 import { elektriciteitsMeting } from "../src/lib/energie/metingen";
 import {
   berekenEnergiekosten,
+  valideerTarief,
+  vindGeldendTarief,
   type Tariefplan,
 } from "../src/lib/energie/tarieven";
 import { leesAlleRijen } from "../src/lib/energie/paginering";
@@ -78,7 +81,7 @@ test("golden Meerstraat:764 / (128/7), 16/30 calendar coverage, no misleading be
   const a = analyse();
   assert.equal(a.totaal, 764);
   assert.equal(a.persoonsdagen, 128);
-  assert.equal(a.per_persoon_per_week, 41.78125);
+  assert.equal(a.per_persoon_per_week, null);
   assert.ok(Math.abs(a.dekking_percentage - (16 / 30) * 100) < 1e-10);
   assert.equal(a.rijen[0].betrouwbaarheid, "gedeeltelijk");
   assert.equal(a.mediaan_per_persoon_per_week, null);
@@ -96,40 +99,51 @@ test("exact boundaries and missing boundaries are distinct", () => {
   assert.equal(analyse(b).totaal, null);
   assert.equal(analyse(b).rijen.length, 1);
 });
-test("the central analysis date is the default and rejects old URL selections", () => {
-  const b = bron();
-  const standaard = leesSelectie({}, b).selectie;
-  assert.equal(standaard.vanaf, ENERGIE_ANALYSE_STARTDATUM);
-
-  assert.throws(
-    () =>
-      leesSelectie(
-        { vanaf: "2026-08-31", tot: "2026-09-23", drager: "elektriciteit" },
-        b,
-      ),
-    (error: unknown) =>
-      error instanceof Error &&
-      /niet vóór 2026-09-01/.test(error.message) &&
-      "veld" in error &&
-      error.veld === "vanaf",
-  );
+test("overlapping half-open intervals contribute covered days only once", () => {
   assert.equal(
-    leesSelectie(
-      { vanaf: "2026-09-07", tot: "2026-09-23", drager: "elektriciteit" },
-      b,
-    ).selectie.vanaf,
-    "2026-09-07",
-  );
-  assert.throws(
-    () =>
-      analyse(b, {
-        ...sel,
-        vanaf: "2026-08-31",
-      }),
-    /niet vóór 2026-09-01/,
+    gedekteDagen([
+      { vanDatum: "2026-09-01", totDatum: "2026-09-10" },
+      { vanDatum: "2026-09-05", totDatum: "2026-09-15" },
+      { vanDatum: "2026-09-15", totDatum: "2026-09-21" },
+    ]),
+    20,
   );
 });
-test("a boundary-crossing interval is excluded exactly and estimated consistently", () => {
+test("historical readings remain selectable and the default starts at the first reading", () => {
+  const b = bron();
+  const standaard = leesSelectie({}, b).selectie;
+  assert.equal(standaard.vanaf, "2026-09-07");
+  assert.equal(standaard.totEnMet, "2026-09-24");
+  assert.equal(
+    leesSelectie(
+      { vanaf: "2026-08-31", tot: "2026-09-23", drager: "elektriciteit" },
+      b,
+    ).selectie.vanaf,
+    "2026-08-31",
+  );
+  const historical = analyse(b, {
+    ...sel,
+    vanaf: "2026-08-31",
+    totEnMet: "2026-09-23",
+  });
+  assert.equal(historical.totaal, 764);
+  assert.ok(Math.abs(historical.dekking_percentage - (16 / 23) * 100) < 1e-10);
+});
+test("Aug 29–Sep 13 interval prorates to 120 kWh and fully covers Sep 1–13", () => {
+  const b = bron();
+  b.meterstanden = [
+    stand(1, "2026-08-29", 0),
+    stand(2, "2026-09-13", 150),
+  ];
+  const result = analyse(b, {
+    ...sel,
+    vanaf: "2026-09-01",
+    totEnMet: "2026-09-13",
+  });
+  assert.equal(result.totaal, 120);
+  assert.equal(result.dekking_percentage, 100);
+});
+test("boundary intervals are proportionally allocated by default and fully cover time", () => {
   const b = bron();
   b.bewoners = b.bewoners.slice(0, 2);
   b.meterstanden = [
@@ -142,38 +156,24 @@ test("a boundary-crossing interval is excluded exactly and estimated consistentl
     vanaf: ENERGIE_ANALYSE_STARTDATUM,
     totEnMet: "2026-09-21",
   };
-  const exact = analyse(b, keuze);
-  assert.equal(exact.totaal, 100);
-  assert.equal(exact.persoonsdagen, 20);
-  assert.match(exact.rijen[0].meldingen.join(" "), /kruist de analysedatum/);
-  assert.deepEqual(
-    exact.trends.map((interval) => interval.periode),
-    ["2026-09-11 → 2026-09-21"],
-  );
-
-  const geschat = analyse(b, { ...keuze, modus: "schatting" });
-  assert.equal(geschat.totaal, 200);
-  assert.equal(geschat.persoonsdagen, 40);
-  assert.equal(geschat.rijen[0].betrouwbaarheid, "geschat");
-  assert.ok(geschat.trends.some((interval) => interval.geschat));
+  const resultaat = analyse(b, keuze);
+  assert.equal(resultaat.totaal, 200);
+  assert.equal(resultaat.persoonsdagen, 40);
+  assert.equal(resultaat.dekking_percentage, 100);
+  assert.equal(resultaat.rijen[0].betrouwbaarheid, "exact");
+  assert.ok(resultaat.trends.some((interval) => interval.geschat));
 });
-test("interpolation only in explicit mode and never extrapolates", () => {
+test("selected period boundaries are proportionally allocated without extrapolation", () => {
   const b = bron();
-  const exact = analyse(b, {
+  const result = analyse(b, {
     ...sel,
     vanaf: "2026-09-10",
     totEnMet: "2026-09-20",
   });
-  assert.equal(exact.totaal, null);
-  const est = bouwEnergiePortfolioAnalyse(b, {
-    ...sel,
-    vanaf: "2026-09-10",
-    totEnMet: "2026-09-20",
-    modus: "schatting",
-  });
-  assert.equal(est.totaal, 477.5);
-  assert.equal(est.rijen[0].betrouwbaarheid, "geschat");
-  assert.equal(est.rijen[0].exacte_dekking_percentage, 0);
+  assert.equal(result.totaal, 477.5);
+  assert.equal(result.dekking_percentage, 100);
+  assert.equal(result.rijen[0].betrouwbaarheid, "exact");
+  assert.equal(result.rijen[0].exacte_dekking_percentage, 0);
   assert.ok(
     Math.abs(
       bouwEnergiePortfolioAnalyse(b, { ...sel, modus: "schatting" })
@@ -375,27 +375,128 @@ const tariff = (
     },
   ],
 });
-test("tariff boundary:70×.20 +40×.30 =26; fixed5.50; no silent exact allocation", () => {
+test("tariff boundary prorates variable and fixed costs without missing tariff coverage", () => {
   const plans = [
     tariff("a", "2026-01-01", "2026-02-01", "0.2"),
     tariff("b", "2026-02-01", null, "0.3"),
   ];
-  const exact = berekenEnergiekosten([interval], plans, "elektriciteit", "kWh");
-  assert.equal(exact.totaal, null);
-  assert.match(exact.ontbrekend.join(), /grensstand/);
-  const est = berekenEnergiekosten(
+  const costs = berekenEnergiekosten(
     [interval],
     plans,
     "elektriciteit",
     "kWh",
-    true,
   );
-  assert.equal(est.variabel, 26);
-  assert.equal(est.vast, 5.5);
-  assert.equal(est.regels[0].hoeveelheid, 70);
-  assert.equal(est.regels[2].hoeveelheid, 40);
-  assert.equal(est.geschat, true);
-  assert.equal(est.totaal, 38.12);
+  assert.equal(costs.variabel, 26);
+  assert.equal(costs.vast, 5.5);
+  assert.equal(costs.regels[0].hoeveelheid, 70);
+  assert.equal(costs.regels[2].hoeveelheid, 40);
+  assert.equal(costs.geschat, true);
+  assert.equal(costs.totaal, 38.12);
+  assert.equal(costs.ontbrekend.length, 0);
+});
+test("inserting a historical price preserves the already scheduled future price", () => {
+  const plans = [
+    tariff("old", "2026-01-01", null, "0.1"),
+    {
+      ...tariff("future", "2026-03-01", null, "0.4"),
+      voorganger_id: "old",
+    },
+    {
+      ...tariff("new", "2026-02-01", null, "0.2"),
+      voorganger_id: null,
+    },
+  ];
+  assert.equal(
+    vindGeldendTarief(plans, "elektriciteit", 16, 4, "2026-01-31")?.id,
+    "old",
+  );
+  assert.equal(
+    vindGeldendTarief(plans, "elektriciteit", 16, 4, "2026-02-15")?.id,
+    "new",
+  );
+  assert.equal(
+    vindGeldendTarief(plans, "elektriciteit", 16, 4, "2026-03-10")?.id,
+    "future",
+  );
+});
+test("Sep 7 tariff change prorates selected 120 kWh into €12 and €18", () => {
+  const b = bron();
+  b.meterstanden = [
+    stand(1, "2026-08-29", 0),
+    stand(2, "2026-09-13", 150),
+  ];
+  const selected = analyse(b, {
+    ...sel,
+    vanaf: "2026-09-01",
+    totEnMet: "2026-09-13",
+  });
+  const plans = [
+    tariff("before", "2026-08-01", "2026-09-07", "0.2"),
+    tariff("after", "2026-09-07", null, "0.3"),
+  ].map((plan) => ({
+    ...plan,
+    componenten: [
+      {
+        ...plan.componenten[0],
+        btw_percentage: "0",
+      },
+    ],
+  }));
+  const costs = berekenEnergiekosten(
+    selected.rijen.flatMap((row) => row.intervallen),
+    plans,
+    "elektriciteit",
+    "kWh",
+  );
+  assert.equal(selected.totaal, 120);
+  assert.equal(costs.variabel, 30);
+  assert.equal(costs.regels.reduce((sum, row) => sum + row.hoeveelheid, 0), 120);
+  assert.equal(costs.totaal, 30);
+});
+test("day and night tariff costs remain separate and total without duplicate fixed charges", () => {
+  const intervalWithRegisters = {
+    ...interval,
+    vanDatum: "2026-09-01",
+    totDatum: "2026-09-11",
+    bronVanaf: "2026-09-01",
+    bronTot: "2026-09-11",
+    dagen: 10,
+    waarde: 150,
+    dag: 100,
+    nacht: 50,
+  };
+  const plan = tariff("registers", "2026-01-01", null, "0.2");
+  plan.componenten = [
+    { ...plan.componenten[0], soort: "dag", prijs: "0.2", btw_percentage: "0" },
+    { ...plan.componenten[0], soort: "nacht", prijs: "0.3", btw_percentage: "0" },
+    { ...plan.componenten[1], soort: "vast_maand", prijs: "31" },
+  ];
+  const day = berekenEnergiekosten(
+    [intervalWithRegisters],
+    [plan],
+    "dagstroom",
+    "kWh",
+    "dag",
+  );
+  const night = berekenEnergiekosten(
+    [intervalWithRegisters],
+    [plan],
+    "nachtstroom",
+    "kWh",
+    "nacht",
+  );
+  const total = berekenEnergiekosten(
+    [intervalWithRegisters],
+    [plan],
+    "elektriciteit",
+    "kWh",
+  );
+  assert.equal(day.variabel, 20);
+  assert.equal(night.variabel, 15);
+  assert.equal(day.vast, 0);
+  assert.equal(night.vast, 0);
+  assert.equal(total.variabel, 35);
+  assert.equal(total.vast, 10.33);
 });
 test("missing tariffs never become zero; scope precedence and overlaps", () => {
   assert.equal(
@@ -411,7 +512,7 @@ test("missing tariffs never become zero; scope precedence and overlaps", () => {
     componenten: [{ ...p.componenten[0], prijs: "0.1" }],
   };
   assert.equal(
-    berekenEnergiekosten([interval], [p, w], "elektriciteit", "kWh", true)
+    berekenEnergiekosten([interval], [p, w], "elektriciteit", "kWh")
       .variabel,
     11,
   );
@@ -421,8 +522,20 @@ test("missing tariffs never become zero; scope precedence and overlaps", () => {
       [p, { ...p, id: "duplicate" }],
       "elektriciteit",
       "kWh",
-      true,
     ).totaal,
+    null,
+  );
+});
+test("an explicitly registered zero price is valid and differs from no tariff", () => {
+  const plan = tariff("zero", "2026-01-01", null, "0");
+  plan.componenten = [plan.componenten[0]];
+  assert.doesNotThrow(() => valideerTarief(plan));
+  assert.equal(
+    berekenEnergiekosten([interval], [plan], "elektriciteit", "kWh").totaal,
+    0,
+  );
+  assert.equal(
+    berekenEnergiekosten([interval], [], "elektriciteit", "kWh").totaal,
     null,
   );
 });
@@ -472,10 +585,7 @@ test("snapshot replay is independent of subsequent corrections and customer allo
   );
   const saved = JSON.parse(JSON.stringify(snapshot));
   assert.equal(saved.klant.producten[0].vorige_norm, null);
-  assert.match(
-    saved.klant.producten[0].meldingen.join(" "),
-    /vergelijkingsperiode begint vóór 2026-09-01/,
-  );
+  assert.equal(saved.klant.producten[0].verbruik, 764);
   b.meterstanden[1].dagstroom_kwh = 70000;
   assert.equal(saved.klant.producten[0].verbruik, 764);
   const publicModel = klantSnapshot({
@@ -489,6 +599,63 @@ test("snapshot replay is independent of subsequent corrections and customer allo
   });
   assert.doesNotMatch(JSON.stringify(publicModel), /GEHEIM|Privé/);
   assert.equal(saved.intern.bronnen.meterstanden[1].dagstroom_kwh, 64654);
+});
+test("snapshot report values match the shared analysis and suppress incomplete person costs", () => {
+  const b = bron();
+  const fullPeriod = {
+    ...sel,
+    vanaf: "2026-09-07",
+    totEnMet: "2026-09-23",
+  };
+  const plan = tariff("report", "2026-01-01", null, "0.2");
+  plan.componenten = [{ ...plan.componenten[0], btw_percentage: "0" }];
+  const snapshot = bouwEnergieSnapshot(
+    b,
+    [plan],
+    fullPeriod,
+    ["elektriciteit"],
+    "2026-10-13T12:00:00Z",
+    "user",
+    "commit",
+  ).klant.producten[0];
+  const shared = analyse(b, fullPeriod);
+  assert.equal(snapshot.verbruik, shared.totaal);
+  assert.equal(
+    snapshot.verbruik_per_persoon_per_periode,
+    shared.totaal! / (shared.persoonsdagen / 16),
+  );
+  assert.equal(snapshot.kosten.totaal, 152.8);
+  assert.equal(
+    snapshot.kosten_per_persoon_per_week,
+    152.8 / (shared.persoonsdagen / 7),
+  );
+
+  const incomplete = bouwEnergieSnapshot(
+    b,
+    [plan],
+    sel,
+    ["elektriciteit"],
+    "2026-10-13T12:00:00Z",
+    "user",
+    "commit",
+  ).klant.producten[0];
+  assert.equal(incomplete.dekking, (16 / 30) * 100);
+  assert.equal(incomplete.kosten_per_persoon_per_week, null);
+
+  const zonderBewoners = bron();
+  zonderBewoners.bewoners = [];
+  const occupancyMissing = bouwEnergieSnapshot(
+    zonderBewoners,
+    [plan],
+    fullPeriod,
+    ["elektriciteit"],
+    "2026-10-13T12:00:00Z",
+    "user",
+    "commit",
+  ).klant.producten[0];
+  assert.equal(occupancyMissing.dekking, 100);
+  assert.equal(occupancyMissing.norm, null);
+  assert.equal(occupancyMissing.kosten_per_persoon_per_week, null);
 });
 test("an intervention never automatically proves savings", () => {
   const r = analyse(bron(), {

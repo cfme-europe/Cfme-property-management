@@ -4,12 +4,7 @@ import type {
   Energiedrager,
 } from "./portfolio-analyse";
 import { bepaalEnergieDatumbereik } from "./portfolio-analyse";
-import {
-  controleerPeriode,
-  datumTijd,
-  ENERGIE_ANALYSE_STARTDATUM,
-  volgendeDag,
-} from "./rekenregels";
+import { controleerPeriode, datumTijd, volgendeDag } from "./rekenregels";
 export type Parameters = Record<string, string | string[] | undefined>;
 export type EnergieSelectieVeld =
   | "algemeen"
@@ -95,15 +90,17 @@ export function leesSelectie(
     ),
   ];
   const bereik = bepaalEnergieDatumbereik(bron.meterstanden);
-  const minimaleEinddatum = volgendeDag(ENERGIE_ANALYSE_STARTDATUM);
+  const minimaleEinddatum = bereik
+    ? volgendeDag(bereik.vanaf)
+    : volgendeDag(new Date().toISOString().slice(0, 10));
   const standaardTot =
-    bereik?.totEnMet && bereik.totEnMet > ENERGIE_ANALYSE_STARTDATUM
-      ? bereik.totEnMet
+    bereik?.totEnMet
+      ? volgendeDag(bereik.totEnMet)
       : minimaleEinddatum;
   const niveau = one("niveau", "totaal", "niveau");
   if (!["totaal", "bedrijf", "woning"].includes(niveau))
     throw new EnergieSelectieValidatieFout("niveau", "Ongeldig selectieniveau.");
-  const vanaf = one("vanaf", ENERGIE_ANALYSE_STARTDATUM, "vanaf"),
+  const vanaf = one("vanaf", bereik?.vanaf ?? "2026-09-01", "vanaf"),
     tot = one("tot", standaardTot, "tot");
   try {
     datumTijd(vanaf);
@@ -129,11 +126,6 @@ export function leesSelectie(
       error instanceof Error ? error.message : "Ongeldige analyseperiode.",
     );
   }
-  if (vanaf < ENERGIE_ANALYSE_STARTDATUM)
-    throw new EnergieSelectieValidatieFout(
-      "vanaf",
-      `De analysedatum mag niet vóór ${ENERGIE_ANALYSE_STARTDATUM} liggen.`,
-    );
   const woningIds = ids("woning", new Set(bron.woningen.map((w) => w.id))),
     bedrijfIds =
       niveau === "woning"
@@ -177,9 +169,20 @@ export function leesSelectie(
       "drager",
       "Selecteer minimaal één energieproduct.",
     );
-  if (dragers.some((d) => !["elektriciteit", "gas", "water"].includes(d)))
+  if (
+    dragers.some(
+      (d) =>
+        ![
+          "elektriciteit",
+          "dagstroom",
+          "nachtstroom",
+          "gas",
+          "water",
+        ].includes(d),
+    )
+  )
     throw new EnergieSelectieValidatieFout("drager", "Onbekend energieproduct.");
-  const modus = one("modus", "exact", "modus"),
+  const modus = one("modus", "schatting", "modus"),
     kwaliteit = one("kwaliteit", "alle", "kwaliteit"),
     min = Number(one("dekking", "100", "dekking"));
   if (

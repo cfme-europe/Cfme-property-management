@@ -37,6 +37,7 @@ export type Kostenregel = {
   soort: string;
   hoeveelheid: number;
   eenheidsprijs: string;
+  inclusief_btw: boolean;
   exclusief_btw: number;
   btw: number;
   totaal: number;
@@ -54,6 +55,7 @@ export type Energiekosten = {
   btw: number;
   valuta: string | null;
   geschat: boolean;
+  gemiddelde_eenheidsprijs: number | null;
 };
 const S = BigInt(1000000000);
 function decimal(s: string | number): bigint {
@@ -111,22 +113,66 @@ export function valideerTarief(t: Tariefplan) {
   if (types.has("dag") !== types.has("nacht"))
     throw new Error("Dag- en nachttarief samen vastleggen.");
 }
+export function effectieveTariefplannen(plannen: Tariefplan[]): Tariefplan[] {
+  return plannen.map((tarief) => {
+    const opvolgerdatum = plannen
+      .filter(
+        (kandidaat) =>
+          kandidaat.id !== tarief.id &&
+          kandidaat.product === tarief.product &&
+          kandidaat.woning_id === tarief.woning_id &&
+          kandidaat.bedrijf_id === tarief.bedrijf_id &&
+          kandidaat.vanaf > tarief.vanaf,
+      )
+      .map((kandidaat) => kandidaat.vanaf)
+      .sort()[0];
+    if (!opvolgerdatum || (tarief.tot && tarief.tot <= opvolgerdatum))
+      return tarief;
+    return { ...tarief, tot: opvolgerdatum };
+  });
+}
+export function vindGeldendTarief(
+  plannen: Tariefplan[],
+  product: string,
+  woningId: number,
+  bedrijfId: number | null,
+  datum: string,
+): Tariefplan | null {
+  const actief = effectieveTariefplannen(plannen).filter(
+    (tarief) =>
+      tarief.product === product &&
+      (!tarief.woning_id || tarief.woning_id === woningId) &&
+      (!tarief.bedrijf_id ||
+        (bedrijfId !== null && tarief.bedrijf_id === bedrijfId)) &&
+      tarief.vanaf <= datum &&
+      (!tarief.tot || datum < tarief.tot),
+  );
+  const prioriteit = (tarief: Tariefplan) =>
+    tarief.woning_id ? 2 : tarief.bedrijf_id ? 1 : 0;
+  const hoogste = Math.max(-1, ...actief.map(prioriteit));
+  const gekozen = actief.filter((tarief) => prioriteit(tarief) === hoogste);
+  return gekozen.length === 1 ? gekozen[0] : null;
+}
 export function berekenEnergiekosten(
   intervallen: EnergieInterval[],
   plannen: Tariefplan[],
   product: string,
   eenheid: string,
-  schatting = false,
+  register?: "dag" | "nacht",
 ): Energiekosten {
   const regels: Kostenregel[] = [],
-    ontbrekend: string[] = [];
+    ontbrekend: string[] = [],
+    geldendePlannen = effectieveTariefplannen(plannen);
   for (const t of plannen) valideerTarief(t);
   for (const i of intervallen.filter(
     (i) => i.betrouwbaar && i.waarde !== null,
   )) {
-    const relevant = plannen.filter(
+    const relevant = geldendePlannen.filter(
       (t) =>
-        t.product === product &&
+        t.product ===
+          (product === "dagstroom" || product === "nachtstroom"
+            ? "elektriciteit"
+            : product) &&
         t.eenheid === eenheid &&
         (!t.woning_id || t.woning_id === i.woningId) &&
         (!t.bedrijf_id ||
@@ -191,15 +237,10 @@ export function berekenEnergiekosten(
       const t = winners[0];
       const split = van !== i.vanDatum || tot !== i.totDatum;
       for (const c of t.componenten) {
+        if (register && c.soort !== register) continue;
         const fixed = c.soort.startsWith("vast_");
         const wholeVariable = !fixed && constantPlan;
         if (wholeVariable && n > 1) continue;
-        if (!fixed && split && !wholeVariable && !schatting) {
-          ontbrekend.push(
-            `${van} → ${tot}: grensstand ontbreekt voor tarieftoerekening`,
-          );
-          continue;
-        }
         if (c.soort === "teruglevering") {
           ontbrekend.push(
             "Teruglevering vereist afzonderlijk gemeten exportvolume",
@@ -207,7 +248,11 @@ export function berekenEnergiekosten(
           continue;
         }
         const base =
-          c.soort === "dag" ? i.dag : c.soort === "nacht" ? i.nacht : i.waarde;
+          c.soort === "dag" || register === "dag"
+            ? i.dag
+            : c.soort === "nacht" || register === "nacht"
+              ? i.nacht
+              : i.waarde;
         if (!fixed && base === null) {
           ontbrekend.push(`${c.soort}: registerverbruik ontbreekt`);
           continue;
@@ -239,6 +284,7 @@ export function berekenEnergiekosten(
           soort: c.soort,
           hoeveelheid: qty,
           eenheidsprijs: c.prijs,
+          inclusief_btw: c.inclusief_btw,
           exclusief_btw: ex,
           btw,
           totaal: (Number(exCents) + Number(vatCents)) / 100,
@@ -254,15 +300,19 @@ export function berekenEnergiekosten(
   if (currencies.length > 1)
     ontbrekend.push("Verschillende valuta: geen opgeteld totaal");
   const known = currencies.length <= 1 ? sum(regels, "totaal") : 0;
+  const variableRows = regels.filter((r) =>
+    ["variabel", "dag", "nacht"].includes(r.soort),
+  );
+  const variableConsumption = variableRows.reduce(
+    (total, row) => total + row.hoeveelheid,
+    0,
+  );
   return {
     regels,
     ontbrekend: [...new Set(ontbrekend)],
     totaal: regels.length && !ontbrekend.length ? known : null,
     bekend_subtotaal: known,
-    variabel: sum(
-      regels.filter((r) => ["variabel", "dag", "nacht"].includes(r.soort)),
-      "exclusief_btw",
-    ),
+    variabel: sum(variableRows, "exclusief_btw"),
     vast: sum(
       regels.filter((r) => r.soort.startsWith("vast_")),
       "exclusief_btw",
@@ -274,5 +324,9 @@ export function berekenEnergiekosten(
     btw: sum(regels, "btw"),
     valuta: currencies.length === 1 ? currencies[0] : null,
     geschat: regels.some((r) => r.geschat),
+    gemiddelde_eenheidsprijs:
+      !ontbrekend.length && variableConsumption > 0
+        ? sum(variableRows, "totaal") / variableConsumption
+        : null,
   };
 }

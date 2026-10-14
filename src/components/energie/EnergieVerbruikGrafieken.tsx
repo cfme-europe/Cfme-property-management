@@ -19,27 +19,27 @@ type Reeks = {
 const reeksen: Reeks[] = [
   {
     sleutel: "dagstroom",
-    titel: "Dagstroom per bewoner per week",
+    titel: "Dagstroom per week",
     eenheid: "kWh",
   },
   {
     sleutel: "nachtstroom",
-    titel: "Nachtstroom per bewoner per week",
+    titel: "Nachtstroom per week",
     eenheid: "kWh",
   },
   {
     sleutel: "elektriciteit",
-    titel: "Elektriciteit totaal per bewoner per week",
+    titel: "Elektriciteit totaal per week",
     eenheid: "kWh",
   },
   {
     sleutel: "gas",
-    titel: "Gas per bewoner per week",
+    titel: "Gas per week",
     eenheid: "m³",
   },
   {
     sleutel: "water",
-    titel: "Water per bewoner per week",
+    titel: "Water per week",
     eenheid: "m³",
   },
 ];
@@ -89,7 +89,11 @@ export default function EnergieVerbruikGrafieken({
 
   return (
     <div className="space-y-8">
-      <p className="text-sm text-slate-600">Indicatieve persoonsnormen op basis van bewonersaantallen bij de meteropnames. De centrale Energie-intelligence controleert de gedateerde bewonersadministratie, kwaliteit en kalenderdekking.</p>
+      <p className="text-sm text-slate-600">
+        Weekwaarden gebruiken dezelfde gevalideerde, halfopen meetintervallen
+        als de energieanalyse. Deze historische grafieken tonen geen
+        persoonsnorm omdat hier geen volledige bewonersregistratie is geladen.
+      </p>
       {reeksen.map((reeks) => {
         const gegevens = [...periodes]
           .reverse()
@@ -99,7 +103,7 @@ export default function EnergieVerbruikGrafieken({
             )}–${datumKort(periode.tot_datum)}`,
             waarde:
               periode[reeks.sleutel]
-                .per_bewoner_per_week,
+                .per_week,
           }))
           .filter(
             (
@@ -121,7 +125,7 @@ export default function EnergieVerbruikGrafieken({
               </h3>
 
               <p className="mt-3 text-sm text-slate-600">
-                Geen complete meetperiodes beschikbaar.
+                Geen bruikbare meetintervallen beschikbaar.
               </p>
             </section>
           );
@@ -172,8 +176,7 @@ export default function EnergieVerbruikGrafieken({
                 </h3>
 
                 <p className="mt-1 text-sm text-slate-600">
-                  Laatste {gegevens.length} berekende
-                  periodes.
+                  Laatste                   {gegevens.length} berekende intervallen.
                 </p>
               </div>
 

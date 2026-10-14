@@ -3,7 +3,6 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { maakMeetperioden, type Brondata, type Energiedrager } from "@/lib/energie/portfolio-analyse";
-import { ENERGIE_ANALYSE_STARTDATUM } from "@/lib/energie/rekenregels";
 import type { Inspectie } from "@/types/inspectie";
 import type { Melding } from "@/types/melding";
 import type { Meterstand } from "@/types/meterstand";
@@ -588,7 +587,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   for(const [woningId,woningMeterstanden] of meterstandenPerWoning) {
     const woning=woningenPerId.get(woningId); if(!woning||woningMeterstanden.length<2)continue;
     const dates=woningMeterstanden.map(m=>m.opnamedatum).sort();
-    const vanaf=dates[0]<ENERGIE_ANALYSE_STARTDATUM?ENERGIE_ANALYSE_STARTDATUM:dates[0];
+    const vanaf=dates[0];
     if(dates.at(-1)!<=vanaf)continue;
     const bron:Brondata={woningen:[woning],bedrijven:[],meterstanden:woningMeterstanden,verhuurperioden:huurBron as Brondata["verhuurperioden"],bewoners:bewonersBron as Brondata["bewoners"],meterconfiguraties:configs.filter(c=>!vervangenConfigs.has(c.id)) as Brondata["meterconfiguraties"]};
     for(const drager of ["elektriciteit","gas","water"] as Energiedrager[]){

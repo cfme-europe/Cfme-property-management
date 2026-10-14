@@ -333,11 +333,16 @@ export async function genereerMaandrapportageData(
       )
   );
 
-  const verbruiksperiodes =
-    berekenVerbruiksperiodes(meterstanden).filter(
-      (verbruiksperiode) =>
-        verbruiksperiode.van_datum >= vanaf && verbruiksperiode.tot_datum <= new Date(Date.UTC(rapportage.rapportjaar,rapportage.rapportmaand,1)).toISOString().slice(0,10)
-    );
+  const verbruiksperiodes = berekenVerbruiksperiodes(
+    meterstanden,
+    vanaf,
+    new Date(
+      Date.UTC(rapportage.rapportjaar, rapportage.rapportmaand, 1),
+    )
+      .toISOString()
+      .slice(0, 10),
+    energieUitbreiding.configuraties,
+  );
 
   const openMeldingen = periodeMeldingen.filter(
     (melding) => melding.status !== "opgelost"

@@ -138,7 +138,7 @@ test("berekent energie per persoon per week met persoonsdagen", () => {
   );
   assert.equal(
     uitkomst.energie.elektriciteit.per_persoon_per_week,
-    150 / (42 / 7),
+    null,
   );
   assert.equal(
     uitkomst.energie.elektriciteit.vorige_per_persoon_per_week,
@@ -146,16 +146,19 @@ test("berekent energie per persoon per week met persoonsdagen", () => {
   );
 });
 
-test("historical report periods do not include energy before the central date", () => {
+test("historical report periods prorate available energy before the central date", () => {
   const uitkomst = bouwRapportagemotor(basis);
-  assert.equal(uitkomst.energie.dagstroom.totaal, null);
-  assert.equal(uitkomst.energie.elektriciteit.totaal, null);
-  assert.equal(uitkomst.energie.gas.totaal, null);
-  assert.equal(uitkomst.energie.water.totaal, null);
   assert.ok(
-    uitkomst.toelichting_rekenregels.some((regel) =>
-      regel.includes("2026-09-01"),
-    ),
+    Math.abs(uitkomst.energie.dagstroom.totaal! - (100 * 30) / 31) < 1e-10,
+  );
+  assert.ok(
+    Math.abs(uitkomst.energie.elektriciteit.totaal! - (150 * 30) / 31) < 1e-10,
+  );
+  assert.ok(
+    Math.abs(uitkomst.energie.gas.totaal! - (20 * 30) / 31) < 1e-10,
+  );
+  assert.ok(
+    Math.abs(uitkomst.energie.water.totaal! - (12 * 30) / 31) < 1e-10,
   );
 });
 
@@ -213,8 +216,8 @@ test("open afwijking met hoge urgentie krijgt minimaal middel risico", () => {
   );
 });
 
-test("interval starting before the report month is not a complete exact month",()=>{
+test("interval starting before the report month is proportionally allocated",()=>{
  const result=bouwRapportagemotor(basis);
- assert.equal(result.energie.elektriciteit.totaal,null);
+ assert.ok(Math.abs(result.energie.elektriciteit.totaal!-145.16129032258064)<1e-10);
  assert.equal(result.energie.elektriciteit.afwijking_percentage,null);
 });

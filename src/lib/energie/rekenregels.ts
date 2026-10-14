@@ -1,5 +1,5 @@
 /** Halfopen kalenderintervallen. Geen lokale DST-uren in dagberekeningen. */
-export const ENERGIE_REKENREGELS = "energie-2.0.0";
+export const ENERGIE_REKENREGELS = "energie-3.0.0";
 export const ENERGIE_ANALYSE_STARTDATUM = "2026-09-01";
 export function datumTijd(datum: string): number {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(datum))
@@ -29,10 +29,6 @@ export function controleerPeriode(van: string, tot: string) {
 }
 export function controleerEnergieAnalysePeriode(van: string, tot: string) {
   controleerPeriode(van, tot);
-  if (datumTijd(van) < datumTijd(ENERGIE_ANALYSE_STARTDATUM))
-    throw new Error(
-      `De analysedatum mag niet vóór ${ENERGIE_ANALYSE_STARTDATUM} liggen.`,
-    );
 }
 export function verschil(
   begin: number | null | undefined,

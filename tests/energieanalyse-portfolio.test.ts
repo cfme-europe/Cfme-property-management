@@ -127,8 +127,8 @@ test("bedrijvenoverzicht ontsluit de energieanalyse", async () => {
   );
 
   assert.match(bron, /href="\/bedrijven\/energieanalyse"/);
-  assert.match(pagina, /EnergieFilters/);
-  assert.match(pagina, /persoon\/week/);
+  assert.match(pagina, /Analyse toepassen/);
+  assert.match(pagina, /Kosten per persoon \/ week/);
 });
 
 test("energieanalyse heeft bedienbare datumkeuzes voor tablet en desktop", async () => {
@@ -136,31 +136,9 @@ test("energieanalyse heeft bedienbare datumkeuzes voor tablet en desktop", async
     "src/app/bedrijven/energieanalyse/page.tsx",
     "utf8",
   );
-  const pagina = await readFile(
-    "src/components/energie/EnergieFilters.tsx",
-    "utf8",
-  );
-  const datumvelden = await readFile(
-    "src/components/energie/EnergieAnalyseDatumvelden.tsx",
-    "utf8",
-  );
-
-  assert.match(pagina, /EnergieAnalyseDatumvelden/);
-  assert.match(pagina, /minimum=\{minimum\}/);
-  assert.match(pagina, /maximum=\{maximum\}/);
-  assert.match(serverPagina, /minimum=\{ENERGIE_ANALYSE_STARTDATUM\}/);
-  assert.match(
-    datumvelden,
-    /Een analyse kan niet vóór 1 september 2026 beginnen/,
-  );
-  assert.match(pagina, /Beginmeetdatum inclusief, eindmeetdatum exclusief/);
-  assert.match(datumvelden, /type="hidden" name=\{naam\} value=\{waarde\}/);
-  assert.match(datumvelden, /id=\{`\$\{naam\}-maand`\}/);
-  assert.match(datumvelden, /id=\{`\$\{naam\}-dag`\}/);
-  assert.match(datumvelden, /id=\{`\$\{naam\}-jaar`\}/);
-  assert.match(datumvelden, /begrensDatum/);
-  assert.doesNotMatch(datumvelden, /type="date"/);
-  assert.doesNotMatch(datumvelden, /showPicker/);
-  assert.match(datumvelden, /waarde > totEnMet/);
-  assert.match(datumvelden, /waarde < vanaf/);
+  assert.match(serverPagina, /Vanaf \(inclusief\)/);
+  assert.match(serverPagina, /Tot \(exclusief\)/);
+  assert.match(serverPagina, /Deze datum telt niet mee/);
+  assert.match(serverPagina, /Analyse toepassen/);
+  assert.match(serverPagina, /Geen selectie = alle panden/);
 });

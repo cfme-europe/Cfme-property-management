@@ -2,13 +2,17 @@ import {
   controleerEnergieAnalysePeriode,
   dagen,
   datumTijd,
-  ENERGIE_ANALYSE_STARTDATUM,
   gedekteDagen,
   kwartiel,
   verschil,
 } from "./rekenregels";
 import { elektriciteitsMeting, type RegisterType } from "./metingen";
-export type Energiedrager = "elektriciteit" | "gas" | "water";
+export type Energiedrager =
+  | "elektriciteit"
+  | "dagstroom"
+  | "nachtstroom"
+  | "gas"
+  | "water";
 export type EnergieAnalyseNiveau = "totaal" | "bedrijf" | "woning";
 export type EnergieMeterstand = {
   id?: number;
@@ -100,6 +104,7 @@ export type EnergieAnalyseRij = {
   plaats: string;
   bedrijven: string[];
   totaal: number | null;
+  per_persoon_per_periode: number | null;
   persoonsdagen: number;
   per_persoon_per_week: number | null;
   meetperioden: number;
@@ -110,7 +115,7 @@ export type EnergieAnalyseRij = {
   signaal: "laag" | "normaal" | "verhoogd" | "uitschieter" | "onvoldoende_data";
   besparingsruimte_tot_mediaan: number;
   betrouwbaarheid:
-    "exact" | "gedeeltelijk" | "geschat" | "controleren" | "onvoldoende_data";
+    "exact" | "gedeeltelijk" | "controleren" | "onvoldoende_data";
   meldingen: string[];
   intervallen: EnergieInterval[];
   benchmark_geschikt: boolean;
@@ -209,6 +214,10 @@ export function maakMeetperioden(
 ): EnergieInterval[] {
   controleerEnergieAnalysePeriode(sel.vanaf, sel.totEnMet);
   const result: EnergieInterval[] = [];
+  const meterProduct =
+    sel.drager === "dagstroom" || sel.drager === "nachtstroom"
+      ? "elektriciteit"
+      : sel.drager;
   for (const woning of bron.woningen) {
     const bewoners = bewonersVoorWoning(bron, woning.id);
     const standen = bron.meterstanden
@@ -219,6 +228,10 @@ export function maakMeetperioden(
             ? m.gas_m3 !== null
             : sel.drager === "water"
               ? m.water_m3 !== null
+              : sel.drager === "dagstroom"
+                ? m.dagstroom_kwh !== null
+                : sel.drager === "nachtstroom"
+                  ? m.nachtstroom_kwh !== null
               : m.elektriciteit_kwh !== null ||
                 m.dagstroom_kwh !== null ||
                 m.nachtstroom_kwh !== null),
@@ -238,11 +251,10 @@ export function maakMeetperioden(
       const van = a.opnamedatum < sel.vanaf ? sel.vanaf : a.opnamedatum,
         tot = b.opnamedatum > sel.totEnMet ? sel.totEnMet : b.opnamedatum;
       const geschat = van !== a.opnamedatum || tot !== b.opnamedatum;
-      if (geschat && sel.modus !== "schatting") continue;
       const configs = (bron.meterconfiguraties ?? []).filter(
         (c) =>
           c.woning_id === woning.id &&
-          c.product === sel.drager &&
+          c.product === meterProduct &&
           c.vanaf <= a.opnamedatum &&
           (!c.tot || c.tot >= b.opnamedatum),
       );
@@ -259,7 +271,7 @@ export function maakMeetperioden(
         (bron.meterconfiguraties ?? []).some(
           (c) =>
             c.woning_id === woning.id &&
-            c.product === sel.drager &&
+              c.product === meterProduct &&
             c.vanaf > a.opnamedatum &&
             c.vanaf < b.opnamedatum,
         )
@@ -269,6 +281,10 @@ export function maakMeetperioden(
       const bronWaarde =
         sel.drager === "elektriciteit"
           ? electric.waarde
+          : sel.drager === "dagstroom"
+            ? verschil(a.dagstroom_kwh, b.dagstroom_kwh)
+            : sel.drager === "nachtstroom"
+              ? verschil(a.nachtstroom_kwh, b.nachtstroom_kwh)
           : verschil(
               sel.drager === "gas" ? a.gas_m3 : a.water_m3,
               sel.drager === "gas" ? b.gas_m3 : b.water_m3,
@@ -299,8 +315,9 @@ export function maakMeetperioden(
           (!v.werkelijke_einddatum || v.werkelijke_einddatum > van),
       );
       const bedrijfIds = [...new Set(huur.map((v) => v.bedrijf_id))];
-      const anomalie = status(b, sel.drager);
-      const beginOnwaarschijnlijk = status(a, sel.drager) === "onwaarschijnlijk";
+      const anomalie = status(b, meterProduct);
+      const beginOnwaarschijnlijk =
+        status(a, meterProduct) === "onwaarschijnlijk";
       if(beginOnwaarschijnlijk) meldingen.push("Beginopname heeft onwaarschijnlijk verbruik; controle vereist");
       if (anomalie === "onwaarschijnlijk")
         meldingen.push("Onwaarschijnlijk verbruik: controle vereist");
@@ -380,34 +397,6 @@ export function bouwEnergiePortfolioAnalyse(
     );
     const usable = accepted.filter((i) => i.waarde !== null && i.betrouwbaar);
     const meldingen = [...new Set(all.flatMap((i) => i.meldingen))];
-    if (
-      sel.modus !== "schatting" &&
-      sel.vanaf === ENERGIE_ANALYSE_STARTDATUM
-    ) {
-      const grensoverschrijdend = bron.meterstanden
-        .filter(
-          (m) =>
-            m.woning_id === w.id &&
-            (sel.drager === "gas"
-              ? m.gas_m3 !== null
-              : sel.drager === "water"
-                ? m.water_m3 !== null
-                : m.elektriciteit_kwh !== null ||
-                  m.dagstroom_kwh !== null ||
-                  m.nachtstroom_kwh !== null),
-        )
-        .sort((a, b) => a.opnamedatum.localeCompare(b.opnamedatum))
-        .some(
-          (m, index, standen) =>
-            index > 0 &&
-            standen[index - 1].opnamedatum < ENERGIE_ANALYSE_STARTDATUM &&
-            m.opnamedatum > ENERGIE_ANALYSE_STARTDATUM,
-        );
-      if (grensoverschrijdend)
-        meldingen.push(
-          `Een meetinterval kruist de analysedatum ${ENERGIE_ANALYSE_STARTDATUM} en is niet meegeteld. Exact verbruik is pas beschikbaar over meetintervallen die volledig vanaf deze datum lopen.`,
-        );
-    }
     if (accepted.length !== all.length)
       meldingen.push(
         "Interval met klantwissel niet exact aan één klant toerekenbaar",
@@ -416,26 +405,32 @@ export function bouwEnergiePortfolioAnalyse(
         ? usable.reduce((s, i) => s + i.waarde!, 0)
         : null,
       pd = usable.reduce((s, i) => s + i.persoonsdagen, 0);
+    const dekking =
+      (100 * gedekteDagen(usable)) / dagen(sel.vanaf, sel.totEnMet);
     const norm =
-      pd > 0 && !usable.some((i) => i.bezettingsconflict)
+      pd > 0 &&
+      dekking === 100 &&
+      !usable.some((i) => i.bezettingsconflict)
         ? totaal! / (pd / 7)
         : null;
-    const dekking =
-        (100 * gedekteDagen(usable)) / dagen(sel.vanaf, sel.totEnMet),
-      exact =
-        (100 * gedekteDagen(usable.filter((i) => !i.geschat))) /
-        dagen(sel.vanaf, sel.totEnMet);
+    const normPerPeriode =
+      pd > 0 &&
+      dekking === 100 &&
+      !usable.some((i) => i.bezettingsconflict)
+        ? totaal! / (pd / dagen(sel.vanaf, sel.totEnMet))
+        : null;
+    const exact =
+      (100 * gedekteDagen(usable.filter((i) => !i.geschat))) /
+      dagen(sel.vanaf, sel.totEnMet);
     const kwaliteit: EnergieAnalyseRij["betrouwbaarheid"] = all.some(
       (i) => !i.betrouwbaar || i.bezettingsconflict,
     )
       ? "controleren"
       : !usable.length
         ? "onvoldoende_data"
-        : usable.some((i) => i.geschat)
-          ? "geschat"
-          : dekking < 100
-            ? "gedeeltelijk"
-            : "exact";
+        : dekking < 100
+              ? "gedeeltelijk"
+              : "exact";
     return {
       woning_id: w.id,
       adres: w.adres,
@@ -446,6 +441,7 @@ export function bouwEnergiePortfolioAnalyse(
           bron.bedrijven.find((b) => b.id === id)?.naam ?? "Onbekende klant",
       ),
       totaal,
+      per_persoon_per_periode: normPerPeriode,
       persoonsdagen: pd,
       per_persoon_per_week: norm,
       meetperioden: usable.length,
@@ -472,8 +468,7 @@ export function bouwEnergiePortfolioAnalyse(
       benchmark_geschikt:
         norm !== null &&
         dekking >= min &&
-        kwaliteit !== "controleren" &&
-        kwaliteit !== "geschat",
+        kwaliteit !== "controleren",
     };
   });
   // Only identical observed windows form a cohort, even with a lowered exploratory threshold.
@@ -558,7 +553,12 @@ export function bouwEnergiePortfolioAnalyse(
     );
   return {
     selectie: sel,
-    eenheid: sel.drager === "elektriciteit" ? "kWh" : "m³",
+    eenheid:
+      sel.drager === "elektriciteit" ||
+      sel.drager === "dagstroom" ||
+      sel.drager === "nachtstroom"
+        ? "kWh"
+        : "m³",
     rijen: filtered,
     trends,
     totaal,

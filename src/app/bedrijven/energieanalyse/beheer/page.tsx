@@ -13,6 +13,7 @@ import {
   type Energiedrager,
 } from "@/lib/energie/portfolio-analyse";
 import { beoordeelMaatregel } from "@/lib/energie/resultaten";
+import EnergiePrijsForm from "@/components/energie/EnergiePrijsForm";
 const field =
   "mt-1 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm";
 export default async function EnergieBeheer({
@@ -93,6 +94,12 @@ export default async function EnergieBeheer({
             {params.klaar}
           </p>
         )}
+        <EnergiePrijsForm
+          woningen={bron.woningen.map(({ id, adres }) => ({ id, adres }))}
+          verhuurperioden={bron.verhuurperioden}
+          tarieven={ext.tarieven}
+          beschikbaar={ext.beschikbaar}
+        />
         {!ext.beschikbaar ? (
           <p className="rounded-xl bg-amber-100 p-5">
             Deze uitbreiding wacht op afzonderlijke toestemming voor de
@@ -242,7 +249,7 @@ export default async function EnergieBeheer({
             </details>
             <details className="rounded-2xl bg-white p-6">
               <summary className="cursor-pointer text-xl font-bold">
-                Historische tarieven · {tariffs.length} actuele versies
+                Aanvullende kosten en uitzonderingen · {tariffs.length} actuele versies
               </summary>
               <p className="mt-3 text-sm text-slate-600">
                 Voorrang: pand → klant → algemeen. Vul óf een pand óf een klant
