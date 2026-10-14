@@ -3,6 +3,7 @@ import {
   codeerEnergieAnoniemeSelectie,
   ENERGIE_ANONIEME_SELECTIE_COOKIE,
   leesEnergieMaandSelectie,
+  herstelEnergieSelectieNaValidatiefout,
   type EnergieMaandParameters,
 } from "@/lib/energie/maand-analyse";
 import {
@@ -11,6 +12,26 @@ import {
 } from "@/services/energieanalyse-server";
 
 export const dynamic = "force-dynamic";
+
+function terugNaarSelectie(
+  request: Request,
+  parameters: EnergieMaandParameters,
+  code: string,
+  cause?: unknown,
+) {
+  const destination = new URL("/bedrijven/energieanalyse", request.url);
+  const restored = herstelEnergieSelectieNaValidatiefout(
+    parameters,
+    code,
+    cause,
+  );
+  for (const [key, value] of Object.entries(restored)) {
+    if (value === undefined) continue;
+    for (const item of Array.isArray(value) ? value : [value])
+      destination.searchParams.append(key, item);
+  }
+  return NextResponse.redirect(destination, 303);
+}
 
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
@@ -33,16 +54,8 @@ export async function POST(request: Request) {
   let form: FormData;
   try {
     form = await request.formData();
-  } catch (cause) {
-    return NextResponse.json(
-      {
-        fout:
-          cause instanceof Error
-            ? `De selectie kon niet worden gelezen: ${cause.message}`
-            : "De selectie kon niet worden gelezen.",
-      },
-      { status: 400 },
-    );
+  } catch {
+    return terugNaarSelectie(request, {}, "ongeldige-selectie");
   }
 
   const parameters: EnergieMaandParameters = {};
@@ -64,22 +77,18 @@ export async function POST(request: Request) {
     if (parsed.weergave !== "anoniem")
       throw new Error("Selecteer de anonieme presentatie.");
   } catch (cause) {
-    return NextResponse.json(
-      {
-        fout:
-          cause instanceof Error
-            ? cause.message
-            : "De anonieme presentatie kon niet worden voorbereid.",
-      },
-      { status: 400 },
+    return terugNaarSelectie(
+      request,
+      parameters,
+      cause instanceof Error && /Selecteer minimaal één pand/.test(cause.message)
+        ? "geen-panden"
+        : "ongeldige-selectie",
+      cause,
     );
   }
   const cookieValue = codeerEnergieAnoniemeSelectie(parsed.selectie);
   if (Buffer.byteLength(cookieValue, "utf8") > 3500)
-    return NextResponse.json(
-      { fout: "De selectie is te groot om veilig in de previewsessie op te slaan." },
-      { status: 413 },
-    );
+    return terugNaarSelectie(request, parameters, "ongeldige-selectie");
 
   const destination = new URL(
     "/bedrijven/energieanalyse?weergave=anoniem",

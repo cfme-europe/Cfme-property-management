@@ -8,8 +8,11 @@ import {
   leesEnergieMaandSelectie,
   maximumEnergieMaandwaarde,
   waardeEnergieMaand,
+  herstelEnergieSelectieNaValidatiefout,
   type EnergieMaandParameters,
 } from "@/lib/energie/maand-analyse";
+import { ENERGIE_AFZENDER } from "@/lib/energie/afzender";
+import { kleurEnergieMaand } from "@/lib/energie/maand-kleuren";
 import { ENERGIE_REKENREGELS } from "@/lib/energie/rekenregels";
 import { beoordeelMaatregel } from "@/lib/energie/resultaten";
 import {
@@ -32,21 +35,6 @@ const productLabel: Record<string, string> = {
   gas: "Gas",
   water: "Water",
 };
-const kleuren = [
-  [15, 118, 110],
-  [37, 99, 235],
-  [124, 58, 237],
-  [194, 65, 12],
-  [190, 18, 60],
-  [77, 124, 15],
-  [3, 105, 161],
-  [162, 28, 175],
-  [180, 83, 9],
-  [67, 56, 202],
-  [4, 120, 87],
-  [159, 18, 57],
-] as const;
-
 function readParameters(params: URLSearchParams): EnergieMaandParameters {
   const result: EnergieMaandParameters = {};
   params.forEach((value, key) => {
@@ -59,6 +47,45 @@ function readParameters(params: URLSearchParams): EnergieMaandParameters {
           : [existing, value];
   });
   return result;
+}
+
+function pdfKleur(maand: string): [number, number, number] {
+  const hex = kleurEnergieMaand(maand).slice(1);
+  return [
+    Number.parseInt(hex.slice(0, 2), 16),
+    Number.parseInt(hex.slice(2, 4), 16),
+    Number.parseInt(hex.slice(4, 6), 16),
+  ];
+}
+
+function selectieFoutRedirect(
+  requestUrl: string,
+  parameters: EnergieMaandParameters,
+  code = "ongeldige-selectie",
+  cause?: unknown,
+) {
+  const destination = new URL("/bedrijven/energieanalyse", requestUrl);
+  const anonymous = parameters.weergave === "anoniem";
+  const restored = herstelEnergieSelectieNaValidatiefout(
+    parameters,
+    code,
+    cause,
+  );
+  for (const [key, value] of Object.entries(restored)) {
+    if (
+      key === "fout" ||
+      key === "weergave" ||
+      (anonymous && (key === "bedrijf" || key === "woning")) ||
+      value === undefined
+    )
+      continue;
+    for (const item of Array.isArray(value) ? value : [value])
+      destination.searchParams.append(key, item);
+  }
+  if (anonymous) destination.searchParams.set("woningselectie", "leeg");
+  destination.searchParams.set("weergave", anonymous ? "selectie" : "klant");
+  destination.searchParams.set("fout", code);
+  return NextResponse.redirect(destination, 303);
 }
 
 function formatted(value: number | null, digits = 2) {
@@ -205,7 +232,10 @@ function addMeasuresPage(
   );
 }
 
-async function maakEnergiePdf(parameters: EnergieMaandParameters) {
+async function maakEnergiePdf(
+  parameters: EnergieMaandParameters,
+  requestUrl: string,
+) {
   try {
     await energieClient();
   } catch {
@@ -223,26 +253,22 @@ async function maakEnergiePdf(parameters: EnergieMaandParameters) {
   try {
     parsed = leesEnergieMaandSelectie(parameters, bron);
   } catch (cause) {
-    return NextResponse.json(
-      {
-        fout:
-          cause instanceof Error
-            ? cause.message
-            : "Ongeldige selectie voor energie-export.",
-      },
-      { status: 400 },
+    return selectieFoutRedirect(
+      requestUrl,
+      parameters,
+      "ongeldige-selectie",
+      cause,
     );
   }
   if (parsed.weergave !== "klant" && parsed.weergave !== "anoniem")
-    return NextResponse.json(
-      { fout: "Alleen klant- en anonieme weergaven kunnen als PDF worden geëxporteerd." },
-      { status: 400 },
-    );
+    return selectieFoutRedirect(requestUrl, parameters);
     const analyse = bouwEnergieMaandAnalyse(
       bron,
       uitbreiding.tarieven,
       parsed.selectie,
     );
+    if (!analyse.woningen.length)
+      return selectieFoutRedirect(requestUrl, parameters, "geen-panden");
     const anonymous = parsed.weergave === "anoniem";
     const anonymized = anonymous ? bouwAnoniemeEnergieDataset(analyse) : null;
     const company =
@@ -259,7 +285,8 @@ async function maakEnergiePdf(parameters: EnergieMaandParameters) {
     const pageWidth = document.internal.pageSize.getWidth();
     const pageHeight = document.internal.pageSize.getHeight();
     const margin = 15;
-    const barWidth = 74;
+    const barStart = margin + 35;
+    const barWidth = 65;
     const selectedMonths = analyse.selectie.maanden;
     const measureLabel =
       analyse.selectie.maat === "verbruik" ? "Verbruik" : "Kosten";
@@ -293,7 +320,7 @@ async function maakEnergiePdf(parameters: EnergieMaandParameters) {
 
     const buildings = anonymous
       ? anonymized!.woningen.map((home, index) => ({
-          label: `${home.klant} · ${home.pand}`,
+          label: home.pand,
           months: analyse.woningen[index].maanden,
           sourceId: undefined,
         }))
@@ -303,67 +330,108 @@ async function maakEnergiePdf(parameters: EnergieMaandParameters) {
           sourceId: home.id,
         }));
 
-    buildings.forEach((home, index) => {
-      if (index > 0) document.addPage();
-      let y = 15;
-      document.setFont("helvetica", "normal");
-      document.setFontSize(6);
-      const selectedPeriodLabel = document.splitTextToSize(
-        reportScope,
-        pageWidth - margin * 2,
-      ) as string[];
-      const headerHeight = Math.max(
-        39,
-        32 + selectedPeriodLabel.length * 3.2 + 7,
+    let chartPageCount = 0;
+    for (const home of buildings) {
+      const measures =
+        anonymous || home.sourceId === undefined
+          ? []
+          : selectedMeasures(
+              uitbreiding.maatregelen,
+              home.sourceId,
+              analyse.selectie.drager,
+            ).map((measure) => ({
+              measure,
+              result: getMeasureResult(measure, bron),
+            }));
+      const monthPages = Array.from(
+        { length: Math.ceil(selectedMonths.length / 12) },
+        (_, index) => selectedMonths.slice(index * 12, index * 12 + 12),
       );
-      document.setFillColor(15, 23, 42);
-      document.rect(0, 0, pageWidth, headerHeight, "F");
-      document.setFont("helvetica", "bold");
-      document.setFontSize(8);
-      document.setTextColor(110, 231, 183);
-      document.text("CFME CONTROL", margin, y);
-      y += 9;
-      document.setFontSize(16);
-      document.setTextColor(255, 255, 255);
-      document.text(
-        anonymous ? "Anonieme energiepresentatie" : "Energieanalyse voor de klant",
-        margin,
-        y,
-      );
-      y += 8;
-      document.setFont("helvetica", "normal");
-      document.setFontSize(7);
-      document.setTextColor(226, 232, 240);
-      document.text(selectedPeriodLabel, margin, y);
 
-      y = headerHeight + 8;
-      document.setFont("helvetica", "bold");
-      document.setFontSize(12);
-      document.setTextColor(15, 23, 42);
-      document.text(
-        document.splitTextToSize(home.label, pageWidth - margin * 2).slice(0, 2),
-        margin,
-        y,
-      );
-      y += 8;
+      for (const [pageIndex, pageMonths] of monthPages.entries()) {
+        if (chartPageCount > 0) document.addPage();
+        chartPageCount += 1;
+        const pageScope =
+          `${pageMonths.map(monthLabel).join(" · ")} · ` +
+          `${productLabel[analyse.selectie.drager]} · ${measureLabel} · ` +
+          `${aggregationLabel} · Gesorteerd op ${referenceLabel}`;
+        let y = 15;
+        document.setFont("helvetica", "normal");
+        document.setFontSize(6);
+        const selectedPeriodLabel = document.splitTextToSize(
+          pageScope,
+          pageWidth - margin * 2,
+        ) as string[];
+        const headerHeight = Math.max(
+          39,
+          32 + selectedPeriodLabel.length * 3.2 + 7,
+        );
+        document.setFillColor(15, 23, 42);
+        document.rect(0, 0, pageWidth, headerHeight, "F");
+        document.setFont("helvetica", "bold");
+        document.setFontSize(8);
+        document.setTextColor(110, 231, 183);
+        document.text("CFME CONTROL", margin, y);
+        y += 9;
+        document.setFontSize(16);
+        document.setTextColor(255, 255, 255);
+        document.text(
+          anonymous
+            ? "Anonieme energiepresentatie"
+            : "Energieanalyse voor de klant",
+          margin,
+          y,
+        );
+        y += 8;
+        document.setFont("helvetica", "normal");
+        document.setFontSize(7);
+        document.setTextColor(226, 232, 240);
+        document.text(selectedPeriodLabel, margin, y);
 
-      const sourceId = home.sourceId;
-      const measures = anonymous || sourceId === undefined
-        ? []
-        : selectedMeasures(
-            uitbreiding.maatregelen,
-            sourceId,
-            analyse.selectie.drager,
-          ).map((measure) => ({
-            measure,
-            result: getMeasureResult(measure, bron),
-          }));
-      const footerReserve = 10;
-      const rowHeight = Math.max(
-        5.2,
-        Math.min(9, (pageHeight - y - 17 - footerReserve) / selectedMonths.length),
-      );
-      for (const monthName of selectedMonths) {
+        y = headerHeight + 8;
+        document.setFont("helvetica", "bold");
+        document.setFontSize(12);
+        document.setTextColor(15, 23, 42);
+        const continuation = pageIndex ? " · vervolg" : "";
+        document.text(
+          document
+            .splitTextToSize(`${home.label}${continuation}`, pageWidth - margin * 2)
+            .slice(0, 2),
+          margin,
+          y,
+        );
+        y += 7;
+
+        document.setFont("helvetica", "normal");
+        document.setFontSize(6);
+        document.setTextColor(71, 85, 105);
+        pageMonths.forEach((monthName, monthIndex) => {
+          const color = pdfKleur(monthName);
+          const column = Math.floor(monthIndex / 6);
+          const row = monthIndex % 6;
+          const legendX = margin + column * 89;
+          const legendY = y + row * 4;
+          document.setFillColor(color[0], color[1], color[2]);
+          document.rect(legendX, legendY - 2, 3, 3, "F");
+          document.text(monthLabel(monthName), legendX + 5, legendY);
+        });
+        y += 27;
+
+        document.setFont("helvetica", "bold");
+        document.setFontSize(6);
+        document.setTextColor(71, 85, 105);
+        document.text("Maand", margin, y);
+        document.text("Vergelijking · gezamenlijke schaal", barStart, y);
+        document.text("Waarde", barStart + barWidth + 2, y);
+        document.text(
+          analyse.selectie.maat === "kosten" ? "Verbruik" : "Kosten",
+          pageWidth - margin,
+          y,
+          { align: "right" },
+        );
+        y += 3;
+        const rowHeight = 9;
+        for (const monthName of pageMonths) {
         const month = home.months.find((entry) => entry.maand === monthName);
         if (!month) continue;
         const value = waardeEnergieMaand(
@@ -388,11 +456,7 @@ async function maakEnergiePdf(parameters: EnergieMaandParameters) {
               ? "Nog geen meetgegevens"
               : "Geen gegevens"
             : month.status === "gedeeltelijk"
-              ? `Onvolledig · ${
-                  month.periodes.length
-                    ? `${month.periodes[0].vanaf}–${month.periodes.at(-1)!.tot}`
-                    : ""
-                }`
+              ? `Onvolledig · ${formatted(month.verbruik)} ${analyse.eenheid} gemeten`
               : value === null && analyse.selectie.maat === "kosten"
                 ? "Kosten onbekend"
                 : value === null
@@ -400,17 +464,17 @@ async function maakEnergiePdf(parameters: EnergieMaandParameters) {
                   : `${analyse.selectie.maat === "kosten"
                       ? currency(value, month.kosten.valuta) ?? "Kosten onbekend"
                       : formatted(value)} ${unit}`;
-        const color = kleuren[Number(monthName.slice(5)) - 1];
+        const color = pdfKleur(monthName);
         document.setFont("helvetica", "normal");
-        document.setFontSize(Math.max(6, Math.min(8, rowHeight - 0.5)));
+        document.setFontSize(7);
         document.setTextColor(51, 65, 85);
         document.text(monthLabel(monthName), margin, y);
         document.setFillColor(241, 245, 249);
-        document.roundedRect(margin + 36, y - 2.3, barWidth, 2.2, 1, 1, "F");
+        document.roundedRect(barStart, y - 2.3, barWidth, 2.2, 1, 1, "F");
         if (full && maximum > 0) {
           document.setFillColor(color[0], color[1], color[2]);
           document.roundedRect(
-            margin + 36,
+            barStart,
             y - 2.3,
             Math.max(0.2, (barWidth * value!) / maximum),
             2.2,
@@ -421,41 +485,44 @@ async function maakEnergiePdf(parameters: EnergieMaandParameters) {
         } else if (month.status === "gedeeltelijk") {
           document.setDrawColor(color[0], color[1], color[2]);
           document.setLineDashPattern([1, 1], 0);
-          document.line(margin + 36, y - 1.2, margin + 36 + barWidth, y - 1.2);
+          document.line(barStart, y - 1.2, barStart + barWidth, y - 1.2);
           document.setLineDashPattern([], 0);
         }
         document.setTextColor(15, 23, 42);
         document.setFont("helvetica", "bold");
-        document.setFontSize(Math.max(6, Math.min(8, rowHeight - 0.5)));
-        document.text(state, pageWidth - margin, y, { align: "right" });
-        if (analyse.selectie.maat === "kosten") {
-          document.setFont("helvetica", "normal");
-          document.setFontSize(6);
-          document.setTextColor(71, 85, 105);
-          document.text(
-            `${formatted(month.verbruik)} ${analyse.eenheid} verbruik`,
-            margin + 36,
-            y + 2.8,
-          );
-        }
+        document.setFontSize(6.5);
+        document.text(
+          document.splitTextToSize(state, 36) as string[],
+          barStart + barWidth + 2,
+          y,
+        );
+        const secondary =
+          analyse.selectie.maat === "kosten"
+            ? `${formatted(month.verbruik)} ${analyse.eenheid}`
+            : currency(month.kosten.totaal, month.kosten.valuta) ?? "—";
+        document.setFont("helvetica", "normal");
+        document.setFontSize(6.5);
+        document.setTextColor(71, 85, 105);
+        document.text(secondary, pageWidth - margin, y, { align: "right" });
         y += rowHeight;
       }
-
-      y = pageHeight - 14;
-      document.setFont("helvetica", "normal");
-      document.setFontSize(7);
-      document.setTextColor(71, 85, 105);
-      document.text(
-        `Aangemaakt ${new Date().toISOString().slice(0, 10)} · Rekenregels ${ENERGIE_REKENREGELS}`,
-        margin,
-        y,
-      );
-      if (anonymous) {
-        document.text("Geselecteerde panden en maanden; geen volledige portefeuille.", margin, y + 4);
-      } else if (measures.length) {
+      }
+      if (measures.length) {
         addMeasuresPage(document, home.label, measures);
       }
-    });
+    }
+
+    const pageCount = document.getNumberOfPages();
+    for (let page = 1; page <= pageCount; page += 1) {
+      document.setPage(page);
+      document.setFont("helvetica", "normal");
+      document.setFontSize(7);
+      document.setTextColor(100, 116, 139);
+      document.text(ENERGIE_AFZENDER, margin, pageHeight - 8);
+      document.text(`${page} / ${pageCount}`, pageWidth - margin, pageHeight - 8, {
+        align: "right",
+      });
+    }
 
     const bytes = document.output("arraybuffer");
     return new Response(bytes, {
@@ -468,9 +535,10 @@ async function maakEnergiePdf(parameters: EnergieMaandParameters) {
 }
 
 export async function GET(request: Request) {
-  return maakEnergiePdf(
-    readParameters(new URL(request.url).searchParams),
-  );
+  const parameters = readParameters(new URL(request.url).searchParams);
+  if (parameters.weergave === "anoniem")
+    return selectieFoutRedirect(request.url, parameters, "verlopen");
+  return maakEnergiePdf(parameters, request.url);
 }
 
 export async function POST(request: NextRequest) {
@@ -485,15 +553,11 @@ export async function POST(request: NextRequest) {
   let form: FormData;
   try {
     form = await request.formData();
-  } catch (cause) {
-    return NextResponse.json(
-      {
-        fout:
-          cause instanceof Error
-            ? `PDF-selectie kon niet worden gelezen: ${cause.message}`
-            : "PDF-selectie kon niet worden gelezen.",
-      },
-      { status: 400 },
+  } catch {
+    return selectieFoutRedirect(
+      request.url,
+      {},
+      "ongeldige-selectie",
     );
   }
   const parameters: EnergieMaandParameters = {};
@@ -512,26 +576,15 @@ export async function POST(request: NextRequest) {
       ENERGIE_ANONIEME_SELECTIE_COOKIE,
     )?.value;
     if (!cookieValue)
-      return NextResponse.json(
-        { fout: "De previewsessie is verlopen. Selecteer de panden opnieuw." },
-        { status: 400 },
-      );
+      return selectieFoutRedirect(request.url, parameters, "verlopen");
     try {
       Object.assign(
         parameters,
         decodeerEnergieAnoniemeSelectie(cookieValue),
       );
-    } catch (cause) {
-      return NextResponse.json(
-        {
-          fout:
-            cause instanceof Error
-              ? cause.message
-              : "De anonieme selectie kon niet worden gelezen.",
-        },
-        { status: 400 },
-      );
+    } catch {
+      return selectieFoutRedirect(request.url, parameters, "verlopen");
     }
   }
-  return maakEnergiePdf(parameters);
+  return maakEnergiePdf(parameters, request.url);
 }

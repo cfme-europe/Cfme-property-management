@@ -173,9 +173,20 @@ test("energieanalyse biedt compacte kalendermaandkeuzes voor tablet en desktop",
     "src/app/bedrijven/energieanalyse/presentatie/route.ts",
     "utf8",
   );
+  const maandAnalyse = await readFile(
+    "src/lib/energie/maand-analyse.ts",
+    "utf8",
+  );
+  const afzender = await readFile("src/lib/energie/afzender.ts", "utf8");
+  const grafiekkleuren = await readFile(
+    "src/lib/energie/maand-kleuren.ts",
+    "utf8",
+  );
   assert.match(serverPagina, /EnergieMaandAnalysePagina/);
   assert.match(analysePagina, /EnergieMaandSelectie/);
-  assert.match(selectie, /type="month"/);
+  assert.doesNotMatch(selectie, /type="month"/);
+  assert.match(selectie, /aria-label="Maand toevoegen"/);
+  assert.match(selectie, /aria-label="Jaar toevoegen"/);
   assert.match(selectie, /name="referentiemaand"/);
   assert.match(selectie, /Niet-aaneengesloten maanden zijn toegestaan/);
   assert.match(selectie, /name="woning"/);
@@ -194,6 +205,24 @@ test("energieanalyse biedt compacte kalendermaandkeuzes voor tablet en desktop",
   assert.match(exportRoute, /ENERGIE_REKENREGELS/);
   assert.match(presentationRoute, /httpOnly: true/);
   assert.match(presentationRoute, /weergave=anoniem/);
+  assert.match(presentationRoute, /"geen-panden"/);
+  assert.match(presentationRoute, /NextResponse\.redirect/);
+  assert.match(maandAnalyse, /Selecteer minimaal één pand/);
+  assert.match(selectie, /validationErrorRef\.current\?\.focus\(\)/);
+  assert.match(analysePagina, /Presentatie niet beschikbaar/);
+  assert.match(analysePagina, /new URLSearchParams\("weergave=anoniem"\)/);
+  assert.doesNotMatch(analysePagina, /home\.klant|home\.adres/);
+  assert.doesNotMatch(exportRoute, /home\.klant/);
+  assert.match(exportRoute, /label: home\.pand/);
+  assert.match(exportRoute, /cfme-anonieme-energiepresentatie/);
+  assert.match(analysePagina, /maximumEnergieMaandwaarde/);
+  assert.match(exportRoute, /maximumEnergieMaandwaarde/);
+  assert.match(analysePagina, /MonthLegend/);
+  assert.match(exportRoute, /kleurEnergieMaand/);
+  assert.match(afzender, /Verhuur door Mooi Valkenburg BV · Onderdeel van CFME/);
+  assert.match(analysePagina, /EnergieAfzender/);
+  assert.match(exportRoute, /ENERGIE_AFZENDER/);
+  assert.equal((grafiekkleuren.match(/"#/g) ?? []).length, 12);
   assert.match(beheerpagina, /Meterstanden/);
   assert.match(beheerpagina, /Bewoning/);
   assert.match(beheerpagina, /Prijzen/);

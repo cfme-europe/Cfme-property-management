@@ -14,6 +14,7 @@ import {
 } from "@/lib/energie/portfolio-analyse";
 import { beoordeelMaatregel } from "@/lib/energie/resultaten";
 import EnergiePrijsForm from "@/components/energie/EnergiePrijsForm";
+import EnergieAfzender from "@/components/energie/EnergieAfzender";
 const field =
   "mt-1 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm";
 export default async function EnergieBeheer({
@@ -504,6 +505,7 @@ export default async function EnergieBeheer({
             </details>
           </>
         )}
+        <EnergieAfzender />
       </div>
     </main>
   );

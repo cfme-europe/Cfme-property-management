@@ -59,6 +59,7 @@ export type EnergieMaandAnalyseSelectie = {
   drager: Energiedrager;
   bedrijfIds: number[];
   woningIds: number[];
+  woningselectie?: "automatisch" | "aangepast" | "leeg";
   maat: "verbruik" | "kosten";
   aggregatie: "persoon" | "pand";
 };
@@ -94,7 +95,6 @@ export type EnergieAnoniemeDataset = {
   maat: "verbruik" | "kosten";
   aggregatie: "persoon" | "pand";
   woningen: Array<{
-    klant: string;
     pand: string;
     maanden: EnergieAnoniemeMaandMeting[];
   }>;
@@ -129,15 +129,46 @@ export function controleerEnergieMaandselectie(
   return { maanden: selectie, referentiemaand: referentie };
 }
 
+export function herstelEnergieSelectieNaValidatiefout(
+  parameters: EnergieMaandParameters,
+  code: string,
+  cause?: unknown,
+): EnergieMaandParameters {
+  const restored: EnergieMaandParameters = {};
+  for (const key of [
+    "bedrijf",
+    "woning",
+    "woningselectie",
+    "maand",
+    "referentiemaand",
+    "drager",
+    "maat",
+    "aggregatie",
+  ]) {
+    const value = parameters[key];
+    if (value !== undefined) restored[key] = value;
+  }
+  if (
+    cause instanceof Error &&
+    /Ongeldige selectie voor woning|geselecteerd pand .*niet beschikbaar|Een geselecteerd pand hoort niet/.test(
+      cause.message,
+    )
+  ) {
+    delete restored.woning;
+    restored.woningselectie = "leeg";
+  }
+  restored.weergave = "selectie";
+  restored.fout = code;
+  return restored;
+}
+
 export function codeerEnergieAnoniemeSelectie(
   selectie: EnergieMaandAnalyseSelectie,
 ) {
   const parameters = new URLSearchParams();
   selectie.maanden.forEach((maand) => parameters.append("maand", maand));
-  selectie.bedrijfIds.forEach((id) =>
-    parameters.append("bedrijf", String(id)),
-  );
   selectie.woningIds.forEach((id) => parameters.append("woning", String(id)));
+  parameters.set("woningselectie", "aangepast");
   parameters.set("referentiemaand", selectie.referentiemaand);
   parameters.set("drager", selectie.drager);
   parameters.set("maat", selectie.maat);
@@ -224,8 +255,110 @@ export function leesEnergieMaandSelectie(
     "woning",
     new Set(bron.woningen.map((woning) => woning.id)),
   );
-  if (bedrijfIds.length && woningIds.length) {
+  const rawWoningselectie = single(
+    "woningselectie",
+    woningIds.length ||
+      weergave === "selectie" ||
+      weergave === "anoniem"
+      ? "aangepast"
+      : "automatisch",
+  );
+  if (
+    rawWoningselectie !== "automatisch" &&
+    rawWoningselectie !== "aangepast" &&
+    rawWoningselectie !== "leeg"
+  )
+    throw new Error("Ongeldige pandselectie.");
+
+  const relevanteWoningIds = new Set(
+    bron.woningen
+      .filter(
+        (woning) =>
+          !bedrijfIds.length ||
+          maanden.some((maand) => {
+            const periode = parseEnergieMaand(maand);
+            return bron.verhuurperioden.some(
+              (verhuur) =>
+                verhuur.woning_id === woning.id &&
+                bedrijfIds.includes(verhuur.bedrijf_id) &&
+                (!verhuur.startdatum || verhuur.startdatum < periode.tot) &&
+                (!verhuur.werkelijke_einddatum ||
+                  verhuur.werkelijke_einddatum > periode.vanaf),
+            );
+          }),
+      )
+      .map((woning) => woning.id),
+  );
+
+  let woningselectie = rawWoningselectie as
+    | "automatisch"
+    | "aangepast"
+    | "leeg";
+  let geselecteerdeWoningIds: number[];
+
+  if (weergave === "selectie" || weergave === "anoniem") {
+    const toegankelijkeBedrijven = new Set(
+      bron.bedrijven.map((bedrijf) => bedrijf.id),
+    );
+    const relatiesPerWoning = new Map<number, Set<number>>();
     for (const woningId of woningIds) {
+      const relaties = new Set(
+        bron.verhuurperioden
+          .filter(
+            (verhuur) =>
+              verhuur.woning_id === woningId &&
+              toegankelijkeBedrijven.has(verhuur.bedrijf_id) &&
+              maanden.some((maand) => {
+                const periode = parseEnergieMaand(maand);
+                return (
+                  (!verhuur.startdatum || verhuur.startdatum < periode.tot) &&
+                  (!verhuur.werkelijke_einddatum ||
+                    verhuur.werkelijke_einddatum > periode.vanaf)
+                );
+              }),
+          )
+          .map((verhuur) => verhuur.bedrijf_id),
+      );
+      if (!relaties.size)
+        throw new Error(
+          "Een geselecteerd pand is niet beschikbaar voor de gekozen maanden.",
+        );
+      relatiesPerWoning.set(woningId, relaties);
+    }
+    if (weergave === "anoniem" && !woningIds.length)
+      throw new Error("Selecteer minimaal één pand.");
+    geselecteerdeWoningIds = woningIds;
+    woningselectie = woningIds.length ? "aangepast" : "leeg";
+    bedrijfIds.splice(
+      0,
+      bedrijfIds.length,
+      ...new Set(
+        [...relatiesPerWoning.values()].flatMap((bedrijven) => [...bedrijven]),
+      ),
+    );
+  } else if (woningselectie === "automatisch") {
+    geselecteerdeWoningIds = [...relevanteWoningIds];
+  } else if (woningselectie === "leeg") {
+    geselecteerdeWoningIds = [];
+  } else {
+    const nietRelevant = woningIds.some(
+      (woningId) => !relevanteWoningIds.has(woningId),
+    );
+    if (nietRelevant)
+      throw new Error(
+        "Een geselecteerd pand hoort niet bij de gekozen klant(en) in deze periode.",
+      );
+    geselecteerdeWoningIds = woningIds;
+    if (!geselecteerdeWoningIds.length) woningselectie = "leeg";
+  }
+
+  if (
+    weergave === "klant" &&
+    bedrijfIds.length !== 1
+  )
+    throw new Error("Klantversie vereist één geselecteerde klant.");
+  if (bedrijfIds.length && woningIds.length) {
+    for (const woningId of geselecteerdeWoningIds) {
       const hoortBijSelectie = maanden.some((maand) => {
         const periode = parseEnergieMaand(maand);
         return bron.verhuurperioden.some(
@@ -241,18 +374,14 @@ export function leesEnergieMaandSelectie(
         throw new Error("Een geselecteerd pand hoort niet bij de gekozen klant(en) in deze periode.");
     }
   }
-  if (weergave === "klant" && (bedrijfIds.length !== 1 || !woningIds.length))
-    throw new Error("Klantversie vereist één geselecteerde klant en minimaal één pand.");
-  if (weergave === "anoniem" && (!bedrijfIds.length || !woningIds.length))
-    throw new Error("Selecteer klanten en panden voordat de anonieme preview wordt gemaakt.");
-
   return {
     selectie: {
       maanden,
       referentiemaand,
       drager: rawProduct as Energiedrager,
       bedrijfIds,
-      woningIds,
+      woningIds: geselecteerdeWoningIds,
+      woningselectie,
       maat,
       aggregatie,
     } satisfies EnergieMaandAnalyseSelectie,
@@ -338,9 +467,15 @@ export function bouwEnergieMaandAnalyse(
     return { periode, analyse };
   });
 
+  const explicietLeeg =
+    selectie.woningselectie === "leeg" ||
+    ((selectie.woningselectie === "aangepast" ||
+      selectie.woningselectie === "automatisch") &&
+      !woningIds.length);
   const selectedWoningen = bron.woningen.filter(
     (woning) =>
-      (!woningIds.length || woningIds.includes(woning.id)) &&
+      (!explicietLeeg &&
+        (!woningIds.length || woningIds.includes(woning.id))) &&
       (!bedrijfIds.length ||
         bron.verhuurperioden.some(
           (verhuur) =>
@@ -510,36 +645,12 @@ export function maximumEnergieMaandwaarde(
 export function bouwAnoniemeEnergieDataset(
   analyse: EnergieMaandAnalyse,
 ): EnergieAnoniemeDataset {
-  const bedrijvenIds = [
-    ...new Set(
-      analyse.woningen
-        .map((woning) => woning.bedrijfIds[0])
-        .filter((id): id is number => id !== undefined),
-    ),
-  ].sort((a, b) => a - b);
-  const klantNamen = new Map<number, string>();
-  bedrijvenIds.forEach((id, index) =>
-    klantNamen.set(
-      id,
-      `Portefeuille ${String.fromCharCode(65 + (index % 26))}`,
-    ),
-  );
   const pandLabels = new Map<number, string>();
-  const housesByCompany = new Map<number, EnergieMaandWoning[]>();
-  for (const woning of analyse.woningen) {
-    const bedrijfId = woning.bedrijfIds[0] ?? 0;
-    housesByCompany.set(bedrijfId, [
-      ...(housesByCompany.get(bedrijfId) ?? []),
-      woning,
-    ]);
-  }
-  for (const woningen of housesByCompany.values()) {
-    [...woningen]
-      .sort((a, b) => a.id - b.id)
-      .forEach((woning, index) =>
-        pandLabels.set(woning.id, `Pand ${String(index + 1).padStart(2, "0")}`),
-      );
-  }
+  [...analyse.woningen]
+    .sort((a, b) => a.id - b.id)
+    .forEach((woning, index) =>
+      pandLabels.set(woning.id, `Pand ${String(index + 1).padStart(2, "0")}`),
+    );
   return {
     titel: "Geselecteerde portefeuille",
     selectie: "Geselecteerde panden en maanden",
@@ -549,13 +660,7 @@ export function bouwAnoniemeEnergieDataset(
     referentiemaand: analyse.selectie.referentiemaand,
     maat: analyse.selectie.maat,
     aggregatie: analyse.selectie.aggregatie,
-    woningen: analyse.woningen.map((woning) => {
-      const bedrijfId = woning.bedrijfIds[0];
-      return {
-        klant:
-          bedrijfId === undefined
-            ? "Portefeuille A"
-            : klantNamen.get(bedrijfId)!,
+    woningen: analyse.woningen.map((woning) => ({
         pand: pandLabels.get(woning.id) ?? "Pand 01",
         maanden: woning.maanden.map((maand) => ({
           maand: maand.maand,
@@ -568,8 +673,7 @@ export function bouwAnoniemeEnergieDataset(
           kostenPerPersoonPerWeek: maand.kostenPerPersoonPerWeek,
           naarRato: maand.naarRato,
         })),
-      };
-    }),
+      })),
     bijgewerktOp: analyse.bijgewerktOp,
   };
 }

@@ -7,6 +7,7 @@ import {
   controleerEnergieMaandselectie,
   decodeerEnergieAnoniemeSelectie,
   leesEnergieMaandSelectie,
+  herstelEnergieSelectieNaValidatiefout,
   maximumEnergieMaandwaarde,
   parseEnergieMaand,
   sorteerEnergieMaandWoningen,
@@ -63,6 +64,43 @@ function source(
       ...resident,
     })),
   };
+}
+
+function multiCompanySource(): Brondata {
+  const bron = source([]);
+  bron.woningen.push(
+    {
+      id: 11,
+      adres: "Ander geheim adres 11",
+      postcode: "2345 BC",
+      plaats: "Verborgen plaats",
+    },
+    {
+      id: 12,
+      adres: "Derde geheim adres 12",
+      postcode: "3456 CD",
+      plaats: "Verborgen plaats",
+    },
+  );
+  bron.bedrijven.push({ id: 21, naam: "Andere geheime klant BV" });
+  bron.verhuurperioden[0].werkelijke_einddatum = "2026-10-01";
+  bron.verhuurperioden.push(
+    {
+      id: 31,
+      woning_id: 11,
+      bedrijf_id: 21,
+      startdatum: "2026-01-01",
+      werkelijke_einddatum: null,
+    },
+    {
+      id: 32,
+      woning_id: 12,
+      bedrijf_id: 20,
+      startdatum: "2026-10-01",
+      werkelijke_einddatum: null,
+    },
+  );
+  return bron;
 }
 
 function tariff(id: string, from: string, price: string): Tariefplan {
@@ -129,15 +167,227 @@ test("anonieme previewsessie bewaart haar geldige selectie in een cookie-token",
   assert.doesNotMatch(cookie, /Geheime klant|Geheim adres/);
   assert.deepEqual(decodeerEnergieAnoniemeSelectie(cookie), {
     maand: ["2026-09", "2026-11"],
-    bedrijf: "20",
     woning: ["10", "11"],
+    woningselectie: "aangepast",
     referentiemaand: "2026-11",
     drager: "elektriciteit",
     maat: "verbruik",
     aggregatie: "persoon",
     weergave: "anoniem",
   });
+  assert.equal(decodeerEnergieAnoniemeSelectie(cookie).bedrijf, undefined);
   assert.throws(() => decodeerEnergieAnoniemeSelectie("invalid;cookie"));
+});
+
+test("klantselectie neemt automatisch alle relevante panden mee", () => {
+  const bron = multiCompanySource();
+  const { selectie } = leesEnergieMaandSelectie(
+    {
+      weergave: "klant",
+      bedrijf: "20",
+      maand: "2026-09",
+    },
+    bron,
+  );
+
+  assert.deepEqual(selectie.woningIds, [10]);
+  assert.equal(selectie.woningselectie, "automatisch");
+});
+
+test("automatische selectie zonder relevante panden blijft leeg in plaats van alle panden te tonen", () => {
+  const bron = multiCompanySource();
+  const selectie = leesEnergieMaandSelectie(
+    {
+      weergave: "intern",
+      bedrijf: "20",
+      maand: "2024-09",
+    },
+    bron,
+  ).selectie;
+
+  assert.deepEqual(selectie.woningIds, []);
+  assert.equal(selectie.woningselectie, "automatisch");
+  assert.deepEqual(bouwEnergieMaandAnalyse(bron, [], selectie).woningen, []);
+});
+
+test("meerdere klanten nemen relevante panden mee en een aangepaste selectie sluit panden uit", () => {
+  const bron = multiCompanySource();
+  const automatic = leesEnergieMaandSelectie(
+    {
+      weergave: "intern",
+      bedrijf: ["20", "21"],
+      maand: "2026-09",
+    },
+    bron,
+  ).selectie;
+  const adjusted = leesEnergieMaandSelectie(
+    {
+      weergave: "intern",
+      bedrijf: ["20", "21"],
+      woning: "11",
+      woningselectie: "aangepast",
+      maand: "2026-09",
+    },
+    bron,
+  ).selectie;
+
+  assert.deepEqual(automatic.woningIds, [10, 11]);
+  assert.deepEqual(adjusted.woningIds, [11]);
+  assert.equal(adjusted.woningselectie, "aangepast");
+});
+
+test("maandwijzigingen verversen automatische panden en weren verborgen niet-passende panden", () => {
+  const bron = multiCompanySource();
+  const nextMonth = leesEnergieMaandSelectie(
+    {
+      weergave: "intern",
+      bedrijf: "20",
+      maand: "2026-10",
+    },
+    bron,
+  ).selectie;
+
+  assert.deepEqual(nextMonth.woningIds, [12]);
+  assert.throws(
+    () =>
+      leesEnergieMaandSelectie(
+        {
+          weergave: "intern",
+          bedrijf: "20",
+          woning: "10",
+          woningselectie: "aangepast",
+          maand: "2026-10",
+        },
+        bron,
+      ),
+    /hoort niet bij de gekozen klant/,
+  );
+});
+
+test("expliciet geen panden blijft leeg en wordt niet als alle panden geïnterpreteerd", () => {
+  const bron = multiCompanySource();
+  const selection = leesEnergieMaandSelectie(
+    {
+      weergave: "intern",
+      bedrijf: "20",
+      woningselectie: "leeg",
+      maand: "2026-09",
+    },
+    bron,
+  ).selectie;
+  const analysis = bouwEnergieMaandAnalyse(bron, [], selection);
+
+  assert.deepEqual(selection.woningIds, []);
+  assert.equal(selection.woningselectie, "leeg");
+  assert.deepEqual(analysis.woningen, []);
+});
+
+test("anonieme selectie heeft alleen pandIds nodig en leidt toegankelijke klantrelaties af", () => {
+  const bron = multiCompanySource();
+  const { selectie, weergave } = leesEnergieMaandSelectie(
+    {
+      weergave: "anoniem",
+      woning: "11",
+      woningselectie: "aangepast",
+      maand: "2026-09",
+    },
+    bron,
+  );
+
+  assert.equal(weergave, "anoniem");
+  assert.deepEqual(selectie.woningIds, [11]);
+  assert.deepEqual(selectie.bedrijfIds, [21]);
+});
+
+test("anonieme selectie weigert lege, ontbrekende en niet-toegankelijke pandIds", () => {
+  const bron = multiCompanySource();
+  assert.throws(
+    () =>
+      leesEnergieMaandSelectie(
+        { weergave: "anoniem", maand: "2026-09" },
+        bron,
+      ),
+    /Selecteer minimaal één pand/,
+  );
+  assert.throws(
+    () =>
+      leesEnergieMaandSelectie(
+        {
+          weergave: "anoniem",
+          woning: "999",
+          maand: "2026-09",
+        },
+        bron,
+      ),
+    /Ongeldige selectie voor woning/,
+  );
+
+  bron.bedrijven = [];
+  assert.throws(
+    () =>
+      leesEnergieMaandSelectie(
+        {
+          weergave: "anoniem",
+          woning: "11",
+          maand: "2026-09",
+        },
+        bron,
+      ),
+    /niet beschikbaar voor de gekozen maanden/,
+  );
+});
+
+test("foutterugkeer behoudt maanden en instellingen en maakt de lege selectie expliciet", () => {
+  const restored = herstelEnergieSelectieNaValidatiefout(
+    {
+      weergave: "anoniem",
+      maand: ["2026-09", "2026-11"],
+      referentiemaand: "2026-11",
+      drager: "gas",
+      maat: "kosten",
+      aggregatie: "pand",
+      woningselectie: "leeg",
+    },
+    "geen-panden",
+  );
+
+  assert.deepEqual(restored, {
+    maand: ["2026-09", "2026-11"],
+    referentiemaand: "2026-11",
+    drager: "gas",
+    maat: "kosten",
+    aggregatie: "pand",
+    woningselectie: "leeg",
+    weergave: "selectie",
+    fout: "geen-panden",
+  });
+});
+
+test("foutterugkeer verwijdert uitsluitend een ongeldige pand-ID en bewaart overige invoer", () => {
+  const restored = herstelEnergieSelectieNaValidatiefout(
+    {
+      maand: ["2026-09"],
+      referentiemaand: "2026-09",
+      woning: "999",
+      woningselectie: "aangepast",
+      drager: "water",
+      maat: "verbruik",
+      aggregatie: "persoon",
+    },
+    "ongeldige-selectie",
+    new Error("Ongeldige selectie voor woning."),
+  );
+
+  assert.deepEqual(restored, {
+    maand: ["2026-09"],
+    referentiemaand: "2026-09",
+    woningselectie: "leeg",
+    drager: "water",
+    maat: "verbruik",
+    aggregatie: "persoon",
+    weergave: "selectie",
+    fout: "ongeldige-selectie",
+  });
 });
 
 test("geaccordeerd regressievoorbeeld rekent exact toe naar 22 geselecteerde dagen", () => {
@@ -259,14 +509,55 @@ test("anonieme dataset bevat alleen beperkte neutrale velden", () => {
   const dataset = bouwAnoniemeEnergieDataset(analysis);
   const serialized = JSON.stringify(dataset);
 
-  assert.equal(dataset.woningen[0].klant, "Portefeuille A");
   assert.equal(dataset.woningen[0].pand, "Pand 01");
-  assert.deepEqual(Object.keys(dataset.woningen[0]).sort(), ["klant", "maanden", "pand"]);
-  assert.doesNotMatch(serialized, /Geheim|1234 AB|woning_id|bedrijf_id|postcode|bronIds/);
+  assert.deepEqual(Object.keys(dataset.woningen[0]).sort(), ["maanden", "pand"]);
+  assert.doesNotMatch(
+    serialized,
+    /Geheim|1234 AB|woning_id|bedrijf_id|postcode|bronIds|adres|klant|bedrijfIds|woningIds/,
+  );
   assert.equal("id" in dataset.woningen[0], false);
 });
 
-test("previewvalidatie vereist expliciet klanten en panden", () => {
+test("anonieme pandlabels zijn portefeuillebreed neutraal en blijven gelijk voor iedere gekozen maand", () => {
+  const bron = multiCompanySource();
+  const analysis = bouwEnergieMaandAnalyse(
+    bron,
+    [],
+    {
+      maanden: ["2026-09", "2026-10"],
+      referentiemaand: "2026-09",
+      drager: "elektriciteit",
+      bedrijfIds: [20, 21],
+      woningIds: [10, 11],
+      woningselectie: "aangepast",
+      maat: "verbruik",
+      aggregatie: "pand",
+    },
+  );
+  const dataset = bouwAnoniemeEnergieDataset(analysis);
+  const labels = dataset.woningen.map((woning) => woning.pand);
+  const labelsById = new Map(
+    analysis.woningen.map((woning, index) => [
+      woning.id,
+      dataset.woningen[index].pand,
+    ]),
+  );
+  const reversed = bouwAnoniemeEnergieDataset({
+    ...analysis,
+    woningen: [...analysis.woningen].reverse(),
+  });
+  const reversedLabelsById = new Map(
+    [...analysis.woningen]
+      .reverse()
+      .map((woning, index) => [woning.id, reversed.woningen[index].pand]),
+  );
+
+  assert.deepEqual(labels.sort(), ["Pand 01", "Pand 02"]);
+  assert.deepEqual(reversedLabelsById, labelsById);
+  assert.ok(dataset.woningen.every((woning) => woning.maanden.length === 2));
+});
+
+test("anonieme presentatie vereist een expliciete pandselectie maar geen klantselectie", () => {
   const bron = source([]);
   assert.throws(
     () =>
@@ -274,6 +565,17 @@ test("previewvalidatie vereist expliciet klanten en panden", () => {
         { weergave: "anoniem", maand: "2026-09" },
         bron,
       ),
-    /Selecteer klanten en panden/,
+    /Selecteer minimaal één pand/,
+  );
+  assert.equal(
+    leesEnergieMaandSelectie(
+      {
+        weergave: "anoniem",
+        woning: "10",
+        maand: "2026-09",
+      },
+      bron,
+    ).selectie.bedrijfIds[0],
+    20,
   );
 });
