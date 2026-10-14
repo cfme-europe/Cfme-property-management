@@ -148,49 +148,65 @@ test("bedrijvenoverzicht ontsluit de energieanalyse", async () => {
   assert.match(formulier, /Analyse toepassen/);
 });
 
-test("energieanalyse heeft bedienbare datumkeuzes voor tablet en desktop", async () => {
+test("energieanalyse biedt compacte kalendermaandkeuzes voor tablet en desktop", async () => {
   const serverPagina = await readFile(
     "src/app/bedrijven/energieanalyse/page.tsx",
     "utf8",
   );
-  const formulier = await readFile(
-    "src/components/energie/EnergieAnalyseFilterFormulier.tsx",
+  const analysePagina = await readFile(
+    "src/components/energie/EnergieMaandAnalysePagina.tsx",
     "utf8",
   );
-  const datumvelden = await readFile(
-    "src/components/energie/EnergieAnalyseDatumvelden.tsx",
-    "utf8",
-  );
-  const prijsformulier = await readFile(
-    "src/components/energie/EnergiePrijsForm.tsx",
+  const selectie = await readFile(
+    "src/components/energie/EnergieMaandSelectie.tsx",
     "utf8",
   );
   const beheerpagina = await readFile(
     "src/app/bedrijven/energieanalyse/beheer/page.tsx",
     "utf8",
   );
-  const portfolioAnalyse = await readFile(
-    "src/lib/energie/portfolio-analyse.ts",
+  const exportRoute = await readFile(
+    "src/app/bedrijven/energieanalyse/export/route.ts",
     "utf8",
   );
-  assert.match(serverPagina, /EnergieAnalyseFilterFormulier/);
-  assert.match(datumvelden, /label="Van"/);
-  assert.match(datumvelden, /label="Tot en met"/);
-  assert.match(formulier, /name="woning"/);
-  assert.doesNotMatch(formulier, /multiple/);
-  assert.match(formulier, /Analyse wordt toegepast/);
-  assert.match(formulier, /router\.push/);
-  assert.match(serverPagina, /sorteerEnergieAnalyseRijenOpVerbruiksraming/);
-  assert.match(portfolioAnalyse, /return waardeB - waardeA/);
-  assert.match(serverPagina, /energieanalyse\/beheer\?/);
-  assert.match(serverPagina, /Tarieven controleren of invoeren voor/);
-  assert.match(prijsformulier, /initieelWoningId/);
-  assert.match(beheerpagina, /woning_id\?: string \| string\[\]/);
+  const presentationRoute = await readFile(
+    "src/app/bedrijven/energieanalyse/presentatie/route.ts",
+    "utf8",
+  );
+  assert.match(serverPagina, /EnergieMaandAnalysePagina/);
+  assert.match(analysePagina, /EnergieMaandSelectie/);
+  assert.match(selectie, /type="month"/);
+  assert.match(selectie, /name="referentiemaand"/);
+  assert.match(selectie, /Niet-aaneengesloten maanden zijn toegestaan/);
+  assert.match(selectie, /name="woning"/);
+  assert.match(selectie, /\/bedrijven\/energieanalyse\/presentatie/);
+  assert.match(selectie, /name="drager"/);
+  assert.match(selectie, /Per persoon/);
+  assert.match(selectie, /Totaal pand/);
+  assert.match(selectie, /router\.push/);
+  assert.match(analysePagina, /Gesorteerd op/);
+  assert.match(analysePagina, /href="\/bedrijven\/energieanalyse\/beheer"/);
+  assert.match(analysePagina, /Beheer gegevens/);
+  assert.match(analysePagina, /action="\/bedrijven\/energieanalyse\/export"/);
+  assert.match(analysePagina, /method="post"/);
+  assert.match(exportRoute, /export async function POST/);
+  assert.match(exportRoute, /Gesorteerd op/);
+  assert.match(exportRoute, /ENERGIE_REKENREGELS/);
+  assert.match(presentationRoute, /httpOnly: true/);
+  assert.match(presentationRoute, /weergave=anoniem/);
+  assert.match(beheerpagina, /Meterstanden/);
+  assert.match(beheerpagina, /Bewoning/);
+  assert.match(beheerpagina, /Prijzen/);
+  assert.match(beheerpagina, /Maatregelen/);
 });
-test("price entry is linked from the top of the analysis page", async () => {
-  const page = await readFile("src/app/bedrijven/energieanalyse/page.tsx", "utf8");
+test("home analysis keeps data administration behind one management link", async () => {
+  const page = await readFile(
+    "src/components/energie/EnergieMaandAnalysePagina.tsx",
+    "utf8",
+  );
   assert.match(
     page,
-    /<header>[\s\S]*?href="\/bedrijven\/energieanalyse\/beheer"[\s\S]*?Prijzen invoeren[\s\S]*?<\/header>/,
+    /href="\/bedrijven\/energieanalyse\/beheer"[\s\S]*?Beheer gegevens/,
   );
+  assert.doesNotMatch(page, /Prijzen invoeren/);
 });

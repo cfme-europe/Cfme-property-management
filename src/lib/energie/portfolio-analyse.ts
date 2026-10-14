@@ -459,11 +459,11 @@ export function maakMeetperioden(
         meldingen.push(
           "Opvolging is bij een grensopname gemarkeerd; controleer de actuele status per energiedrager",
         );
+      // High-consumption alerts trigger review but do not erase valid positive meter deltas.
       const betrouwbaar =
         bronWaarde !== null &&
-        anomalie !== "onwaarschijnlijk" && !beginOnwaarschijnlijk &&
         !meldingen.some((m) =>
-          /Meterwissel|Dubbele|Overlappende|configuratie|Tegenstrijdige|Totaalmeter wijkt/.test(
+          /Meterwissel|Dubbele|Overlappende|Tegenstrijdige|Totaalmeter wijkt/.test(
             m,
           ),
         );

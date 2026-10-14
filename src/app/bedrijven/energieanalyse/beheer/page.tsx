@@ -50,7 +50,12 @@ export default async function EnergieBeheer({
   const woning = (optional = false) => (
     <label>
       Pand
-      <select name="woning_id" required={!optional} className={field}>
+      <select
+        name="woning_id"
+        required={!optional}
+        defaultValue={initieelWoningId?.toString() ?? ""}
+        className={field}
+      >
         {optional && <option value="">Algemeen / per klant</option>}
         {bron.woningen.map((w) => (
           <option key={w.id} value={w.id}>
@@ -110,6 +115,56 @@ export default async function EnergieBeheer({
             {params.klaar}
           </p>
         )}
+        <section className="rounded-2xl border border-emerald-200 bg-white p-5">
+          <h2 className="text-xl font-bold">Beheer gegevens per pand</h2>
+          <form method="get" className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+            <label className="text-sm font-semibold">
+              Begin met een pandselectie
+              <select
+                name="woning_id"
+                defaultValue={initieelWoningId?.toString() ?? ""}
+                className={field}
+              >
+                {bron.woningen.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.adres}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button className="min-h-11 self-end rounded-xl bg-emerald-800 px-5 font-semibold text-white">
+              Pand openen
+            </button>
+          </form>
+          {initieelWoningId && (
+            <nav aria-label="Energiegegevens" className="mt-4 grid gap-2 sm:grid-cols-2">
+              <Link
+                href={`/woningen/${initieelWoningId}?alles=meterstanden#meterstanden`}
+                className="min-h-11 rounded-xl border border-slate-200 p-3 font-semibold text-emerald-900"
+              >
+                Meterstanden · historie en bestaande correctie
+              </Link>
+              <Link
+                href={`/woningen/${initieelWoningId}#bezetting`}
+                className="min-h-11 rounded-xl border border-slate-200 p-3 font-semibold text-emerald-900"
+              >
+                Bewoning · bestaande in- en uitcheckregistratie
+              </Link>
+              <Link
+                href="#energie-prijsinvoer"
+                className="min-h-11 rounded-xl border border-slate-200 p-3 font-semibold text-emerald-900"
+              >
+                Prijzen · historische prijsinvoer
+              </Link>
+              <Link
+                href="#energie-maatregelen"
+                className="min-h-11 rounded-xl border border-slate-200 p-3 font-semibold text-emerald-900"
+              >
+                Maatregelen · voortgang en nameting
+              </Link>
+            </nav>
+          )}
+        </section>
         <EnergiePrijsForm
           woningen={bron.woningen.map(({ id, adres }) => ({ id, adres }))}
           verhuurperioden={bron.verhuurperioden}
@@ -125,7 +180,7 @@ export default async function EnergieBeheer({
           </p>
         ) : (
           <>
-            <section className="rounded-2xl bg-white p-6">
+            <section id="energie-maatregelen" className="rounded-2xl bg-white p-6">
               <h2 className="text-xl font-bold">
                 Maatregelen en meetbaar resultaat
               </h2>

@@ -132,7 +132,7 @@ test("inclusive end-date form input becomes one exclusive analysis boundary", ()
     /één einddatumparameter/,
   );
 });
-test("an August warning keeps the September interval excluded while October stays uncovered", () => {
+test("an August high-consumption warning remains included while October stays uncovered", () => {
   const b = bron();
   b.bewoners = Array.from({ length: 7 }, (_, index) => ({
     id: index + 1,
@@ -160,20 +160,27 @@ test("an August warning keeps the September interval excluded while October stay
   const rij = result.rijen[0];
   const verbruiksraming = berekenBruikbareVerbruiksraming(rij, 39);
 
-  assert.equal(rij.persoonsdagen, 84);
-  assert.ok(Math.abs(rij.dekking_percentage - (12 / 39) * 100) < 1e-10);
-  assert.equal(rij.totaal, 201);
+  assert.equal(rij.persoonsdagen, 238);
+  assert.ok(Math.abs(rij.dekking_percentage - (34 / 39) * 100) < 1e-10);
+  assert.ok(Math.abs(rij.totaal! - 600.7931034482759) < 1e-9);
   assert.equal(rij.per_persoon_per_week, null);
   assert.ok(verbruiksraming);
-  assert.equal(verbruiksraming.per_persoon_per_week, 16.75);
-  assert.ok(Math.abs(verbruiksraming.per_persoon_per_periode - (201 * 39) / 84) < 1e-10);
+  assert.ok(Math.abs(verbruiksraming.per_persoon_per_week - 17.6703853955375) < 1e-9);
+  assert.ok(Math.abs(verbruiksraming.per_persoon_per_periode - (600.7931034482759 * 39) / 238) < 1e-10);
   assert.match(rij.meldingen.join(" "), /Beginopname heeft onwaarschijnlijk verbruik/);
   assert.match(rij.meldingen.join(" "), /Opvolging is bij een grensopname gemarkeerd/);
-  assert.equal(rij.intervallen[0].betrouwbaar, false);
+  assert.equal(rij.intervallen[0].betrouwbaar, true);
   assert.equal(rij.intervallen[1].totDatum, "2026-10-05");
 });
 test("legacy electricity totals remain usable for the three historic register layouts", () => {
-  const buildings = [
+  const buildings: Array<{
+    id: number;
+    adres: string;
+    occupants: number;
+    expectedPersonDays: number;
+    expectedTotal: number;
+    readings: [string, number][];
+  }> = [
     {
       id: 18,
       adres: "Bundesstrasse 157",
@@ -213,7 +220,7 @@ test("legacy electricity totals remain usable for the three historic register la
         ["2026-10-06", 76846],
       ],
     },
-  ] as const;
+  ];
   const b: Brondata = {
     woningen: buildings.map(({ id, adres }) => ({
       id,
@@ -313,15 +320,15 @@ test("explicit electricity register configuration overrides the historic total f
   assert.equal(elektriciteitsMeting(start, end, "enkel").waarde, 290);
 });
 test("water-only anomaly statuses never exclude normal electricity intervals", () => {
-  for (const {
-    woningId,
-    adres,
-    occupants,
-    generalStatus,
-    waterStatus,
-    readings,
-    warningReadingId,
-  } of [
+  const fixtures: Array<{
+    woningId: number;
+    adres: string;
+    occupants: number;
+    generalStatus: string;
+    waterStatus: string;
+    readings: [string, number][];
+    warningReadingId: number;
+  }> = [
     {
       woningId: 20,
       adres: "Grunstrasse 24",
@@ -350,7 +357,16 @@ test("water-only anomaly statuses never exclude normal electricity intervals", (
       ],
       warningReadingId: 72,
     },
-  ]) {
+  ];
+  for (const {
+    woningId,
+    adres,
+    occupants,
+    generalStatus,
+    waterStatus,
+    readings,
+    warningReadingId,
+  } of fixtures) {
     const b = bron();
     b.woningen[0].id = woningId;
     b.woningen[0].adres = adres;
@@ -818,7 +834,7 @@ test("independent total and conflicting total/register families", () => {
   d.elektriciteit_kwh = 500;
   assert.equal(elektriciteitsMeting(c, d).waarde, null);
 });
-test("gas worst status does not invalidate electricity; critical is not a bad reading", () => {
+test("product warnings do not invalidate a positive electricity meter delta", () => {
   const b = bron();
   b.meterstanden[1].analyse_status = "onwaarschijnlijk";
   b.meterstanden[1].opvolging_nodig = true;
@@ -832,7 +848,7 @@ test("gas worst status does not invalidate electricity; critical is not a bad re
   b.meterstanden[1].analyse_resultaat = {
     dragers: [{ drager: "elektriciteit", status: "onwaarschijnlijk" }],
   };
-  assert.equal(analyse(b).totaal, null);
+  assert.equal(analyse(b).totaal, 764);
 });
 test("strict calendar validation includes leap days and URL arrays", () => {
   assert.throws(() => datumTijd("2026-02-30"));
@@ -931,7 +947,7 @@ test("tariff boundary prorates variable and fixed costs without missing tariff c
   assert.equal(costs.regels[0].hoeveelheid, 70);
   assert.equal(costs.regels[2].hoeveelheid, 40);
   assert.equal(costs.geschat, true);
-  assert.equal(costs.totaal, 38.12);
+  assert.ok(Math.abs(costs.totaal! - 38.115) < 1e-9);
   assert.equal(costs.ontbrekend.length, 0);
 });
 test("inserting a historical price preserves the already scheduled future price", () => {
@@ -1036,7 +1052,7 @@ test("day and night tariff costs remain separate and total without duplicate fix
   assert.equal(day.vast, 0);
   assert.equal(night.vast, 0);
   assert.equal(total.variabel, 35);
-  assert.equal(total.vast, 10.33);
+  assert.ok(Math.abs(total.vast - 10.333333323) < 1e-9);
 });
 test("missing tariffs never become zero; scope precedence and overlaps", () => {
   assert.equal(
@@ -1258,7 +1274,7 @@ test("monthly fixed fee does not make unchanged unit cost estimated", () => {
   assert.equal(k.variabel, 22);
   assert.equal(k.geschat, false);
   assert.ok(k.totaal !== null);
-  assert.equal(k.vast, 7 + 4.43);
+  assert.ok(Math.abs(k.vast - (7 + 4.428571445)) < 1e-9);
 });
 test("different calendar windows are not a single benchmark cohort", () => {
   const b = bron();

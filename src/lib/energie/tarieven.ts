@@ -268,14 +268,12 @@ export function berekenEnergiekosten(
           hundred = BigInt(100) * S;
         const exNumerator = c.inclusief_btw ? amount * hundred : amount;
         const exDenominator = c.inclusief_btw ? S * S * (hundred + vat) : S * S;
-        const exCents = rond(exNumerator * BigInt(100), exDenominator);
-        const vatCents = rond(
-          exNumerator * vat * BigInt(100),
-          exDenominator * hundred,
-        );
-        if(!Number.isSafeInteger(Number(exCents)) || !Number.isSafeInteger(Number(vatCents))) throw new Error("Bedrag buiten het veilige rekenbereik.");
-      const ex = Number(exCents) / 100,
-          btw = Number(vatCents) / 100;
+        const exUnits = rond(exNumerator * S, exDenominator);
+        const vatUnits = rond(exUnits * vat, hundred);
+        const ex = Number(exUnits) / Number(S);
+        const btw = Number(vatUnits) / Number(S);
+        if (!Number.isFinite(ex) || !Number.isFinite(btw))
+          throw new Error("Bedrag buiten het veilige rekenbereik.");
         regels.push({
           tarief_id: t.id,
           bron: t.bron,
@@ -287,7 +285,7 @@ export function berekenEnergiekosten(
           inclusief_btw: c.inclusief_btw,
           exclusief_btw: ex,
           btw,
-          totaal: (Number(exCents) + Number(vatCents)) / 100,
+          totaal: Number(exUnits + vatUnits) / Number(S),
           geschat: !fixed && ((split && !wholeVariable) || i.geschat),
           valuta: t.valuta,
         });
@@ -295,7 +293,12 @@ export function berekenEnergiekosten(
     }
   }
   const sum = (rows: Kostenregel[], key: "totaal" | "btw" | "exclusief_btw") =>
-    rows.reduce((s, r) => s + Math.round(r[key] * 100), 0) / 100;
+    Number(
+      rows.reduce(
+        (total, row) => total + decimal(row[key].toFixed(9)),
+        BigInt(0),
+      ),
+    ) / Number(S);
   const currencies = [...new Set(regels.map((r) => r.valuta))];
   if (currencies.length > 1)
     ontbrekend.push("Verschillende valuta: geen opgeteld totaal");
