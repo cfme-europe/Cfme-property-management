@@ -13,12 +13,18 @@ import {
   type Energiedrager,
 } from "@/lib/energie/portfolio-analyse";
 import { beoordeelMaatregel } from "@/lib/energie/resultaten";
+import EnergiePrijsForm from "@/components/energie/EnergiePrijsForm";
+import EnergieAfzender from "@/components/energie/EnergieAfzender";
 const field =
   "mt-1 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm";
 export default async function EnergieBeheer({
   searchParams,
 }: {
-  searchParams: Promise<{ fout?: string; klaar?: string }>;
+  searchParams: Promise<{
+    fout?: string;
+    klaar?: string;
+    woning_id?: string | string[];
+  }>;
 }) {
   const [bron, ext, params] = await Promise.all([
     getEnergieAnalyseBrondata(),
@@ -26,6 +32,12 @@ export default async function EnergieBeheer({
     searchParams,
   ]);
   bron.meterconfiguraties = ext.configuraties;
+  const initieelWoningId =
+    typeof params.woning_id === "string" &&
+    /^\d+$/.test(params.woning_id) &&
+    bron.woningen.some((woning) => woning.id === Number(params.woning_id))
+      ? Number(params.woning_id)
+      : undefined;
   const product = (
     <label>
       Product
@@ -39,7 +51,12 @@ export default async function EnergieBeheer({
   const woning = (optional = false) => (
     <label>
       Pand
-      <select name="woning_id" required={!optional} className={field}>
+      <select
+        name="woning_id"
+        required={!optional}
+        defaultValue={initieelWoningId?.toString() ?? ""}
+        className={field}
+      >
         {optional && <option value="">Algemeen / per klant</option>}
         {bron.woningen.map((w) => (
           <option key={w.id} value={w.id}>
@@ -64,6 +81,12 @@ export default async function EnergieBeheer({
   const current = ext.maatregelen.filter((m) => !replaced.has(m.id));
   const tReplaced = new Set(ext.tarieven.map((t) => t.voorganger_id));
   const tariffs = ext.tarieven.filter((t) => !tReplaced.has(t.id));
+  const cReplaced = new Set(
+    ext.configuraties.map((c) => c.voorganger_id).filter(Boolean),
+  );
+  const currentConfigs = ext.configuraties.filter(
+    (c) => !cReplaced.has(c.id),
+  );
   return (
     <main className="min-h-screen bg-slate-100 p-5 text-slate-950 sm:p-9">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -93,6 +116,63 @@ export default async function EnergieBeheer({
             {params.klaar}
           </p>
         )}
+        <section className="rounded-2xl border border-emerald-200 bg-white p-5">
+          <h2 className="text-xl font-bold">Beheer gegevens per pand</h2>
+          <form method="get" className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+            <label className="text-sm font-semibold">
+              Begin met een pandselectie
+              <select
+                name="woning_id"
+                defaultValue={initieelWoningId?.toString() ?? ""}
+                className={field}
+              >
+                {bron.woningen.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.adres}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button className="min-h-11 self-end rounded-xl bg-emerald-800 px-5 font-semibold text-white">
+              Pand openen
+            </button>
+          </form>
+          {initieelWoningId && (
+            <nav aria-label="Energiegegevens" className="mt-4 grid gap-2 sm:grid-cols-2">
+              <Link
+                href={`/woningen/${initieelWoningId}?alles=meterstanden#meterstanden`}
+                className="min-h-11 rounded-xl border border-slate-200 p-3 font-semibold text-emerald-900"
+              >
+                Meterstanden · historie en bestaande correctie
+              </Link>
+              <Link
+                href={`/woningen/${initieelWoningId}#bezetting`}
+                className="min-h-11 rounded-xl border border-slate-200 p-3 font-semibold text-emerald-900"
+              >
+                Bewoning · bestaande in- en uitcheckregistratie
+              </Link>
+              <Link
+                href="#energie-prijsinvoer"
+                className="min-h-11 rounded-xl border border-slate-200 p-3 font-semibold text-emerald-900"
+              >
+                Prijzen · historische prijsinvoer
+              </Link>
+              <Link
+                href="#energie-maatregelen"
+                className="min-h-11 rounded-xl border border-slate-200 p-3 font-semibold text-emerald-900"
+              >
+                Maatregelen · voortgang en nameting
+              </Link>
+            </nav>
+          )}
+        </section>
+        <EnergiePrijsForm
+          woningen={bron.woningen.map(({ id, adres }) => ({ id, adres }))}
+          verhuurperioden={bron.verhuurperioden}
+          tarieven={ext.tarieven}
+          beschikbaar={ext.beschikbaar}
+          initieelWoningId={initieelWoningId}
+        />
         {!ext.beschikbaar ? (
           <p className="rounded-xl bg-amber-100 p-5">
             Deze uitbreiding wacht op afzonderlijke toestemming voor de
@@ -101,7 +181,7 @@ export default async function EnergieBeheer({
           </p>
         ) : (
           <>
-            <section className="rounded-2xl bg-white p-6">
+            <section id="energie-maatregelen" className="rounded-2xl bg-white p-6">
               <h2 className="text-xl font-bold">
                 Maatregelen en meetbaar resultaat
               </h2>
@@ -242,7 +322,7 @@ export default async function EnergieBeheer({
             </details>
             <details className="rounded-2xl bg-white p-6">
               <summary className="cursor-pointer text-xl font-bold">
-                Historische tarieven · {tariffs.length} actuele versies
+                Aanvullende kosten en uitzonderingen · {tariffs.length} actuele versies
               </summary>
               <p className="mt-3 text-sm text-slate-600">
                 Voorrang: pand → klant → algemeen. Vul óf een pand óf een klant
@@ -394,7 +474,7 @@ export default async function EnergieBeheer({
                   Versie van
                   <select name="voorganger_id" className={field}>
                     <option value="">Nieuwe configuratie</option>
-                    {ext.configuraties.map((c) => (
+                    {currentConfigs.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.meteridentiteit} · {c.vanaf}
                       </option>
@@ -425,6 +505,7 @@ export default async function EnergieBeheer({
             </details>
           </>
         )}
+        <EnergieAfzender />
       </div>
     </main>
   );

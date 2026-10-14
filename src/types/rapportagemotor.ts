@@ -29,7 +29,7 @@ export type RapportageKosten = {
 };
 
 export type RapportagemotorUitkomst = {
-  rekenregels_versie: 1 | 2;
+  rekenregels_versie: 1 | 2 | 3;
   huidige_periode: {
     vanaf: string;
     tot_en_met: string;

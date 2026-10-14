@@ -28,25 +28,24 @@ export default function EnergieSnapshotForm({
             <legend className="mb-2 text-sm font-semibold">
               Energieproducten
             </legend>
-            {["elektriciteit", "gas", "water"].map((d) => (
+            {[
+              "elektriciteit",
+              "dagstroom",
+              "nachtstroom",
+              "gas",
+              "water",
+            ].map((d) => (
               <label key={d} className="flex gap-2 text-sm">
                 <input name="drager" value={d} type="checkbox" defaultChecked />
                 {d}
               </label>
             ))}
           </fieldset>
-          <label className="block text-sm">
-            Berekening
-            <select
-              name="modus"
-              className="ml-3 rounded-lg border bg-white p-2"
-            >
-              <option value="exact">Alleen gemeten intervallen</option>
-              <option value="schatting">
-                Inclusief geschatte grensverdeling
-              </option>
-            </select>
-          </label>
+          <input type="hidden" name="modus" value="schatting" />
+          <p className="text-sm">
+            Geldige meetintervallen worden standaard tijdsevenredig verdeeld;
+            ook grensdagen tellen mee in dekking en rapportage.
+          </p>
           <button className="rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white">
             Nieuwe energiesnapshot vastleggen
           </button>

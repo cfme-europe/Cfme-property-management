@@ -587,9 +587,11 @@ export async function getDashboardData(): Promise<DashboardData> {
   for(const [woningId,woningMeterstanden] of meterstandenPerWoning) {
     const woning=woningenPerId.get(woningId); if(!woning||woningMeterstanden.length<2)continue;
     const dates=woningMeterstanden.map(m=>m.opnamedatum).sort();
+    const vanaf=dates[0];
+    if(dates.at(-1)!<=vanaf)continue;
     const bron:Brondata={woningen:[woning],bedrijven:[],meterstanden:woningMeterstanden,verhuurperioden:huurBron as Brondata["verhuurperioden"],bewoners:bewonersBron as Brondata["bewoners"],meterconfiguraties:configs.filter(c=>!vervangenConfigs.has(c.id)) as Brondata["meterconfiguraties"]};
     for(const drager of ["elektriciteit","gas","water"] as Energiedrager[]){
-      const periodes=maakMeetperioden(bron,{niveau:"woning",woningId,drager,vanaf:dates[0],totEnMet:dates.at(-1)!}).sort((a,b)=>b.totDatum.localeCompare(a.totDatum));
+      const periodes=maakMeetperioden(bron,{niveau:"woning",woningId,drager,vanaf,totEnMet:dates.at(-1)!}).sort((a,b)=>b.totDatum.localeCompare(a.totDatum));
       const laatste=periodes[0];
       if(!laatste||laatste.totDatum!==dates.at(-1)||!laatste.betrouwbaar||laatste.bezettingsconflict||!laatste.persoonsdagen||laatste.waarde===null)continue;
       const norm=laatste.waarde/(laatste.persoonsdagen/7);

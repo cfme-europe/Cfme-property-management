@@ -14,6 +14,7 @@ export type EnergieKlantProduct = {
   product: string;
   eenheid: string;
   verbruik: number | null;
+  verbruik_per_persoon_per_periode: number | null;
   norm: number | null;
   persoonsdagen: number;
   kosten_per_persoon_per_week: number | null;
@@ -21,6 +22,7 @@ export type EnergieKlantProduct = {
   verschil_percentage: number | null;
   dekking: number;
   exacte_dekking: number;
+  naar_rato_berekend: boolean;
   kwaliteit: string;
   mediaan: number | null;
   benchmark_aantal: number;
@@ -58,16 +60,18 @@ export function bouwEnergieSnapshot(
   );
   const duur = dagen(selectie.vanaf, selectie.totEnMet);
   const producten = analyses.map((a): EnergieKlantProduct => {
+    const vorigeVanaf = datumNaDagen(selectie.vanaf, -duur);
     const vorig = bouwEnergiePortfolioAnalyse(bron, {
       ...selectie,
       drager: a.selectie.drager,
-      vanaf: datumNaDagen(selectie.vanaf, -duur),
+      vanaf: vorigeVanaf,
       totEnMet: selectie.vanaf,
     });
     const vergelijkbaar =
+      vorig !== null &&
       a.rijen.length > 0 &&
-      a.rijen.every((r) => r.betrouwbaarheid === "exact") &&
-      vorig.rijen.every((r) => r.betrouwbaarheid === "exact") &&
+      a.rijen.every((r) => r.dekking_percentage === 100) &&
+      vorig.rijen.every((r) => r.dekking_percentage === 100) &&
       a.per_persoon_per_week !== null &&
       vorig.per_persoon_per_week !== null &&
       vorig.per_persoon_per_week > 0 &&
@@ -75,37 +79,53 @@ export function bouwEnergieSnapshot(
         vorig.rijen.map((r) => r.woning_id).join();
     const kwaliteit = a.rijen.some((r) => r.betrouwbaarheid === "controleren")
       ? "controleren"
-      : a.rijen.some((r) => r.betrouwbaarheid === "geschat")
-        ? "geschat"
-        : a.totaal === null
-          ? "onvoldoende_data"
-          : a.dekking_percentage < 100
-            ? "gedeeltelijk"
-            : "exact";
+      : a.totaal === null
+        ? "onvoldoende_data"
+        : a.dekking_percentage < 100
+          ? "gedeeltelijk"
+          : "exact";
     const kosten = berekenEnergiekosten(
       a.rijen.flatMap((r) => r.intervallen),
       tarieven,
       a.selectie.drager,
       a.eenheid,
-      selectie.modus === "schatting",
+      a.selectie.drager === "dagstroom"
+        ? "dag"
+        : a.selectie.drager === "nachtstroom"
+          ? "nacht"
+          : undefined,
     );
     return {
       product: a.selectie.drager,
       eenheid: a.eenheid,
       verbruik: a.totaal,
+      verbruik_per_persoon_per_periode:
+        a.per_persoon_per_week === null ||
+        a.totaal === null ||
+        a.persoonsdagen === 0
+          ? null
+          : a.totaal / (a.persoonsdagen / duur),
       norm: a.per_persoon_per_week,
       persoonsdagen: a.persoonsdagen,
-      kosten_per_persoon_per_week: kosten.totaal !== null && a.per_persoon_per_week !== null && a.persoonsdagen > 0 ? kosten.totaal/(a.persoonsdagen/7) : null,
-      vorige_norm: vergelijkbaar ? vorig.per_persoon_per_week : null,
+      kosten_per_persoon_per_week:
+        kosten.totaal !== null &&
+        a.per_persoon_per_week !== null &&
+        a.persoonsdagen > 0
+          ? kosten.totaal / (a.persoonsdagen / 7)
+          : null,
+      vorige_norm: vergelijkbaar ? vorig!.per_persoon_per_week : null,
       verschil_percentage: vergelijkbaar
-        ? (100 * (a.per_persoon_per_week! - vorig.per_persoon_per_week!)) /
-          vorig.per_persoon_per_week!
+        ? (100 * (a.per_persoon_per_week! - vorig!.per_persoon_per_week!)) /
+          vorig!.per_persoon_per_week!
         : null,
       dekking: a.dekking_percentage,
       exacte_dekking: a.rijen.length
         ? a.rijen.reduce((s, r) => s + r.exacte_dekking_percentage, 0) /
           a.rijen.length
         : 0,
+      naar_rato_berekend: a.rijen.some((r) =>
+        r.intervallen.some((interval) => interval.geschat),
+      ),
       kwaliteit,
       mediaan: a.mediaan_per_persoon_per_week,
       benchmark_aantal: a.panden_in_benchmark,
@@ -121,12 +141,16 @@ export function bouwEnergieSnapshot(
               .filter((i) => i.betrouwbaar && i.waarde !== null)
               .map(
                 (i) =>
-                  `${i.vanDatum} → ${i.totDatum}${i.geschat ? " (geschat)" : ""}`,
+                  `${i.vanDatum} → ${i.totDatum}${i.geschat ? " (naar rato)" : ""}`,
               ),
           ),
         ),
       ],
-      meldingen: [...new Set(a.rijen.flatMap((r) => r.meldingen))],
+      meldingen: [
+        ...new Set([
+          ...a.rijen.flatMap((r) => r.meldingen),
+        ]),
+      ],
     };
   });
   const klant: EnergieKlantSnapshot = {
@@ -134,7 +158,7 @@ export function bouwEnergieSnapshot(
     gegenereerd_op: nu,
     vanaf: selectie.vanaf,
     tot: selectie.totEnMet,
-    modus: selectie.modus ?? "exact",
+    modus: "tijdsevenredig",
     producten,
     maatregelen: [],
     conclusie:
@@ -186,6 +210,7 @@ export function klantSnapshot(
       product: p.product,
       eenheid: p.eenheid,
       verbruik: p.verbruik,
+      verbruik_per_persoon_per_periode: p.verbruik_per_persoon_per_periode,
       norm: p.norm,
       persoonsdagen: p.persoonsdagen,
       kosten_per_persoon_per_week: p.kosten_per_persoon_per_week,
@@ -193,6 +218,7 @@ export function klantSnapshot(
       verschil_percentage: p.verschil_percentage,
       dekking: p.dekking,
       exacte_dekking: p.exacte_dekking,
+      naar_rato_berekend: p.naar_rato_berekend,
       kwaliteit: p.kwaliteit,
       mediaan: p.mediaan,
       benchmark_aantal: p.benchmark_aantal,
@@ -220,9 +246,11 @@ export function klantSnapshot(
           exclusief_btw: r.exclusief_btw,
           btw: r.btw,
           totaal: r.totaal,
+          inclusief_btw: r.inclusief_btw,
           geschat: r.geschat,
           valuta: r.valuta,
         })),
+        gemiddelde_eenheidsprijs: p.kosten.gemiddelde_eenheidsprijs,
       },
     })),
   };

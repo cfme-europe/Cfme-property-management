@@ -50,6 +50,10 @@ export default function EnergieRapportPagina({
                 {p.eenheid}
               </span>
             </p>
+            <p className="mt-1 text-xs text-slate-300">
+              {number(p.verbruik_per_persoon_per_periode)} {p.eenheid} per
+              persoon in de periode
+            </p>
             <p className="mt-2 text-xs text-slate-300">
               {number(p.norm)} {p.eenheid} / persoon / week
             </p>
@@ -61,7 +65,7 @@ export default function EnergieRapportPagina({
               </p>
               <p className="mt-1 text-xs text-slate-300">
                 {p.kosten.geschat
-                  ? "Geschatte toerekening"
+                  ? "Naar rato berekende kosten"
                   : "Kosten beschikbare intervallen"}
               </p>
             </div>
@@ -90,7 +94,8 @@ export default function EnergieRapportPagina({
                   />
                 </div>
                 <p className="mt-1 text-[10px] text-slate-500">
-                  {number(p.exacte_dekking)}% exact ·{" "}
+                  {number(p.dekking)}% tijdsdekking
+                  {p.naar_rato_berekend ? " · naar rato berekend" : ""} ·{" "}
                   {p.kwaliteit.replaceAll("_", " ")}
                 </p>
               </div>

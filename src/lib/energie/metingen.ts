@@ -13,6 +13,7 @@ export function elektriciteitsMeting(
   configuratie?: RegisterType,
 ) {
   const meldingen: string[] = [];
+  let bronVelden: string[] = [];
   for (const m of [a, b]) {
     if (
       (m.elektriciteit_dag_kwh != null &&
@@ -34,10 +35,16 @@ export function elektriciteitsMeting(
     nacht = verschil(a.nachtstroom_kwh, b.nachtstroom_kwh),
     totaal = verschil(a.elektriciteit_kwh, b.elektriciteit_kwh);
   let waarde: number | null = null;
-  if (configuratie === "totaal") waarde = totaal;
-  else if (configuratie === "enkel") waarde = dag;
-  else if (dag !== null && nacht !== null) waarde = dag + nacht;
-  else if (
+  if (configuratie === "totaal") {
+    waarde = totaal;
+    bronVelden = ["elektriciteit_kwh"];
+  } else if (configuratie === "enkel") {
+    waarde = dag;
+    bronVelden = ["dagstroom_kwh"];
+  } else if (dag !== null && nacht !== null) {
+    waarde = dag + nacht;
+    bronVelden = ["dagstroom_kwh", "nachtstroom_kwh"];
+  } else if (
     configuratie === undefined &&
     a.dagstroom_kwh === null &&
     b.dagstroom_kwh === null &&
@@ -45,7 +52,21 @@ export function elektriciteitsMeting(
     b.nachtstroom_kwh === null
   ) {
     waarde = totaal;
+    bronVelden = ["elektriciteit_kwh"];
     meldingen.push("Totaalmeterconfiguratie nog niet bevestigd");
+  } else if (
+    configuratie === undefined &&
+    totaal !== null &&
+    a.elektriciteit_kwh === a.dagstroom_kwh &&
+    b.elektriciteit_kwh === b.dagstroom_kwh &&
+    a.nachtstroom_kwh === null &&
+    b.nachtstroom_kwh === null
+  ) {
+    waarde = totaal;
+    bronVelden = ["elektriciteit_kwh"];
+    meldingen.push(
+      "Historische totaalstanden gebruikt; dag-/nachtverdeling is niet bevestigd.",
+    );
   } else {
     meldingen.push("Registerconfiguratie of registerstanden onvolledig");
   }
@@ -58,6 +79,14 @@ export function elektriciteitsMeting(
       : waarde,
     dag,
     nacht,
+    bronVelden:
+      meldingen.some(
+        (melding) =>
+          melding.startsWith("Tegenstrijdige") ||
+          melding.startsWith("Totaalmeter wijkt"),
+      )
+        ? []
+        : bronVelden,
     meldingen,
   };
 }

@@ -914,8 +914,8 @@ export default async function WoningDossierPage({
               Energieverbruik
             </h2>
             <p className="mt-1 text-slate-600">
-              Verbruik tussen opeenvolgende meteropnames,
-              omgerekend per bewoner per week.
+              Verbruik wordt per halfopen meetinterval gevalideerd en naar rato
+              verdeeld over de geselecteerde rapportperiode.
             </p>
           </div>
 
@@ -929,8 +929,7 @@ export default async function WoningDossierPage({
             </h3>
 
             <p className="mt-1 text-slate-600">
-              Vergelijking van het verbruik per bewoner per
-              week met eerdere meetperiodes.
+              Vergelijking van verbruik per week met eerdere meetintervallen.
             </p>
 
             <div className="mt-5">

@@ -41,8 +41,8 @@ function stand(
 function brondata(verbruiken: number[]) {
   return {
     meterstanden: verbruiken.flatMap((verbruik, index) => [
-      stand(index + 1, "2026-01-01", 0),
-      stand(index + 1, "2026-01-08", verbruik),
+      stand(index + 1, "2026-09-01", 0),
+      stand(index + 1, "2026-09-08", verbruik),
     ]),
     woningen: verbruiken.map((_, index) => ({
       id: index + 1,
@@ -64,7 +64,7 @@ function brondata(verbruiken: number[]) {
       return Array.from({ length: aantal }, (__, bewonerIndex) => ({
         id: index * 10 + bewonerIndex + 1,
         verhuurperiode_id: index + 1,
-        incheckdatum: "2026-01-01",
+        incheckdatum: "2026-09-01",
         uitcheckdatum: null,
       }));
     }),
@@ -75,8 +75,8 @@ test("berekent portefeuillewaarde gewogen uit totaal verbruik en persoonsdagen",
   const analyse = bouwEnergiePortfolioAnalyse(brondata([100, 100]), {
     niveau: "totaal",
     drager: "elektriciteit",
-    vanaf: "2026-01-01",
-    totEnMet: "2026-01-08",
+    vanaf: "2026-09-01",
+    totEnMet: "2026-09-08",
   });
 
   assert.equal(analyse.totaal, 200);
@@ -90,14 +90,32 @@ test("berekent portefeuillewaarde gewogen uit totaal verbruik en persoonsdagen",
     ) / analyse.rijen.length,
   );
 });
+test("sorts visible consumption values descending and leaves missing values last", () => {
+  const data = brondata([100, 20, 50]);
+  data.bewoners = data.bewoners.filter(
+    (resident) => resident.verhuurperiode_id !== 2,
+  );
+  const analyse = bouwEnergiePortfolioAnalyse(data, {
+    niveau: "totaal",
+    drager: "elektriciteit",
+    vanaf: "2026-09-01",
+    totEnMet: "2026-09-08",
+  });
+
+  assert.deepEqual(
+    analyse.rijen.map((rij) => rij.woning_id),
+    [1, 3, 2],
+  );
+  assert.equal(analyse.rijen[2].per_persoon_per_week, null);
+});
 
 test("filtert klant exact via bewoner en verhuurperiode", () => {
   const analyse = bouwEnergiePortfolioAnalyse(brondata([10, 20, 30]), {
     niveau: "bedrijf",
     bedrijfId: 1,
     drager: "elektriciteit",
-    vanaf: "2026-01-01",
-    totEnMet: "2026-01-08",
+    vanaf: "2026-09-01",
+    totEnMet: "2026-09-08",
   });
 
   assert.deepEqual(
@@ -110,8 +128,8 @@ test("markeert statistische uitschieters pas met voldoende vergelijkbare panden"
   const analyse = bouwEnergiePortfolioAnalyse(brondata([10, 11, 12, 13, 100]), {
     niveau: "totaal",
     drager: "elektriciteit",
-    vanaf: "2026-01-01",
-    totEnMet: "2026-01-08",
+    vanaf: "2026-09-01",
+    totEnMet: "2026-09-08",
   });
 
   assert.equal(analyse.panden_in_benchmark, 5);
@@ -121,37 +139,110 @@ test("markeert statistische uitschieters pas met voldoende vergelijkbare panden"
 
 test("bedrijvenoverzicht ontsluit de energieanalyse", async () => {
   const bron = await readFile("src/app/bedrijven/page.tsx", "utf8");
-  const pagina = await readFile(
-    "src/app/bedrijven/energieanalyse/page.tsx",
+  const formulier = await readFile(
+    "src/components/energie/EnergieAnalyseFilterFormulier.tsx",
     "utf8",
   );
 
   assert.match(bron, /href="\/bedrijven\/energieanalyse"/);
-  assert.match(pagina, /EnergieFilters/);
-  assert.match(pagina, /persoon\/week/);
+  assert.match(formulier, /Analyse toepassen/);
 });
 
-test("energieanalyse heeft bedienbare datumkeuzes voor tablet en desktop", async () => {
-  const pagina = await readFile(
-    "src/components/energie/EnergieFilters.tsx",
+test("energieanalyse biedt compacte kalendermaandkeuzes voor tablet en desktop", async () => {
+  const serverPagina = await readFile(
+    "src/app/bedrijven/energieanalyse/page.tsx",
     "utf8",
   );
-  const datumvelden = await readFile(
-    "src/components/energie/EnergieAnalyseDatumvelden.tsx",
+  const analysePagina = await readFile(
+    "src/components/energie/EnergieMaandAnalysePagina.tsx",
     "utf8",
   );
-
-  assert.match(pagina, /EnergieAnalyseDatumvelden/);
-  assert.match(pagina, /minimum=\{minimum\}/);
-  assert.match(pagina, /maximum=\{maximum\}/);
-  assert.match(pagina, /Beginmeetdatum inclusief, eindmeetdatum exclusief/);
-  assert.match(datumvelden, /type="hidden" name=\{naam\} value=\{waarde\}/);
-  assert.match(datumvelden, /id=\{`\$\{naam\}-maand`\}/);
-  assert.match(datumvelden, /id=\{`\$\{naam\}-dag`\}/);
-  assert.match(datumvelden, /id=\{`\$\{naam\}-jaar`\}/);
-  assert.match(datumvelden, /begrensDatum/);
-  assert.doesNotMatch(datumvelden, /type="date"/);
-  assert.doesNotMatch(datumvelden, /showPicker/);
-  assert.match(datumvelden, /waarde > totEnMet/);
-  assert.match(datumvelden, /waarde < vanaf/);
+  const selectie = await readFile(
+    "src/components/energie/EnergieMaandSelectie.tsx",
+    "utf8",
+  );
+  const beheerpagina = await readFile(
+    "src/app/bedrijven/energieanalyse/beheer/page.tsx",
+    "utf8",
+  );
+  const exportRoute = await readFile(
+    "src/app/bedrijven/energieanalyse/export/route.ts",
+    "utf8",
+  );
+  const presentationRoute = await readFile(
+    "src/app/bedrijven/energieanalyse/presentatie/route.ts",
+    "utf8",
+  );
+  const maandAnalyse = await readFile(
+    "src/lib/energie/maand-analyse.ts",
+    "utf8",
+  );
+  const afzender = await readFile("src/lib/energie/afzender.ts", "utf8");
+  const grafiekkleuren = await readFile(
+    "src/lib/energie/maand-kleuren.ts",
+    "utf8",
+  );
+  assert.match(serverPagina, /EnergieMaandAnalysePagina/);
+  assert.match(analysePagina, /EnergieMaandSelectie/);
+  assert.doesNotMatch(selectie, /type="month"/);
+  assert.match(selectie, /aria-label="Jaar voor maandselectie"/);
+  assert.match(selectie, /aria-pressed={selected}/);
+  assert.match(selectie, /maanden_ingediend/);
+  assert.match(selectie, /Toon vergelijking/);
+  assert.match(selectie, /Selectie wijzigen/);
+  assert.doesNotMatch(selectie, /Maand toevoegen/);
+  assert.match(selectie, /name="referentiemaand"/);
+  assert.match(selectie, /Selecteer maanden in meerdere jaren/);
+  assert.match(selectie, /min-h-11/);
+  assert.match(selectie, /name="woning"/);
+  assert.match(selectie, /\/bedrijven\/energieanalyse\/presentatie/);
+  assert.match(selectie, /name="drager"/);
+  assert.match(selectie, /Per persoon/);
+  assert.match(selectie, /Totaal pand/);
+  assert.match(selectie, /router\.push/);
+  assert.match(analysePagina, /Verbruik in beeld/);
+  assert.match(analysePagina, /sorteermaand/);
+  assert.match(analysePagina, /href="\/bedrijven\/energieanalyse\/beheer"/);
+  assert.match(analysePagina, /Beheer gegevens/);
+  assert.match(analysePagina, /action="\/bedrijven\/energieanalyse\/export"/);
+  assert.match(analysePagina, /method="post"/);
+  assert.match(exportRoute, /export async function POST/);
+  assert.match(exportRoute, /sorteermaand/);
+  assert.match(exportRoute, /Vergelijking · gezamenlijke schaal/);
+  assert.match(exportRoute, /ENERGIE_REKENREGELS/);
+  assert.match(presentationRoute, /httpOnly: true/);
+  assert.match(presentationRoute, /weergave=anoniem/);
+  assert.match(presentationRoute, /"geen-panden"/);
+  assert.match(presentationRoute, /NextResponse\.redirect/);
+  assert.match(maandAnalyse, /Selecteer minimaal één pand/);
+  assert.match(selectie, /validationErrorRef\.current\?\.focus\(\)/);
+  assert.match(analysePagina, /Presentatie niet beschikbaar/);
+  assert.match(analysePagina, /new URLSearchParams\("weergave=anoniem"\)/);
+  assert.doesNotMatch(analysePagina, /home\.klant|home\.adres/);
+  assert.doesNotMatch(exportRoute, /home\.klant/);
+  assert.match(exportRoute, /label: home\.pand/);
+  assert.match(exportRoute, /cfme-anonieme-energiepresentatie/);
+  assert.match(analysePagina, /maximumEnergieMaandwaarde/);
+  assert.match(exportRoute, /maximumEnergieMaandwaarde/);
+  assert.match(analysePagina, /MonthLegend/);
+  assert.match(exportRoute, /kleurEnergieMaand/);
+  assert.match(afzender, /Verhuur door Mooi Valkenburg BV · Onderdeel van CFME/);
+  assert.match(analysePagina, /EnergieAfzender/);
+  assert.match(exportRoute, /ENERGIE_AFZENDER/);
+  assert.equal((grafiekkleuren.match(/"#/g) ?? []).length, 12);
+  assert.match(beheerpagina, /Meterstanden/);
+  assert.match(beheerpagina, /Bewoning/);
+  assert.match(beheerpagina, /Prijzen/);
+  assert.match(beheerpagina, /Maatregelen/);
+});
+test("home analysis keeps data administration behind one management link", async () => {
+  const page = await readFile(
+    "src/components/energie/EnergieMaandAnalysePagina.tsx",
+    "utf8",
+  );
+  assert.match(
+    page,
+    /href="\/bedrijven\/energieanalyse\/beheer"[\s\S]*?Beheer gegevens/,
+  );
+  assert.doesNotMatch(page, /Prijzen invoeren/);
 });
