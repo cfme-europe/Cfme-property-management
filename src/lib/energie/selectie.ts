@@ -4,7 +4,11 @@ import type {
   Energiedrager,
 } from "./portfolio-analyse";
 import { bepaalEnergieDatumbereik } from "./portfolio-analyse";
-import { controleerPeriode, datumTijd, volgendeDag } from "./rekenregels";
+import {
+  controleerPeriode,
+  datumTijd,
+  volgendeDag,
+} from "./rekenregels";
 export type Parameters = Record<string, string | string[] | undefined>;
 export type EnergieSelectieVeld =
   | "algemeen"
@@ -100,8 +104,17 @@ export function leesSelectie(
   const niveau = one("niveau", "totaal", "niveau");
   if (!["totaal", "bedrijf", "woning"].includes(niveau))
     throw new EnergieSelectieValidatieFout("niveau", "Ongeldig selectieniveau.");
-  const vanaf = one("vanaf", bereik?.vanaf ?? "2026-09-01", "vanaf"),
-    tot = one("tot", standaardTot, "tot");
+  const vanaf = one("vanaf", bereik?.vanaf ?? "2026-09-01", "vanaf");
+  const inclusiveEndSubmitted = p.tot_en_met !== undefined;
+  if (inclusiveEndSubmitted && p.tot !== undefined)
+    throw new EnergieSelectieValidatieFout(
+      "tot",
+      "Gebruik één einddatumparameter.",
+    );
+  const endParameter = inclusiveEndSubmitted
+    ? one("tot_en_met", "", "tot")
+    : one("tot", standaardTot, "tot");
+  let tot = endParameter;
   try {
     datumTijd(vanaf);
   } catch (error) {
@@ -111,7 +124,8 @@ export function leesSelectie(
     );
   }
   try {
-    datumTijd(tot);
+    datumTijd(endParameter);
+    if (inclusiveEndSubmitted) tot = volgendeDag(endParameter);
   } catch (error) {
     throw new EnergieSelectieValidatieFout(
       "tot",

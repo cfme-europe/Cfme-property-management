@@ -4,16 +4,19 @@ import {
   getEnergieUitbreiding,
 } from "@/services/energieanalyse-server";
 import {
+  berekenBruikbareVerbruiksraming,
   bouwEnergiePortfolioAnalyse,
   type EnergieAnalyseRij,
   type Energiedrager,
 } from "@/lib/energie/portfolio-analyse";
+import { ENERGIE_ANALYSE_STARTDATUM, vorigeDag } from "@/lib/energie/rekenregels";
 import {
   EnergieSelectieValidatieFout,
   leesSelectie,
   type Parameters,
 } from "@/lib/energie/selectie";
 import { berekenEnergiekosten } from "@/lib/energie/tarieven";
+import EnergieAnalyseFilterFormulier from "@/components/energie/EnergieAnalyseFilterFormulier";
 
 export const dynamic = "force-dynamic";
 
@@ -32,12 +35,29 @@ const getal = (waarde: number | null, decimalen = 2) =>
       }).format(waarde);
 
 function uitleg(rij: EnergieAnalyseRij, totaalDagen: number) {
-  if (rij.dekking_percentage < 100)
-    return `${getal(rij.dekking_percentage)}% tijdsdekking; voor een volledig vergelijkbaar cijfer zijn meetgegevens over de hele periode nodig.`;
+  if (!rij.meetperioden || rij.totaal === null) {
+    const reden = rij.meldingen.find((melding) =>
+      /onwaarschijnlijk|ontbrekende|teruglopende|meterwissel|dubbele|configuratie|klantwissel/i.test(
+        melding,
+      ),
+    );
+    return reden
+      ? `Geen bruikbaar verbruik: ${reden}`
+      : "Geen bruikbare verbruiksintervallen in deze periode.";
+  }
   if (!rij.persoonsdagen)
-    return "Bewonersgegevens ontbreken; persoonsverbruik en persoonskosten zijn daarom niet berekend.";
-  if (rij.meldingen.some((melding) => melding.includes("spreken elkaar tegen")))
+    return "Er zijn geen persoonsdagen gekoppeld aan het bruikbare verbruik; de persoonsnorm is daarom onbekend.";
+  if (
+    rij.intervallen.some(
+      (interval) =>
+        interval.bezettingsconflict &&
+        interval.betrouwbaar &&
+        interval.waarde !== null,
+    )
+  )
     return "De bewonersregistratie wijkt af van de meteropname; controleer de bezetting.";
+  if (rij.dekking_percentage < 100)
+    return `Raming op basis van ${getal(rij.dekking_percentage, 1)}% dekking; de resterende dagen zijn niet gemeten.`;
   if (rij.persoonsdagen < totaalDagen)
     return "De bewonersregistratie dekt niet alle geselecteerde dagen.";
   return "";
@@ -78,6 +98,7 @@ function Pandrij({
     rij.per_persoon_per_periode !== null
       ? kosten.totaal / (rij.persoonsdagen / 7)
       : null;
+  const verbruiksraming = berekenBruikbareVerbruiksraming(rij, dagen);
   const beknopteUitleg = uitleg(rij, dagen);
   const prorata = rij.intervallen.some((interval) => interval.geschat);
 
@@ -99,19 +120,24 @@ function Pandrij({
           <div
             className="h-5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100"
             role="img"
-            aria-label={`${rij.adres}: ${getal(rij.per_persoon_per_periode)} ${eenheid} per persoon in de gekozen periode`}
+            aria-label={`${rij.adres}: ${
+              verbruiksraming === null
+                ? "geen berekende waarde"
+                : `${getal(verbruiksraming.per_persoon_per_periode)} ${eenheid} per persoon in de gekozen periode`
+            }`}
           >
             <div
               className="h-full rounded-full bg-emerald-700"
               style={{
                 width: `${
-                  rij.per_persoon_per_periode === null || maximum <= 0
+                  verbruiksraming === null || maximum <= 0
                     ? 0
                     : Math.max(
                         0,
                         Math.min(
                           100,
-                          (rij.per_persoon_per_periode / maximum) * 100,
+                          (verbruiksraming.per_persoon_per_periode / maximum) *
+                            100,
                         ),
                       )
                 }%`,
@@ -119,7 +145,7 @@ function Pandrij({
             />
           </div>
           <strong className="min-w-28 text-right text-sm">
-            {getal(rij.per_persoon_per_periode)} {eenheid}
+            {getal(verbruiksraming?.per_persoon_per_periode ?? null)} {eenheid}
           </strong>
         </div>
         <div className="rounded-xl bg-emerald-50 px-3 py-2 sm:min-w-48">
@@ -135,10 +161,9 @@ function Pandrij({
       </div>
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
         <span>
-          {getal(rij.dekking_percentage, 1)}% tijdsdekking
-          {rij.dekking_percentage === 100 && prorata
-            ? " · naar rato berekend"
-            : ""}
+          {rij.dekking_percentage < 100
+            ? `Tijdsdekking: ${getal(rij.dekking_percentage, 1)}%`
+            : `100% tijdsdekking${prorata ? " · naar rato berekend" : ""}`}
         </span>
         <span>{rij.persoonsdagen} persoonsdagen</span>
         {beknopteUitleg && (
@@ -159,8 +184,10 @@ function Pandrij({
             <h3 className="font-semibold">Meetintervallen en rekenstappen</h3>
             <p className="mt-1 text-sm text-slate-600">
               Verbruik per persoon over deze periode = bruikbaar verbruik ÷
-              (persoonsdagen ÷ {dagen} geselecteerde dagen). Intervallen zijn
-              halfopen; grensintervallen worden naar rato verdeeld.
+              (bijbehorende persoonsdagen ÷ 7) × {dagen} geselecteerde dagen ÷
+              7. Bij gedeeltelijke dekking is de periodewaarde een raming;
+              ongedekte dagen zijn niet gemeten. Intervallen zijn halfopen;
+              grensintervallen worden naar rato verdeeld.
             </p>
             <div className="mt-2 space-y-2">
               {rij.intervallen.map((interval, index) => (
@@ -252,17 +279,9 @@ export default async function EnergieanalysePage({
         : "Ongeldige selectie.";
     selectie = leesSelectie({}, bron).selectie;
   }
-  const vanaf = Array.isArray(parameters.vanaf)
-    ? ""
-    : (parameters.vanaf ?? selectie.vanaf);
-  const tot = Array.isArray(parameters.tot)
-    ? ""
-    : (parameters.tot ?? selectie.totEnMet);
-  const woningIds = Array.isArray(parameters.woning)
-    ? parameters.woning
-    : parameters.woning
-      ? [parameters.woning]
-      : [];
+  const vanaf = selectie.vanaf;
+  const tot = selectie.totEnMet;
+  const woningIds = selectie.woningIds ?? [];
   const analyses = validatiefout
     ? []
     : [
@@ -272,7 +291,7 @@ export default async function EnergieanalysePage({
           drager: selectie.drager,
           vanaf,
           totEnMet: tot,
-          woningIds: woningIds.map(Number),
+          woningIds,
           bedrijfIds: selectie.bedrijfIds ?? [],
           modus: "schatting",
           kwaliteit: "alle",
@@ -280,15 +299,8 @@ export default async function EnergieanalysePage({
           archief: false,
         }),
       ];
-  const labels = {
-    elektriciteit: "Elektriciteit totaal",
-    dagstroom: "Dagstroom",
-    nachtstroom: "Nachtstroom",
-    gas: "Gas",
-    water: "Water",
-  } satisfies Record<Energiedrager, string>;
   const bedrijven = bron.bedrijven;
-  const woningOptions = bron.woningen.filter(
+  const beschikbareWoningen = bron.woningen.filter(
     (woning) =>
       !selectie.bedrijfIds?.length ||
       bron.verhuurperioden.some(
@@ -299,18 +311,45 @@ export default async function EnergieanalysePage({
           (!huur.werkelijke_einddatum || huur.werkelijke_einddatum > vanaf),
       ),
   );
+  const woningOptions = [
+    ...beschikbareWoningen.map((woning) => ({
+      ...woning,
+      beschikbaar: true,
+    })),
+    ...bron.woningen
+      .filter(
+        (woning) =>
+          woningIds.includes(woning.id) &&
+          !beschikbareWoningen.some((beschikbaar) => beschikbaar.id === woning.id),
+      )
+      .map((woning) => ({ ...woning, beschikbaar: false })),
+  ];
+  const maximumDatum = new Date().toISOString().slice(0, 10);
+  const vanafFormulier =
+    selectie.vanaf < ENERGIE_ANALYSE_STARTDATUM
+      ? ENERGIE_ANALYSE_STARTDATUM
+      : selectie.vanaf;
+  const totEnMetFormulier = Math.max(
+    Date.parse(`${ENERGIE_ANALYSE_STARTDATUM}T00:00:00Z`),
+    Math.min(
+      Date.parse(`${maximumDatum}T00:00:00Z`),
+      Date.parse(`${vorigeDag(selectie.totEnMet)}T00:00:00Z`),
+    ),
+  );
   const dagen = Math.max(
     1,
     (Date.parse(`${tot}T00:00:00Z`) - Date.parse(`${vanaf}T00:00:00Z`)) /
       86_400_000,
   );
   const sorted = analyses[0]?.rijen ?? [];
+  const verbruiksramingen = sorted.map((rij) => ({
+    rij,
+    raming: berekenBruikbareVerbruiksraming(rij, dagen),
+  }));
   const maximum = Math.max(
     0,
-    ...sorted.flatMap((rij) =>
-      rij.per_persoon_per_periode === null
-        ? []
-        : [rij.per_persoon_per_periode],
+    ...verbruiksramingen.flatMap(({ raming }) =>
+      raming ? [raming.per_persoon_per_periode] : [],
     ),
   );
 
@@ -323,92 +362,19 @@ export default async function EnergieanalysePage({
           </Link>
           <h1 className="mt-2 text-2xl font-bold sm:text-3xl">Energieanalyse</h1>
         </header>
-        <form
-          method="get"
-          className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-5"
-        >
-          <label className="text-sm font-semibold">
-            Klant
-            <select
-              name="bedrijf"
-              defaultValue={selectie.bedrijfIds?.[0]?.toString() ?? ""}
-              className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3"
-            >
-              <option value="">Alle klanten</option>
-              {bedrijven.map((bedrijf) => (
-                <option key={bedrijf.id} value={bedrijf.id}>
-                  {bedrijf.naam}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm font-semibold">
-            Panden
-            <select
-              name="woning"
-              multiple
-              size={Math.min(4, Math.max(2, woningOptions.length))}
-              defaultValue={woningIds}
-              className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2"
-            >
-              {woningOptions.map((woning) => (
-                <option key={woning.id} value={woning.id}>
-                  {woning.adres}
-                </option>
-              ))}
-            </select>
-            <span className="font-normal text-slate-500">
-              Geen selectie = alle panden
-            </span>
-          </label>
-          <label className="text-sm font-semibold">
-            Vanaf (inclusief)
-            <input
-              name="vanaf"
-              type="date"
-              defaultValue={vanaf}
-              required
-              className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 px-3"
-            />
-          </label>
-          <label className="text-sm font-semibold">
-            Tot (exclusief)
-            <input
-              name="tot"
-              type="date"
-              defaultValue={tot}
-              required
-              className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 px-3"
-            />
-            <span className="font-normal text-slate-500">
-              Deze datum telt niet mee.
-            </span>
-          </label>
-          <label className="text-sm font-semibold">
-            Energieproduct
-            <select
-              name="drager"
-              defaultValue={selectie.drager}
-              className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3"
-            >
-              {(Object.keys(labels) as Energiedrager[]).map((drager) => (
-                <option key={drager} value={drager}>
-                  {labels[drager]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="flex items-end">
-            <button className="min-h-11 w-full rounded-lg bg-emerald-700 px-4 font-bold text-white">
-              Analyse toepassen
-            </button>
-          </div>
-        </form>
-        {validatiefout && (
-          <p role="alert" className="rounded-xl bg-amber-50 p-4 text-amber-950">
-            Analyse niet toegepast: {validatiefout}
-          </p>
-        )}
+        <EnergieAnalyseFilterFormulier
+          key={`${selectie.bedrijfIds?.join(",") ?? ""}:${woningIds.join(",")}:${vanafFormulier}:${totEnMetFormulier}:${selectie.drager}:${validatiefout}`}
+          bedrijven={bedrijven}
+          woningen={woningOptions}
+          bedrijfId={selectie.bedrijfIds?.[0]}
+          woningIds={woningIds}
+          vanaf={vanafFormulier}
+          totEnMet={new Date(totEnMetFormulier).toISOString().slice(0, 10)}
+          drager={selectie.drager}
+          minimum={ENERGIE_ANALYSE_STARTDATUM}
+          maximum={maximumDatum}
+          validationError={validatiefout || undefined}
+        />
         {analyses.map((analyse) => (
           <section key={analyse.selectie.drager} className="space-y-3">
             <div className="flex flex-wrap items-end justify-between gap-2">
@@ -417,16 +383,16 @@ export default async function EnergieanalysePage({
                   {productNamen[analyse.selectie.drager]}
                 </h2>
                 <p className="text-sm text-slate-600">
-                  {analyse.selectie.vanaf} t/m {analyse.selectie.totEnMet}{" "}
-                  (einddatum exclusief) · {analyse.eenheid} per persoon in deze
-                  periode
+                  {analyse.selectie.vanaf} t/m{" "}
+                  {vorigeDag(analyse.selectie.totEnMet)} · {analyse.eenheid}{" "}
+                  per persoon in deze periode
                 </p>
               </div>
               <p className="text-sm text-slate-600">
                 Balken gebruiken dezelfde {analyse.eenheid}-schaal.
               </p>
             </div>
-            {analyse.rijen.map((rij) => (
+            {verbruiksramingen.map(({ rij, raming }) => (
               <div key={rij.woning_id}>
                 <Pandrij
                   rij={rij}
@@ -436,10 +402,10 @@ export default async function EnergieanalysePage({
                   maximum={maximum}
                   tarieven={uitbreiding.tarieven}
                 />
-                {rij.per_persoon_per_periode !== null && maximum > 0 && (
+                {raming !== null && maximum > 0 && (
                   <span className="sr-only">
                     {getal(
-                      (rij.per_persoon_per_periode / maximum) * 100,
+                      ((raming.per_persoon_per_periode / maximum) * 100),
                       1,
                     )}
                     % van de schaal

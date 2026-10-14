@@ -121,14 +121,13 @@ test("markeert statistische uitschieters pas met voldoende vergelijkbare panden"
 
 test("bedrijvenoverzicht ontsluit de energieanalyse", async () => {
   const bron = await readFile("src/app/bedrijven/page.tsx", "utf8");
-  const pagina = await readFile(
-    "src/app/bedrijven/energieanalyse/page.tsx",
+  const formulier = await readFile(
+    "src/components/energie/EnergieAnalyseFilterFormulier.tsx",
     "utf8",
   );
 
   assert.match(bron, /href="\/bedrijven\/energieanalyse"/);
-  assert.match(pagina, /Analyse toepassen/);
-  assert.match(pagina, /Kosten per persoon \/ week/);
+  assert.match(formulier, /Analyse toepassen/);
 });
 
 test("energieanalyse heeft bedienbare datumkeuzes voor tablet en desktop", async () => {
@@ -136,9 +135,19 @@ test("energieanalyse heeft bedienbare datumkeuzes voor tablet en desktop", async
     "src/app/bedrijven/energieanalyse/page.tsx",
     "utf8",
   );
-  assert.match(serverPagina, /Vanaf \(inclusief\)/);
-  assert.match(serverPagina, /Tot \(exclusief\)/);
-  assert.match(serverPagina, /Deze datum telt niet mee/);
-  assert.match(serverPagina, /Analyse toepassen/);
-  assert.match(serverPagina, /Geen selectie = alle panden/);
+  const formulier = await readFile(
+    "src/components/energie/EnergieAnalyseFilterFormulier.tsx",
+    "utf8",
+  );
+  const datumvelden = await readFile(
+    "src/components/energie/EnergieAnalyseDatumvelden.tsx",
+    "utf8",
+  );
+  assert.match(serverPagina, /EnergieAnalyseFilterFormulier/);
+  assert.match(datumvelden, /label="Van"/);
+  assert.match(datumvelden, /label="Tot en met"/);
+  assert.match(formulier, /name="woning"/);
+  assert.doesNotMatch(formulier, /multiple/);
+  assert.match(formulier, /Analyse wordt toegepast/);
+  assert.match(formulier, /router\.push/);
 });

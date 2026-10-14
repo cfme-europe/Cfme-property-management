@@ -120,6 +120,34 @@ export type EnergieAnalyseRij = {
   intervallen: EnergieInterval[];
   benchmark_geschikt: boolean;
 };
+export function berekenBruikbareVerbruiksraming(
+  rij: Pick<
+    EnergieAnalyseRij,
+    "totaal" | "persoonsdagen" | "meetperioden" | "intervallen"
+  >,
+  periodeDagen: number,
+) {
+  if (
+    rij.totaal === null ||
+    rij.meetperioden === 0 ||
+    rij.persoonsdagen <= 0 ||
+    !Number.isFinite(periodeDagen) ||
+    periodeDagen <= 0 ||
+    rij.intervallen.some(
+      (interval) =>
+        interval.betrouwbaar &&
+        interval.waarde !== null &&
+        interval.bezettingsconflict,
+    )
+  )
+    return null;
+
+  const perPersoonPerWeek = rij.totaal / (rij.persoonsdagen / 7);
+  return {
+    per_persoon_per_week: perPersoonPerWeek,
+    per_persoon_per_periode: perPersoonPerWeek * (periodeDagen / 7),
+  };
+}
 export type EnergieAnalyseTrend = {
   woning_id: number;
   adres: string;
@@ -321,9 +349,9 @@ export function maakMeetperioden(
       if(beginOnwaarschijnlijk) meldingen.push("Beginopname heeft onwaarschijnlijk verbruik; controle vereist");
       if (anomalie === "onwaarschijnlijk")
         meldingen.push("Onwaarschijnlijk verbruik: controle vereist");
-      if (b.opvolging_nodig)
+      if (a.opvolging_nodig || b.opvolging_nodig)
         meldingen.push(
-          "Opvolging bij meteropname geregistreerd; zie status per energiedrager",
+          "Opvolging is bij een grensopname gemarkeerd; controleer de actuele status per energiedrager",
         );
       const betrouwbaar =
         bronWaarde !== null &&
@@ -411,8 +439,8 @@ export function bouwEnergiePortfolioAnalyse(
       pd > 0 &&
       dekking === 100 &&
       !usable.some((i) => i.bezettingsconflict)
-        ? totaal! / (pd / 7)
-        : null;
+      ? totaal! / (pd / 7)
+      : null;
     const normPerPeriode =
       pd > 0 &&
       dekking === 100 &&

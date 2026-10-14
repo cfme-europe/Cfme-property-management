@@ -30,6 +30,8 @@ De energiepagina staat standaard **uit**. Bestaande klantversie blijft één/twe
 9. Vorige periode heeft dezelfde duur en populatie en moet volledig betrouwbaar zijn. Geen vergelijking bij nulreferentie. Gebouwgebruik, klimaat en seizoenen zijn niet automatisch gecorrigeerd.
 10. Maatregelresultaat kan een genormaliseerd verbruiksverschil tonen. Het wordt nooit automatisch geverifieerde/causale besparing. Ook maatregelen zonder resultaat blijven historisch zichtbaar.
 
+De portefeuillepagina toont voor bruikbare gedeeltelijke meetvensters ook verbruik per persoon per week en een periodewaarde die naar de geselecteerde duur is omgerekend. Dit is een afzonderlijke presentatieberekening: de strikte normvelden voor benchmarks, snapshots en kosten blijven ongewijzigd. De periodewaarde is nadrukkelijk een raming op basis van de gemeten tijdsdekking, geen volledig gemeten periodeverbruik. Ontbrekende meetintervallen blijven ongedekt. Een onwaarschijnlijke grensopname blijft uitgesloten totdat een geldige bronstatus de waarschuwing onderbouwd wijzigt; het bestaan van een opvolgingsmarkering wist de waarschuwing niet.
+
 ## Tarieven
 
 - Productcatalogus met eenheid en dimensie; kostenmotor accepteert productcodes/eenheden en intervallen onafhankelijk van de drie bestaande meteradapters. Nieuwe meterproducten vragen een adapter/invoerpad, geen nieuwe kostenmotor. kW is geen verbruikscomponent.

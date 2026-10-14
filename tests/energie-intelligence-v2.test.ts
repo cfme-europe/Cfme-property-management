@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  berekenBruikbareVerbruiksraming,
   bouwEnergiePortfolioAnalyse,
   berekenPersoonsdagen,
   type Brondata,
@@ -82,9 +83,76 @@ test("golden Meerstraat:764 / (128/7), 16/30 calendar coverage, no misleading be
   assert.equal(a.totaal, 764);
   assert.equal(a.persoonsdagen, 128);
   assert.equal(a.per_persoon_per_week, null);
+  const verbruiksraming = berekenBruikbareVerbruiksraming(a.rijen[0], 30);
+  assert.ok(verbruiksraming);
+  assert.ok(Math.abs(verbruiksraming.per_persoon_per_week - 764 / (128 / 7)) < 1e-10);
+  assert.ok(Math.abs(verbruiksraming.per_persoon_per_periode - (764 * 30) / 128) < 1e-10);
   assert.ok(Math.abs(a.dekking_percentage - (16 / 30) * 100) < 1e-10);
   assert.equal(a.rijen[0].betrouwbaarheid, "gedeeltelijk");
   assert.equal(a.mediaan_per_persoon_per_week, null);
+});
+test("inclusive end-date form input becomes one exclusive analysis boundary", () => {
+  const parsed = leesSelectie(
+    {
+      vanaf: "2026-09-01",
+      tot_en_met: "2026-10-09",
+      drager: "elektriciteit",
+    },
+    bron(),
+  );
+  assert.equal(parsed.selectie.totEnMet, "2026-10-10");
+  assert.throws(
+    () =>
+      leesSelectie(
+        {
+          vanaf: "2026-09-01",
+          tot: "2026-10-10",
+          tot_en_met: "2026-10-09",
+        },
+        bron(),
+      ),
+    /één einddatumparameter/,
+  );
+});
+test("an August warning keeps the September interval excluded while October stays uncovered", () => {
+  const b = bron();
+  b.bewoners = Array.from({ length: 7 }, (_, index) => ({
+    id: index + 1,
+    verhuurperiode_id: 12,
+    incheckdatum: "2026-08-01",
+    uitcheckdatum: null,
+  }));
+  b.meterstanden = [
+    {
+      ...stand(50, "2026-08-25", 1000, 7),
+      analyse_resultaat: {
+        dragers: [{ drager: "elektriciteit", status: "onwaarschijnlijk" }],
+      },
+      opvolging_nodig: true,
+    },
+    stand(73, "2026-09-23", 1527, 7),
+    stand(81, "2026-10-05", 1728, 7),
+  ];
+
+  const result = analyse(b, {
+    ...sel,
+    vanaf: "2026-09-01",
+    totEnMet: "2026-10-10",
+  });
+  const rij = result.rijen[0];
+  const verbruiksraming = berekenBruikbareVerbruiksraming(rij, 39);
+
+  assert.equal(rij.persoonsdagen, 84);
+  assert.ok(Math.abs(rij.dekking_percentage - (12 / 39) * 100) < 1e-10);
+  assert.equal(rij.totaal, 201);
+  assert.equal(rij.per_persoon_per_week, null);
+  assert.ok(verbruiksraming);
+  assert.equal(verbruiksraming.per_persoon_per_week, 16.75);
+  assert.ok(Math.abs(verbruiksraming.per_persoon_per_periode - (201 * 39) / 84) < 1e-10);
+  assert.match(rij.meldingen.join(" "), /Beginopname heeft onwaarschijnlijk verbruik/);
+  assert.match(rij.meldingen.join(" "), /Opvolging is bij een grensopname gemarkeerd/);
+  assert.equal(rij.intervallen[0].betrouwbaar, false);
+  assert.equal(rij.intervallen[1].totDatum, "2026-10-05");
 });
 test("exact boundaries and missing boundaries are distinct", () => {
   const a = analyse(bron(), {
@@ -525,6 +593,22 @@ test("missing tariffs never become zero; scope precedence and overlaps", () => {
     ).totaal,
     null,
   );
+});
+test("partial-use estimate remains available when tariff prices are missing", () => {
+  const partial = analyse();
+  const row = partial.rijen[0];
+  const estimate = berekenBruikbareVerbruiksraming(row, 30);
+  const costs = berekenEnergiekosten(
+    row.intervallen,
+    [],
+    "elektriciteit",
+    "kWh",
+  );
+
+  assert.ok(estimate);
+  assert.ok(estimate.per_persoon_per_week > 0);
+  assert.equal(costs.totaal, null);
+  assert.ok(costs.ontbrekend.length > 0);
 });
 test("an explicitly registered zero price is valid and differs from no tariff", () => {
   const plan = tariff("zero", "2026-01-01", null, "0");

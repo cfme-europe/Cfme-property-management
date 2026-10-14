@@ -18,6 +18,9 @@ export function dagen(van: string, tot: string) {
 export function volgendeDag(datum: string) {
   return new Date(datumTijd(datum) + 86400000).toISOString().slice(0, 10);
 }
+export function vorigeDag(datum: string) {
+  return new Date(datumTijd(datum) - 86400000).toISOString().slice(0, 10);
+}
 export function datumNaDagen(datum: string, aantal: number) {
   return new Date(datumTijd(datum) + aantal * 86400000)
     .toISOString()

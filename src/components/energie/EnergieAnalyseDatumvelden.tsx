@@ -17,6 +17,7 @@ type Props = {
 type DatumveldProps = {
   label: string;
   naam: "vanaf" | "tot";
+  parameterNaam?: string;
   waarde: string;
   minimum: string;
   maximum: string;
@@ -71,6 +72,7 @@ function begrensDatum(
 function Datumveld({
   label,
   naam,
+  parameterNaam,
   waarde,
   minimum,
   maximum,
@@ -95,12 +97,12 @@ function Datumveld({
 
   return (
     <fieldset
-      className="md:col-span-1 xl:col-span-2"
+      className="min-w-0 md:col-span-1 xl:col-span-2"
       aria-invalid={fout ? true : undefined}
       aria-describedby={fout ? `${naam}-fout` : undefined}
     >
       <legend className="mb-1 block text-sm font-semibold">{label}</legend>
-      <input type="hidden" name={naam} value={waarde} />
+      <input type="hidden" name={parameterNaam ?? naam} value={waarde} />
       <div className="grid grid-cols-[minmax(0,1.35fr)_minmax(4.5rem,0.7fr)_minmax(5.5rem,0.8fr)] gap-2">
         <label className="sr-only" htmlFor={`${naam}-maand`}>
           Maand {label.toLowerCase()}
@@ -199,7 +201,7 @@ export default function EnergieAnalyseDatumvelden({
   return (
     <>
       <Datumveld
-        label="Vanaf meetdatum"
+        label="Van"
         naam="vanaf"
         waarde={vanaf}
         minimum={minimum}
@@ -212,8 +214,9 @@ export default function EnergieAnalyseDatumvelden({
         }
       />
       <Datumveld
-        label="Tot meetdatum"
+        label="Tot en met"
         naam="tot"
+        parameterNaam="tot_en_met"
         waarde={totEnMet}
         minimum={minimum}
         maximum={maximum}
