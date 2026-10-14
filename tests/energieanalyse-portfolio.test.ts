@@ -90,6 +90,24 @@ test("berekent portefeuillewaarde gewogen uit totaal verbruik en persoonsdagen",
     ) / analyse.rijen.length,
   );
 });
+test("sorts visible consumption values descending and leaves missing values last", () => {
+  const data = brondata([100, 20, 50]);
+  data.bewoners = data.bewoners.filter(
+    (resident) => resident.verhuurperiode_id !== 2,
+  );
+  const analyse = bouwEnergiePortfolioAnalyse(data, {
+    niveau: "totaal",
+    drager: "elektriciteit",
+    vanaf: "2026-09-01",
+    totEnMet: "2026-09-08",
+  });
+
+  assert.deepEqual(
+    analyse.rijen.map((rij) => rij.woning_id),
+    [1, 3, 2],
+  );
+  assert.equal(analyse.rijen[2].per_persoon_per_week, null);
+});
 
 test("filtert klant exact via bewoner en verhuurperiode", () => {
   const analyse = bouwEnergiePortfolioAnalyse(brondata([10, 20, 30]), {
@@ -143,6 +161,18 @@ test("energieanalyse heeft bedienbare datumkeuzes voor tablet en desktop", async
     "src/components/energie/EnergieAnalyseDatumvelden.tsx",
     "utf8",
   );
+  const prijsformulier = await readFile(
+    "src/components/energie/EnergiePrijsForm.tsx",
+    "utf8",
+  );
+  const beheerpagina = await readFile(
+    "src/app/bedrijven/energieanalyse/beheer/page.tsx",
+    "utf8",
+  );
+  const portfolioAnalyse = await readFile(
+    "src/lib/energie/portfolio-analyse.ts",
+    "utf8",
+  );
   assert.match(serverPagina, /EnergieAnalyseFilterFormulier/);
   assert.match(datumvelden, /label="Van"/);
   assert.match(datumvelden, /label="Tot en met"/);
@@ -150,4 +180,17 @@ test("energieanalyse heeft bedienbare datumkeuzes voor tablet en desktop", async
   assert.doesNotMatch(formulier, /multiple/);
   assert.match(formulier, /Analyse wordt toegepast/);
   assert.match(formulier, /router\.push/);
+  assert.match(serverPagina, /sorteerEnergieAnalyseRijenOpVerbruiksraming/);
+  assert.match(portfolioAnalyse, /return waardeB - waardeA/);
+  assert.match(serverPagina, /energieanalyse\/beheer\?/);
+  assert.match(serverPagina, /Tarieven controleren of invoeren voor/);
+  assert.match(prijsformulier, /initieelWoningId/);
+  assert.match(beheerpagina, /woning_id\?: string \| string\[\]/);
+});
+test("price entry is linked from the top of the analysis page", async () => {
+  const page = await readFile("src/app/bedrijven/energieanalyse/page.tsx", "utf8");
+  assert.match(
+    page,
+    /<header>[\s\S]*?href="\/bedrijven\/energieanalyse\/beheer"[\s\S]*?Prijzen invoeren[\s\S]*?<\/header>/,
+  );
 });

@@ -33,13 +33,21 @@ export default function EnergiePrijsForm({
   verhuurperioden,
   tarieven,
   beschikbaar,
+  initieelWoningId,
 }: {
   woningen: Woning[];
   verhuurperioden: Verhuurperiode[];
   tarieven: Tariefplan[];
   beschikbaar: boolean;
+  initieelWoningId?: number;
 }) {
-  const [woningId, setWoningId] = useState(String(woningen[0]?.id ?? ""));
+  const [woningId, setWoningId] = useState(() =>
+    String(
+      woningen.some((woning) => woning.id === initieelWoningId)
+        ? initieelWoningId
+        : (woningen[0]?.id ?? ""),
+    ),
+  );
   const [vanaf, setVanaf] = useState(new Date().toISOString().slice(0, 10));
   const woning = Number(woningId);
   const bedrijfId = useMemo(
@@ -79,7 +87,10 @@ export default function EnergiePrijsForm({
     "min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base";
 
   return (
-    <section className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm sm:p-6">
+    <section
+      id="energie-prijsinvoer"
+      className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm sm:p-6"
+    >
       <h2 className="text-xl font-bold">Eenvoudige prijsinvoer</h2>
       <p className="mt-1 text-sm text-slate-600">
         Een lege nieuwe-prijsregel laat dat tarief ongewijzigd. Vul 0 in om een

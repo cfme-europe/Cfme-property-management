@@ -1,14 +1,15 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { leesAlleRijen } from "@/lib/energie/paginering";
-import type {
-  Brondata,
-  EnergieBedrijf,
-  EnergieBewoner,
-  EnergieMeterstand,
-  EnergieVerhuurperiode,
-  EnergieWoning,
-  Meterconfiguratie,
+import {
+  normaliseerMeterconfiguraties,
+  type Brondata,
+  type EnergieBedrijf,
+  type EnergieBewoner,
+  type EnergieMeterstand,
+  type EnergieVerhuurperiode,
+  type EnergieWoning,
+  type Meterconfiguratie,
 } from "@/lib/energie/portfolio-analyse";
 import type { Tariefplan } from "@/lib/energie/tarieven";
 export type EnergieAnalyseBrondata = Brondata;
@@ -85,13 +86,12 @@ export async function getEnergieUitbreiding() {
     read("energie_meterconfiguraties"),
     read("energie_maatregelen"),
   ]);
-  const vervangen = new Set(configuraties.map((c) => c.voorganger_id));
   return {
     beschikbaar: true,
     tarieven: tarieven as unknown as Tariefplan[],
-    configuraties: configuraties.filter(
-      (c) => !vervangen.has(c.id),
-    ) as unknown as Meterconfiguratie[],
+    configuraties: normaliseerMeterconfiguraties(
+      configuraties as unknown as Meterconfiguratie[],
+    ),
     maatregelen: maatregelen as unknown as EnergieMaatregel[],
   };
 }

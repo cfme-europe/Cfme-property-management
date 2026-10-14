@@ -6,6 +6,8 @@ import {
 import {
   berekenBruikbareVerbruiksraming,
   bouwEnergiePortfolioAnalyse,
+  ongedekteMeetperioden,
+  sorteerEnergieAnalyseRijenOpVerbruiksraming,
   type EnergieAnalyseRij,
   type Energiedrager,
 } from "@/lib/energie/portfolio-analyse";
@@ -54,8 +56,17 @@ function uitleg(rij: EnergieAnalyseRij, totaalDagen: number) {
         interval.betrouwbaar &&
         interval.waarde !== null,
     )
-  )
-    return "De bewonersregistratie wijkt af van de meteropname; controleer de bezetting.";
+  ) {
+    return (
+      rij.intervallen
+        .flatMap((interval) => interval.meldingen)
+        .find((melding) =>
+          melding.startsWith(
+            "Bewonersadministratie en meteropname spreken elkaar tegen",
+          ),
+        ) ?? "Bewonersregistratie en meteropname zijn inconsistent."
+    );
+  }
   if (rij.dekking_percentage < 100)
     return `Raming op basis van ${getal(rij.dekking_percentage, 1)}% dekking; de resterende dagen zijn niet gemeten.`;
   if (rij.persoonsdagen < totaalDagen)
@@ -70,6 +81,8 @@ function Pandrij({
   drager,
   maximum,
   tarieven,
+  selectieVanaf,
+  selectieTot,
 }: {
   rij: EnergieAnalyseRij;
   eenheid: string;
@@ -77,6 +90,8 @@ function Pandrij({
   drager: Energiedrager;
   maximum: number;
   tarieven: Awaited<ReturnType<typeof getEnergieUitbreiding>>["tarieven"];
+  selectieVanaf: string;
+  selectieTot: string;
 }) {
   const register =
     drager === "dagstroom"
@@ -101,6 +116,11 @@ function Pandrij({
   const verbruiksraming = berekenBruikbareVerbruiksraming(rij, dagen);
   const beknopteUitleg = uitleg(rij, dagen);
   const prorata = rij.intervallen.some((interval) => interval.geschat);
+  const ongedekte = ongedekteMeetperioden(
+    rij.intervallen,
+    selectieVanaf,
+    selectieTot,
+  );
 
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -174,6 +194,14 @@ function Pandrij({
             Kosten onvolledig: {kosten.ontbrekend[0] ?? "tarief ontbreekt"}
           </span>
         )}
+        {kosten.totaal === null && (
+          <Link
+            href={`/bedrijven/energieanalyse/beheer?${new URLSearchParams({ woning_id: String(rij.woning_id) })}#energie-prijsinvoer`}
+            className="inline-flex min-h-11 items-center rounded-lg bg-emerald-700 px-4 font-semibold text-white underline-offset-4 hover:underline"
+          >
+            Tarieven controleren of invoeren voor {rij.adres}
+          </Link>
+        )}
       </div>
       <details className="mt-2 border-t border-slate-100 pt-2">
         <summary className="min-h-11 cursor-pointer py-2 font-semibold text-emerald-800">
@@ -190,6 +218,10 @@ function Pandrij({
               grensintervallen worden naar rato verdeeld.
             </p>
             <div className="mt-2 space-y-2">
+              <p className="text-sm text-slate-600">
+                Selectiegrenzen: {selectieVanaf} t/m{" "}
+                {vorigeDag(selectieTot)} (einddatum exclusief in de berekening).
+              </p>
               {rij.intervallen.map((interval, index) => (
                 <div
                   key={`${interval.bronVanaf}-${interval.bronTot}-${index}`}
@@ -199,10 +231,20 @@ function Pandrij({
                     {interval.bronVanaf}–{interval.bronTot} →{" "}
                     {interval.vanDatum}–{interval.totDatum} (eind exclusief)
                   </p>
+                  <p className="font-medium">
+                    {interval.betrouwbaar && interval.waarde !== null
+                      ? "Meegeteld als gemeten interval"
+                      : "Uitgesloten van gemeten dekking"}
+                  </p>
                   <p>
                     {getal(interval.waarde)} {eenheid} · {interval.dagen} dagen
                     {interval.geschat ? " · naar rato" : ""}
                   </p>
+                  {interval.bronVelden?.length ? (
+                    <p className="text-xs text-slate-600">
+                      Gebruikte bronvelden: {interval.bronVelden.join(", ")}
+                    </p>
+                  ) : null}
                   <p className="text-xs text-slate-600">
                     Meteropnamen: {interval.bronIds.join(", ") || "onbekend"}
                   </p>
@@ -218,6 +260,18 @@ function Pandrij({
                   Geen bruikbaar meetinterval in deze selectie.
                 </p>
               )}
+              {ongedekte.map((periode, index) => (
+                <div
+                  key={`${periode.vanDatum}-${periode.totDatum}-${index}`}
+                  className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+                >
+                  <p>
+                    Ongedekt: {periode.vanDatum}–{periode.totDatum} (einddatum
+                    exclusief); dit is geen gemeten verbruik.
+                  </p>
+                  <p className="mt-1">{periode.reden}</p>
+                </div>
+              ))}
             </div>
           </section>
           <section>
@@ -341,11 +395,13 @@ export default async function EnergieanalysePage({
     (Date.parse(`${tot}T00:00:00Z`) - Date.parse(`${vanaf}T00:00:00Z`)) /
       86_400_000,
   );
-  const sorted = analyses[0]?.rijen ?? [];
-  const verbruiksramingen = sorted.map((rij) => ({
-    rij,
-    raming: berekenBruikbareVerbruiksraming(rij, dagen),
-  }));
+  const verbruiksramingen = sorteerEnergieAnalyseRijenOpVerbruiksraming(
+    analyses[0]?.rijen ?? [],
+    dagen,
+  ).map((rij) => ({
+      rij,
+      raming: berekenBruikbareVerbruiksraming(rij, dagen),
+    }));
   const maximum = Math.max(
     0,
     ...verbruiksramingen.flatMap(({ raming }) =>
@@ -361,6 +417,12 @@ export default async function EnergieanalysePage({
             ← Bedrijven
           </Link>
           <h1 className="mt-2 text-2xl font-bold sm:text-3xl">Energieanalyse</h1>
+          <Link
+            href="/bedrijven/energieanalyse/beheer"
+            className="mt-3 inline-flex min-h-11 items-center rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white"
+          >
+            Prijzen invoeren
+          </Link>
         </header>
         <EnergieAnalyseFilterFormulier
           key={`${selectie.bedrijfIds?.join(",") ?? ""}:${woningIds.join(",")}:${vanafFormulier}:${totEnMetFormulier}:${selectie.drager}:${validatiefout}`}
@@ -401,6 +463,8 @@ export default async function EnergieanalysePage({
                   drager={analyse.selectie.drager}
                   maximum={maximum}
                   tarieven={uitbreiding.tarieven}
+                  selectieVanaf={selectie.vanaf}
+                  selectieTot={selectie.totEnMet}
                 />
                 {raming !== null && maximum > 0 && (
                   <span className="sr-only">
@@ -426,14 +490,6 @@ export default async function EnergieanalysePage({
             kosten blijven onbekend totdat de tariefregistratie beschikbaar is.
           </p>
         )}
-        <p className="text-right text-sm">
-          <Link
-            href="/bedrijven/energieanalyse/beheer"
-            className="font-semibold text-emerald-800 underline underline-offset-4"
-          >
-            Eenvoudige prijsinvoer en aanvullende kosten
-          </Link>
-        </p>
       </div>
     </main>
   );

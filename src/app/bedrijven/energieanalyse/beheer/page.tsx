@@ -19,7 +19,11 @@ const field =
 export default async function EnergieBeheer({
   searchParams,
 }: {
-  searchParams: Promise<{ fout?: string; klaar?: string }>;
+  searchParams: Promise<{
+    fout?: string;
+    klaar?: string;
+    woning_id?: string | string[];
+  }>;
 }) {
   const [bron, ext, params] = await Promise.all([
     getEnergieAnalyseBrondata(),
@@ -27,6 +31,12 @@ export default async function EnergieBeheer({
     searchParams,
   ]);
   bron.meterconfiguraties = ext.configuraties;
+  const initieelWoningId =
+    typeof params.woning_id === "string" &&
+    /^\d+$/.test(params.woning_id) &&
+    bron.woningen.some((woning) => woning.id === Number(params.woning_id))
+      ? Number(params.woning_id)
+      : undefined;
   const product = (
     <label>
       Product
@@ -65,6 +75,12 @@ export default async function EnergieBeheer({
   const current = ext.maatregelen.filter((m) => !replaced.has(m.id));
   const tReplaced = new Set(ext.tarieven.map((t) => t.voorganger_id));
   const tariffs = ext.tarieven.filter((t) => !tReplaced.has(t.id));
+  const cReplaced = new Set(
+    ext.configuraties.map((c) => c.voorganger_id).filter(Boolean),
+  );
+  const currentConfigs = ext.configuraties.filter(
+    (c) => !cReplaced.has(c.id),
+  );
   return (
     <main className="min-h-screen bg-slate-100 p-5 text-slate-950 sm:p-9">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -99,6 +115,7 @@ export default async function EnergieBeheer({
           verhuurperioden={bron.verhuurperioden}
           tarieven={ext.tarieven}
           beschikbaar={ext.beschikbaar}
+          initieelWoningId={initieelWoningId}
         />
         {!ext.beschikbaar ? (
           <p className="rounded-xl bg-amber-100 p-5">
@@ -401,7 +418,7 @@ export default async function EnergieBeheer({
                   Versie van
                   <select name="voorganger_id" className={field}>
                     <option value="">Nieuwe configuratie</option>
-                    {ext.configuraties.map((c) => (
+                    {currentConfigs.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.meteridentiteit} · {c.vanaf}
                       </option>
