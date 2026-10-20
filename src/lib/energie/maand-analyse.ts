@@ -38,6 +38,9 @@ export type EnergieMaandMeting = {
   persoonsdagen: number;
   perPersoonPerWeek: number | null;
   dekking: number;
+  geschatteDagen: number;
+  normaliseerbaarVerbruik: number;
+  onbekendeBezettingsdagen: number;
   status: "volledig" | "gedeeltelijk" | "geen";
   betrouwbaarheid: string | null;
   waarschuwingen: string[];
@@ -50,8 +53,22 @@ export type EnergieMaandMeting = {
     bronVanaf: string;
     bronTot: string;
     bronVelden: string[];
+    gebruikteStanden: EnergieInterval["gebruikteStanden"];
+    meteridentiteit: string | null;
+    bronIds: number[];
+    dagen: number;
     persoonsdagen: number;
     geschat: boolean;
+    rekenwijze: EnergieInterval["rekenwijze"];
+    bewonersbron: string;
+    bezettingBekend: boolean;
+  }>;
+  uitgeslotenPeriodes: Array<{
+    vanaf: string;
+    tot: string;
+    bronVanaf: string;
+    bronTot: string;
+    reden: string;
   }>;
   laatsteMeetdatum: string | null;
   naarRato: boolean;
@@ -512,6 +529,9 @@ export function bouwEnergieMaandAnalyse(
         rij?.intervallen.filter(
           (interval) => interval.betrouwbaar && interval.waarde !== null,
         ) ?? [];
+      const normaliseerbareIntervallen = intervallen.filter(
+        (interval) => interval.bezettingBekend,
+      );
       const dekking = rij?.dekking_percentage ?? 0;
       const verbruik = rij?.totaal ?? null;
       const status: EnergieMaandMeting["status"] =
@@ -531,6 +551,17 @@ export function bouwEnergieMaandAnalyse(
             ? "nacht"
             : undefined,
       );
+      const normaliseerbareKosten = berekenEnergiekosten(
+          normaliseerbareIntervallen,
+          tarieven,
+          selectie.drager,
+          analyse.eenheid,
+          selectie.drager === "dagstroom"
+            ? "dag"
+            : selectie.drager === "nachtstroom"
+              ? "nacht"
+              : undefined,
+      );
       const persoonsdagen = rij?.persoonsdagen ?? 0;
       return {
         maand: periode.maand,
@@ -541,16 +572,17 @@ export function bouwEnergieMaandAnalyse(
         persoonsdagen,
         betrouwbaarheid: rij?.betrouwbaarheid ?? null,
         waarschuwingen: [...new Set(rij?.meldingen ?? [])],
-        perPersoonPerWeek:
-          status === "volledig" && rij ? rij.per_persoon_per_week : null,
+        perPersoonPerWeek: rij?.per_persoon_per_week ?? null,
         dekking,
+        geschatteDagen: rij?.geschatte_dagen ?? 0,
+        normaliseerbaarVerbruik: rij?.normaliseerbaar_verbruik ?? 0,
+        onbekendeBezettingsdagen: rij?.onbekende_bezettingsdagen ?? 0,
         status,
         kosten,
         kostenPerPersoonPerWeek:
-          status === "volledig" &&
           persoonsdagen > 0 &&
-          kosten.totaal !== null
-            ? kosten.totaal / (persoonsdagen / 7)
+          normaliseerbareKosten.totaal !== null
+            ? normaliseerbareKosten.totaal / (persoonsdagen / 7)
             : null,
         periodes: intervallen.map((interval) => ({
           vanaf: interval.vanDatum,
@@ -559,11 +591,34 @@ export function bouwEnergieMaandAnalyse(
           bronVanaf: interval.bronVanaf,
           bronTot: interval.bronTot,
           bronVelden: interval.bronVelden ?? [],
+          gebruikteStanden: interval.gebruikteStanden,
+          meteridentiteit: interval.meteridentiteit ?? null,
+          bronIds: interval.bronIds,
+          dagen: interval.dagen,
           persoonsdagen: interval.persoonsdagen,
           geschat: interval.geschat,
+          rekenwijze: interval.rekenwijze,
+          bewonersbron: interval.bewonersbron,
+          bezettingBekend: interval.bezettingBekend,
         })),
+        uitgeslotenPeriodes:
+          rij?.intervallen
+            .filter(
+              (interval) => !interval.betrouwbaar || interval.waarde === null,
+            )
+            .map((interval) => ({
+              vanaf: interval.vanDatum,
+              tot: interval.totDatum,
+              bronVanaf: interval.bronVanaf,
+              bronTot: interval.bronTot,
+              reden:
+                interval.meldingen.join("; ") ||
+                "Standen zijn niet betrouwbaar genoeg om te berekenen.",
+            })) ?? [],
         laatsteMeetdatum: laatsteMeetdatum(rij?.intervallen ?? []),
-        naarRato: intervallen.some((interval) => interval.geschat),
+        naarRato: intervallen.some(
+          (interval) => interval.rekenwijze !== "gemeten",
+        ),
       };
     }),
   }));

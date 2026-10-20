@@ -469,6 +469,8 @@ test("volledige maand gebruikt meterstanden buiten maandgrenzen en geen fictieve
   assert.equal(september.persoonsdagen, 0);
   assert.equal(september.perPersoonPerWeek, null);
   assert.equal(september.naarRato, true);
+  assert.equal(september.geschatteDagen, 0);
+  assert.equal(september.periodes[0].rekenwijze, "naar_rato");
 });
 
 test("Heirstraat-achtige maandnorm gebruikt bewonersdagen ondanks afwijkend meteraantal", () => {
@@ -516,11 +518,8 @@ test("Heirstraat-achtige maandnorm gebruikt bewonersdagen ondanks afwijkend mete
   assert.equal(september.laatsteMeetdatum, "2026-10-05");
   assert.equal(september.periodes.at(-1)?.bronTot, "2026-10-05");
   assert.ok(september.verbruik !== null);
-  assert.ok(
-    september.waarschuwingen.some((warning) =>
-      warning.includes("Bewonersadministratie en meteropname spreken elkaar tegen"),
-    ),
-  );
+  assert.doesNotMatch(september.waarschuwingen.join(" "), /meteropname.*bewonersregister/);
+  assert.ok(september.periodes.every((period) => period.bezettingBekend));
 });
 
 test("sortering plaatst grootste referentiemaand eerst en ontbrekende waarden onderaan", () => {

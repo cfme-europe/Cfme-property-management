@@ -5,6 +5,7 @@ import {
   bouwEnergiePortfolioAnalyse,
   berekenPersoonsdagen,
   type Brondata,
+  type EnergieAnalyseSelectie,
   type EnergieMeterstand,
   type EnergieInterval,
   normaliseerMeterconfiguraties,
@@ -80,17 +81,22 @@ const sel = {
   vanaf: "2026-09-01",
   totEnMet: "2026-10-01",
 };
-const analyse = (b = bron(), s = sel) => bouwEnergiePortfolioAnalyse(b, s);
-test("golden Meerstraat:764 / (128/7), 16/30 calendar coverage, no misleading benchmark", () => {
+const analyse = (
+  b = bron(),
+  s: EnergieAnalyseSelectie = sel,
+) => bouwEnergiePortfolioAnalyse(b, s);
+test("period analysis prorates the measured window and reports edge estimates separately", () => {
   const a = analyse();
-  assert.equal(a.totaal, 764);
-  assert.equal(a.persoonsdagen, 128);
-  assert.equal(a.per_persoon_per_week, null);
+  assert.equal(a.totaal, 1432.5);
+  assert.equal(a.persoonsdagen, 240);
+  assert.equal(a.per_persoon_per_week, 1432.5 / (240 / 7));
   const verbruiksraming = berekenBruikbareVerbruiksraming(a.rijen[0], 30);
   assert.ok(verbruiksraming);
-  assert.ok(Math.abs(verbruiksraming.per_persoon_per_week - 764 / (128 / 7)) < 1e-10);
-  assert.ok(Math.abs(verbruiksraming.per_persoon_per_periode - (764 * 30) / 128) < 1e-10);
+  assert.ok(Math.abs(verbruiksraming.per_persoon_per_week - 1432.5 / (240 / 7)) < 1e-10);
+  assert.ok(Math.abs(verbruiksraming.per_persoon_per_periode - (1432.5 * 30) / 240) < 1e-10);
   assert.ok(Math.abs(a.dekking_percentage - (16 / 30) * 100) < 1e-10);
+  assert.equal(a.rijen[0].geschatte_dagen, 14);
+  assert.equal(a.rijen[0].normaliseerbaar_verbruik, 1432.5);
   assert.equal(a.rijen[0].betrouwbaarheid, "gedeeltelijk");
   assert.equal(a.mediaan_per_persoon_per_week, null);
 });
@@ -106,6 +112,142 @@ test("reports uncovered dates outside the measured window rather than extrapolat
     [
       ["2026-09-01", "2026-09-07"],
       ["2026-09-23", "2026-10-01"],
+    ],
+  );
+});
+test("single-register fixture totals 951 kWh and 22.642857 kWh per person/week", () => {
+  const readings = [
+    ["2026-09-07", 57472],
+    ["2026-09-18", 57674],
+    ["2026-10-06", 58046],
+    ["2026-10-19", 58423],
+  ] as const;
+  const b = bron();
+  b.bewoners = Array.from({ length: 7 }, (_, index) => ({
+    id: index + 1,
+    verhuurperiode_id: 12,
+    incheckdatum: "2026-09-01",
+    uitcheckdatum: null,
+  }));
+  b.meterstanden = readings.map(([date, value], index) => ({
+    id: index + 1,
+    woning_id: 16,
+    opnamedatum: date,
+    bewoners_aantal: 3,
+    dagstroom_kwh: value,
+    nachtstroom_kwh: null,
+    elektriciteit_kwh: null,
+    gas_m3: null,
+    water_m3: null,
+  }));
+  b.meterconfiguraties = [
+    {
+      woning_id: 16,
+      product: "elektriciteit",
+      meteridentiteit: "single-register-fixture",
+      registertype: "enkel",
+      vanaf: "2026-01-01",
+      tot: null,
+    },
+  ];
+  const result = analyse(b, {
+    ...sel,
+    vanaf: "2026-09-07",
+    totEnMet: "2026-10-19",
+  });
+  const row = result.rijen[0];
+
+  assert.equal(row.totaal, 951);
+  assert.equal(row.persoonsdagen, 294);
+  assert.ok(Math.abs(row.per_persoon_per_week! - 951 / (294 / 7)) < 1e-12);
+  assert.deepEqual(
+    row.intervallen.map((interval) => interval.waarde),
+    [202, 372, 377],
+  );
+  assert.ok(row.intervallen.every((interval) => interval.rekenwijze === "gemeten"));
+  assert.ok(row.intervallen.every((interval) =>
+    interval.gebruikteStanden.every((stand) => stand.register === "dagstroom_kwh"),
+  ));
+});
+test("partial single-register interval prorates 13 of 18 days to 268.6667 kWh", () => {
+  const b = bron();
+  b.bewoners = Array.from({ length: 7 }, (_, index) => ({
+    id: index + 1,
+    verhuurperiode_id: 12,
+    incheckdatum: "2026-09-01",
+    uitcheckdatum: null,
+  }));
+  const readings: Array<readonly [string, number]> = [
+    ["2026-09-07", 57472],
+    ["2026-09-18", 57674],
+    ["2026-10-06", 58046],
+    ["2026-10-19", 58423],
+  ];
+  b.meterstanden = readings.map(([date, value], index) => ({
+    id: index + 1,
+    woning_id: 16,
+    opnamedatum: date,
+    bewoners_aantal: 7,
+    dagstroom_kwh: value,
+    nachtstroom_kwh: null,
+    elektriciteit_kwh: null,
+    gas_m3: null,
+    water_m3: null,
+  }));
+  b.meterconfiguraties = [
+    {
+      woning_id: 16,
+      product: "elektriciteit",
+      meteridentiteit: "single-register-fixture",
+      registertype: "enkel",
+      vanaf: "2026-01-01",
+      tot: null,
+    },
+  ];
+  const row = analyse(b, {
+    ...sel,
+    vanaf: "2026-09-18",
+    totEnMet: "2026-10-01",
+  }).rijen[0];
+
+  assert.ok(Math.abs(row.totaal! - (372 * 13) / 18) < 1e-12);
+  assert.equal(row.persoonsdagen, 91);
+  assert.equal(row.intervallen[0].dagen, 13);
+  assert.equal(row.intervallen[0].rekenwijze, "naar_rato");
+});
+test("customer change uses dated occupancy and splits 30 days into 220 person-days", () => {
+  const b = bron();
+  b.bewoners = [
+    ...Array.from({ length: 6 }, (_, index) => ({
+      id: index + 1,
+      verhuurperiode_id: 12,
+      incheckdatum: "2026-09-01",
+      uitcheckdatum: "2026-09-11",
+    })),
+    ...Array.from({ length: 8 }, (_, index) => ({
+      id: index + 7,
+      verhuurperiode_id: 12,
+      incheckdatum: "2026-09-11",
+      uitcheckdatum: null,
+    })),
+  ];
+  b.meterstanden = [
+    stand(1, "2026-09-01", 100),
+    stand(2, "2026-10-01", 400),
+  ];
+  const row = analyse(b, {
+    ...sel,
+    vanaf: "2026-09-01",
+    totEnMet: "2026-10-01",
+  }).rijen[0];
+
+  assert.equal(row.persoonsdagen, 220);
+  assert.equal(row.per_persoon_per_week, 300 / (220 / 7));
+  assert.deepEqual(
+    row.intervallen.map((interval) => [interval.vanDatum, interval.totDatum, interval.persoonsdagen]),
+    [
+      ["2026-09-01", "2026-09-11", 60],
+      ["2026-09-11", "2026-10-01", 160],
     ],
   );
 });
@@ -132,7 +274,33 @@ test("inclusive end-date form input becomes one exclusive analysis boundary", ()
     /één einddatumparameter/,
   );
 });
-test("an August high-consumption warning remains included while October stays uncovered", () => {
+test("date selection defaults to estimates while explicitly exact links retain exact mode", () => {
+  const b = bron();
+  b.meterstanden = [
+    stand(1, "2026-09-01", 100),
+    stand(2, "2026-09-27", 360),
+  ];
+  const dates = {
+    vanaf: "2026-09-01",
+    tot_en_met: "2026-10-19",
+    drager: "elektriciteit",
+  };
+  const standard = leesSelectie(dates, b).selectie;
+  const legacyExact = leesSelectie(
+    { ...dates, modus: "exact" },
+    b,
+  ).selectie;
+
+  assert.equal(standard.vanaf, "2026-09-01");
+  assert.equal(standard.totEnMet, "2026-10-20");
+  assert.equal(standard.modus, "schatting");
+  assert.equal(legacyExact.modus, "exact");
+  assert.equal(
+    analyse(b, { ...sel, ...standard }).rijen[0].dekking_percentage,
+    (26 / 49) * 100,
+  );
+});
+test("warnings remain visible while the requested end is explicitly estimated", () => {
   const b = bron();
   b.bewoners = Array.from({ length: 7 }, (_, index) => ({
     id: index + 1,
@@ -160,13 +328,14 @@ test("an August high-consumption warning remains included while October stays un
   const rij = result.rijen[0];
   const verbruiksraming = berekenBruikbareVerbruiksraming(rij, 39);
 
-  assert.equal(rij.persoonsdagen, 238);
+  assert.equal(rij.persoonsdagen, 273);
   assert.ok(Math.abs(rij.dekking_percentage - (34 / 39) * 100) < 1e-10);
-  assert.ok(Math.abs(rij.totaal! - 600.7931034482759) < 1e-9);
-  assert.equal(rij.per_persoon_per_week, null);
+  const expectedTotal = 600.7931034482759 + (201 / 12) * 5;
+  assert.ok(Math.abs(rij.totaal! - expectedTotal) < 1e-9);
+  assert.ok(Math.abs(rij.per_persoon_per_week! - expectedTotal / (273 / 7)) < 1e-9);
   assert.ok(verbruiksraming);
-  assert.ok(Math.abs(verbruiksraming.per_persoon_per_week - 17.6703853955375) < 1e-9);
-  assert.ok(Math.abs(verbruiksraming.per_persoon_per_periode - (600.7931034482759 * 39) / 238) < 1e-10);
+  assert.ok(Math.abs(verbruiksraming.per_persoon_per_week - expectedTotal / (273 / 7)) < 1e-9);
+  assert.ok(Math.abs(verbruiksraming.per_persoon_per_periode - (expectedTotal * 39) / 273) < 1e-10);
   assert.match(rij.meldingen.join(" "), /Beginopname heeft onwaarschijnlijk verbruik/);
   assert.match(rij.meldingen.join(" "), /Opvolging is bij een grensopname gemarkeerd/);
   assert.equal(rij.intervallen[0].betrouwbaar, true);
@@ -422,7 +591,7 @@ test("water-only anomaly statuses never exclude normal electricity intervals", (
     );
   }
 });
-test("Heirstraat uses dated occupancy, prorated consumption, and keeps occupant mismatch visible without hiding the bar", () => {
+test("dated occupancy drives person-days without using meter-entry occupants", () => {
   const readings = [
     ["2026-08-26", 63827],
     ["2026-09-07", 63950],
@@ -475,18 +644,15 @@ test("Heirstraat uses dated occupancy, prorated consumption, and keeps occupant 
   assert.equal(row.persoonsdagen, 298);
   assert.equal(row.totaal, 508.5);
   assert.equal(row.dekking_percentage, 100);
-  assert.ok(row.intervallen.some((interval) => interval.bezettingsconflict));
-  assert.match(
-    row.meldingen.join(" "),
-    /meteropname 7, bewonersregister 9/,
-  );
+  assert.ok(row.intervallen.every((interval) => !interval.bezettingsconflict));
+  assert.doesNotMatch(row.meldingen.join(" "), /meteropname|meterstand.*bewoners/);
   assert.ok(estimate);
   assert.equal(
     estimate.per_persoon_per_week,
     508.5 / (298 / 7),
   );
 });
-test("selecting only dates after the last valid reading remains uncovered, without an extrapolated consumption value", () => {
+test("period after the last reading uses a clearly identified last-interval estimate", () => {
   const b = bron();
   b.meterstanden = [
     stand(1, "2026-08-25", 100),
@@ -500,11 +666,14 @@ test("selecting only dates after the last valid reading remains uncovered, witho
   });
   const row = result.rijen[0];
 
-  assert.equal(row.totaal, null);
-  assert.equal(row.persoonsdagen, 0);
+  assert.ok(Math.abs(row.totaal! - (100 / 42) * 7) < 1e-10);
+  assert.equal(row.persoonsdagen, 56);
   assert.equal(row.dekking_percentage, 0);
-  assert.equal(row.intervallen.length, 0);
-  assert.equal(berekenBruikbareVerbruiksraming(row, 7), null);
+  assert.equal(row.geschatte_dagen, 7);
+  assert.equal(row.intervallen.length, 1);
+  assert.equal(row.intervallen[0].rekenwijze, "geschat");
+  assert.deepEqual(row.intervallen[0].bronIds, [1, 2]);
+  assert.ok(berekenBruikbareVerbruiksraming(row, 7));
   assert.deepEqual(
     ongedekteMeetperioden(
       row.intervallen,
@@ -513,6 +682,60 @@ test("selecting only dates after the last valid reading remains uncovered, witho
     ).map(({ vanDatum, totDatum }) => [vanDatum, totDatum]),
     [["2026-10-07", "2026-10-14"]],
   );
+});
+test("September 1 to October 20 reports 26 of 49 measured days, not a shifted denominator", () => {
+  const b = bron();
+  b.meterstanden = [
+    stand(1, "2026-09-01", 100),
+    stand(2, "2026-09-27", 360),
+  ];
+  const result = analyse(b, {
+    ...sel,
+    vanaf: "2026-09-01",
+    totEnMet: "2026-10-20",
+  });
+
+  assert.equal(result.rijen[0].dekking_percentage, (26 / 49) * 100);
+  assert.equal(result.rijen[0].geschatte_dagen, 23);
+  assert.equal(result.rijen[0].intervallen.reduce((sum, interval) => sum + interval.dagen, 0), 49);
+});
+test("exact mode does not interpolate period boundaries or append estimates", () => {
+  const row = analyse(bron(), {
+    ...sel,
+    vanaf: "2026-09-10",
+    totEnMet: "2026-10-01",
+    modus: "exact",
+  }).rijen[0];
+
+  assert.equal(row.totaal, null);
+  assert.equal(row.geschatte_dagen, 0);
+  assert.equal(row.intervallen.length, 0);
+});
+test("single register is never inferred from an empty night field alone", () => {
+  const b = bron();
+  b.meterstanden = [
+    { ...stand(1, "2026-09-01", 100), nachtstroom_kwh: null, elektriciteit_kwh: null },
+    { ...stand(2, "2026-09-08", 200), nachtstroom_kwh: null, elektriciteit_kwh: null },
+  ];
+  b.meterconfiguraties = [];
+  const row = analyse(b, {
+    ...sel,
+    vanaf: "2026-09-01",
+    totEnMet: "2026-09-08",
+  }).rijen[0];
+
+  assert.equal(row.totaal, null);
+  assert.match(row.meldingen.join(" "), /meterconfiguratie ontbreekt/);
+});
+test("a double meter's missing night register remains a concrete incomplete interval", () => {
+  const a = stand(1, "2026-09-01", 100);
+  const b = stand(2, "2026-09-08", 130);
+  a.nachtstroom_kwh = null;
+  b.nachtstroom_kwh = null;
+  const meting = elektriciteitsMeting(a, b, "dag_nacht");
+
+  assert.equal(meting.waarde, null);
+  assert.match(meting.meldingen.join(" "), /Dubbele meter: verplichte nachtstroomstand ontbreekt/);
 });
 test("horizontal consumption-bar sorting uses displayed values and puts rows without values last", () => {
   const result = bouwEnergiePortfolioAnalyse(
@@ -577,6 +800,7 @@ test("historical readings remain selectable while the default analysis starts on
   const standaard = leesSelectie({}, b).selectie;
   assert.equal(standaard.vanaf, "2026-09-01");
   assert.equal(standaard.totEnMet, "2026-09-24");
+  assert.equal(standaard.modus, "schatting");
   assert.equal(
     leesSelectie(
       { vanaf: "2026-08-31", tot: "2026-09-23", drager: "elektriciteit" },
@@ -589,7 +813,7 @@ test("historical readings remain selectable while the default analysis starts on
     vanaf: "2026-08-31",
     totEnMet: "2026-09-23",
   });
-  assert.equal(historical.totaal, 764);
+  assert.equal(historical.totaal, 1098.25);
   assert.ok(Math.abs(historical.dekking_percentage - (16 / 23) * 100) < 1e-10);
 });
 test("Aug 29–Sep 13 interval prorates to 120 kWh and fully covers Sep 1–13", () => {
@@ -606,7 +830,7 @@ test("Aug 29–Sep 13 interval prorates to 120 kWh and fully covers Sep 1–13",
   assert.equal(result.totaal, 120);
   assert.equal(result.dekking_percentage, 100);
 });
-test("boundary intervals are proportionally allocated by default and fully cover time", () => {
+test("boundary intervals are prorated and keep measured coverage distinct from estimates", () => {
   const b = bron();
   b.bewoners = b.bewoners.slice(0, 2);
   b.meterstanden = [
@@ -623,10 +847,11 @@ test("boundary intervals are proportionally allocated by default and fully cover
   assert.equal(resultaat.totaal, 200);
   assert.equal(resultaat.persoonsdagen, 40);
   assert.equal(resultaat.dekking_percentage, 100);
-  assert.equal(resultaat.rijen[0].betrouwbaarheid, "exact");
-  assert.ok(resultaat.trends.some((interval) => interval.geschat));
+  assert.equal(resultaat.rijen[0].betrouwbaarheid, "gedeeltelijk");
+  assert.equal(resultaat.rijen[0].exacte_dekking_percentage, 50);
+  assert.ok(resultaat.trends.some((interval) => interval.geschat === false));
 });
-test("selected period boundaries are proportionally allocated without extrapolation", () => {
+test("selected period boundaries are prorated without edge estimates inside the readings", () => {
   const b = bron();
   const result = analyse(b, {
     ...sel,
@@ -635,7 +860,7 @@ test("selected period boundaries are proportionally allocated without extrapolat
   });
   assert.equal(result.totaal, 477.5);
   assert.equal(result.dekking_percentage, 100);
-  assert.equal(result.rijen[0].betrouwbaarheid, "exact");
+  assert.equal(result.rijen[0].betrouwbaarheid, "gedeeltelijk");
   assert.equal(result.rijen[0].exacte_dekking_percentage, 0);
   assert.ok(
     Math.abs(
@@ -645,7 +870,7 @@ test("selected period boundaries are proportionally allocated without extrapolat
     ) < 1e-10,
   );
 });
-test("Heirstraat golden:9×11=99 vs7×11=77, no authoritative normalized output", () => {
+test("registered occupants override legacy meter-entry counts for person normalization", () => {
   const b = bron();
   b.bewoners.push({ ...b.bewoners[0], id: 9 });
   b.meterstanden = [
@@ -653,14 +878,10 @@ test("Heirstraat golden:9×11=99 vs7×11=77, no authoritative normalized output"
     stand(71, "2026-09-18", 64120, 7),
   ];
   const a = analyse(b);
-  assert.equal(a.totaal, 170);
-  assert.equal(a.persoonsdagen, 99);
-  assert.equal(a.per_persoon_per_week, null);
-  assert.match(
-    a.rijen[0].meldingen.join(),
-    /spreken elkaar tegen op 2026-09-07: meteropname 7, bewonersregister 9/,
-  );
-  assert.equal(170 / (77 / 7), 170 / 11);
+  assert.equal(a.totaal, 463.6363636363636);
+  assert.equal(a.persoonsdagen, 270);
+  assert.equal(a.per_persoon_per_week, a.totaal! / (270 / 7));
+  assert.doesNotMatch(a.rijen[0].meldingen.join(), /meteropname.*bewonersregister/);
 });
 test("dated resident turnover sums to 298 person-days without comparing a period average to snapshots", () => {
   const b = bron();
@@ -711,10 +932,11 @@ test("zero residents preserves consumption", () => {
   b.bewoners = [];
   b.meterstanden.forEach((m) => (m.bewoners_aantal = 0));
   const a = analyse(b);
-  assert.equal(a.totaal, 764);
+  assert.equal(a.totaal, 1432.5);
   assert.equal(a.per_persoon_per_week, null);
+  assert.match(a.rijen[0].meldingen.join(" "), /Bewoning onbekend/);
 });
-test("lease dates clip occupancy; client change cannot silently allocate", () => {
+test("lease changes split intervals by client and retain the excluded-client explanation", () => {
   const b = bron();
   b.verhuurperioden[0].werkelijke_einddatum = "2026-09-15";
   b.verhuurperioden.push({
@@ -728,7 +950,7 @@ test("lease dates clip occupancy; client change cannot silently allocate", () =>
     niveau: "bedrijf",
     bedrijfId: 4,
   });
-  assert.equal(a.totaal, null);
+  assert.equal(a.totaal, 668.5);
   assert.match(a.rijen[0].meldingen.join(), /klantwissel/);
 });
 test("declining meters, duplicates and meter changes are excluded", () => {
@@ -769,6 +991,41 @@ test("historic total columns stay usable without inventing a missing night regis
   b.nachtstroom_kwh = 20;
   assert.equal(elektriciteitsMeting(a, b, "dag_nacht").waarde, null);
 });
+test("legacy single-register rows use the total value derived from the stored day register", () => {
+  const b = bron();
+  b.meterconfiguraties = [];
+  b.meterstanden = [
+    {
+      ...stand(101, "2026-09-01", 57472, 0),
+      dagstroom_kwh: 57472,
+      nachtstroom_kwh: null,
+      elektriciteit_kwh: 57472,
+    },
+    {
+      ...stand(102, "2026-09-08", 57674, 0),
+      dagstroom_kwh: 57674,
+      nachtstroom_kwh: null,
+      elektriciteit_kwh: 57674,
+    },
+  ];
+
+  const result = analyse(b, {
+    ...sel,
+    vanaf: "2026-09-01",
+    totEnMet: "2026-09-08",
+  });
+  const interval = result.rijen[0].intervallen.find(
+    (item) => item.rekenwijze === "gemeten",
+  );
+
+  assert.equal(result.totaal, 202);
+  assert.ok(interval);
+  assert.deepEqual(interval.bronVelden, ["elektriciteit_kwh"]);
+  assert.equal(interval.gebruikteStanden[0].begin, 57472);
+  assert.equal(interval.gebruikteStanden[0].eind, 57674);
+  assert.equal(interval.nacht, null);
+  assert.match(interval.meldingen.join(" "), /Historische totaalstanden gebruikt/);
+});
 test("configured total registers use total-only readings without inventing day/night values", () => {
   const b = bron();
   b.meterstanden = [
@@ -789,10 +1046,14 @@ test("configured total registers use total-only readings without inventing day/n
 
   const resultaat = analyse(b);
 
-  assert.equal(resultaat.totaal, 764);
-  assert.equal(resultaat.rijen[0].meetperioden, 1);
-  assert.equal(resultaat.rijen[0].intervallen[0].dag, null);
-  assert.equal(resultaat.rijen[0].intervallen[0].nacht, null);
+  assert.equal(resultaat.totaal, 1432.5);
+  assert.equal(resultaat.rijen[0].meetperioden, 3);
+  const measured = resultaat.rijen[0].intervallen.find(
+    (interval) => interval.rekenwijze === "gemeten",
+  );
+  assert.ok(measured);
+  assert.equal(measured.dag, null);
+  assert.equal(measured.nacht, null);
   assert.equal(resultaat.rijen[0].betrouwbaarheid, "gedeeltelijk");
 });
 test("successor meter configuration preserves the predecessor's historical range", () => {
@@ -844,11 +1105,11 @@ test("product warnings do not invalidate a positive electricity meter delta", ()
       { drager: "elektriciteit", status: "kritiek" },
     ],
   };
-  assert.equal(analyse(b).totaal, 764);
+  assert.equal(analyse(b).totaal, 1432.5);
   b.meterstanden[1].analyse_resultaat = {
     dragers: [{ drager: "elektriciteit", status: "onwaarschijnlijk" }],
   };
-  assert.equal(analyse(b).totaal, 764);
+  assert.equal(analyse(b).totaal, 1432.5);
 });
 test("strict calendar validation includes leap days and URL arrays", () => {
   assert.throws(() => datumTijd("2026-02-30"));
@@ -895,7 +1156,11 @@ const interval: EnergieInterval = {
   waarde: 110,
   dag: 110,
   nacht: 0,
+  gebruikteStanden: [{ register: "dagstroom_kwh", begin: 100, eind: 210 }],
   geschat: false,
+  rekenwijze: "gemeten",
+  bewonersbron: "Bewonersregistratie",
+  bezettingBekend: true,
   meldingen: [],
   bezettingsconflict: false,
   betrouwbaar: true,
@@ -1157,9 +1422,9 @@ test("snapshot replay is independent of subsequent corrections and customer allo
   );
   const saved = JSON.parse(JSON.stringify(snapshot));
   assert.equal(saved.klant.producten[0].vorige_norm, null);
-  assert.equal(saved.klant.producten[0].verbruik, 764);
+  assert.equal(saved.klant.producten[0].verbruik, 1432.5);
   b.meterstanden[1].dagstroom_kwh = 70000;
-  assert.equal(saved.klant.producten[0].verbruik, 764);
+  assert.equal(saved.klant.producten[0].verbruik, 1432.5);
   const publicModel = klantSnapshot({
     ...saved.klant,
     interne_notitie: "GEHEIM",
@@ -1212,7 +1477,7 @@ test("snapshot report values match the shared analysis and suppress incomplete p
     "commit",
   ).klant.producten[0];
   assert.equal(incomplete.dekking, (16 / 30) * 100);
-  assert.equal(incomplete.kosten_per_persoon_per_week, null);
+  assert.ok(incomplete.kosten_per_persoon_per_week !== null);
 
   const zonderBewoners = bron();
   zonderBewoners.bewoners = [];
@@ -1335,7 +1600,7 @@ test("trend intervals retain their property and measured-period identity", () =>
 
   const trends = analyse(b).trends;
 
-  assert.equal(trends.length, 2);
+  assert.equal(trends.length, 6);
   assert.deepEqual(
     trends.map(({ woning_id, periode, totaal }) => ({
       woning_id,
@@ -1343,12 +1608,16 @@ test("trend intervals retain their property and measured-period identity", () =>
       totaal,
     })),
     [
+      { woning_id: 16, periode: "2026-09-01 → 2026-09-07", totaal: 286.5 },
+      { woning_id: 17, periode: "2026-09-01 → 2026-09-10", totaal: 112.5 },
       { woning_id: 16, periode: "2026-09-07 → 2026-09-23", totaal: 764 },
       { woning_id: 17, periode: "2026-09-10 → 2026-09-26", totaal: 200 },
+      { woning_id: 16, periode: "2026-09-23 → 2026-10-01", totaal: 382 },
+      { woning_id: 17, periode: "2026-09-26 → 2026-10-01", totaal: 62.5 },
     ],
   );
   assert.deepEqual(
     trends.map((trend) => trend.per_persoon_per_week),
-    [41.78125, 87.5],
+    [41.78125, 87.5, 41.78125, 87.5, 41.78125, 87.5],
   );
 });

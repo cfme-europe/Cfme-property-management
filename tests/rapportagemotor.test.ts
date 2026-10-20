@@ -128,13 +128,14 @@ test("berekent energie per persoon per week met persoonsdagen", () => {
     ],
   });
 
-  assert.equal(
-    uitkomst.energie.elektriciteit.totaal,
-    150,
+  assert.ok(
+    Math.abs(
+      uitkomst.energie.elektriciteit.totaal! - (150 + (150 / 14) * 9),
+    ) < 1e-10,
   );
   assert.equal(
     uitkomst.energie.elektriciteit.persoonsweken,
-    42 / 7,
+    60 / 7,
   );
   assert.equal(
     uitkomst.energie.elektriciteit.per_persoon_per_week,
@@ -146,19 +147,19 @@ test("berekent energie per persoon per week met persoonsdagen", () => {
   );
 });
 
-test("historical report periods prorate available energy before the central date", () => {
+test("historical report periods prorate measured overlap and estimate the remaining boundary day", () => {
   const uitkomst = bouwRapportagemotor(basis);
   assert.ok(
-    Math.abs(uitkomst.energie.dagstroom.totaal! - (100 * 30) / 31) < 1e-10,
+    Math.abs(uitkomst.energie.dagstroom.totaal! - 100) < 1e-10,
   );
   assert.ok(
-    Math.abs(uitkomst.energie.elektriciteit.totaal! - (150 * 30) / 31) < 1e-10,
+    Math.abs(uitkomst.energie.elektriciteit.totaal! - 150) < 1e-10,
   );
   assert.ok(
-    Math.abs(uitkomst.energie.gas.totaal! - (20 * 30) / 31) < 1e-10,
+    Math.abs(uitkomst.energie.gas.totaal! - 20) < 1e-10,
   );
   assert.ok(
-    Math.abs(uitkomst.energie.water.totaal! - (12 * 30) / 31) < 1e-10,
+    Math.abs(uitkomst.energie.water.totaal! - 12) < 1e-10,
   );
 });
 
@@ -216,8 +217,8 @@ test("open afwijking met hoge urgentie krijgt minimaal middel risico", () => {
   );
 });
 
-test("interval starting before the report month is proportionally allocated",()=>{
+test("interval overlap is prorated and report-end estimates complete the requested period",()=>{
  const result=bouwRapportagemotor(basis);
- assert.ok(Math.abs(result.energie.elektriciteit.totaal!-145.16129032258064)<1e-10);
+ assert.ok(Math.abs(result.energie.elektriciteit.totaal!-150)<1e-10);
  assert.equal(result.energie.elektriciteit.afwijking_percentage,null);
 });

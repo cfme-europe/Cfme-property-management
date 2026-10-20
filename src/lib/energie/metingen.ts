@@ -38,12 +38,37 @@ export function elektriciteitsMeting(
   if (configuratie === "totaal") {
     waarde = totaal;
     bronVelden = ["elektriciteit_kwh"];
+    if (waarde === null)
+      meldingen.push(
+        a.elektriciteit_kwh === null || b.elektriciteit_kwh === null
+          ? "Totaalmeter: verplichte totaalmeterstand ontbreekt"
+          : "Totaalmeter: stand loopt terug of is ongeldig",
+      );
   } else if (configuratie === "enkel") {
     waarde = dag;
     bronVelden = ["dagstroom_kwh"];
+    if (waarde === null)
+      meldingen.push(
+        a.dagstroom_kwh === null || b.dagstroom_kwh === null
+          ? "Enkelvoudige meter: verplichte dagstroomstand ontbreekt"
+          : "Enkelvoudige meter: dagstroomstand loopt terug of is ongeldig",
+      );
   } else if (dag !== null && nacht !== null) {
     waarde = dag + nacht;
     bronVelden = ["dagstroom_kwh", "nachtstroom_kwh"];
+  } else if (configuratie === "dag_nacht") {
+    if (dag === null)
+      meldingen.push(
+        a.dagstroom_kwh === null || b.dagstroom_kwh === null
+          ? "Dubbele meter: verplichte dagstroomstand ontbreekt"
+          : "Dubbele meter: dagstroomstand loopt terug of is ongeldig",
+      );
+    if (nacht === null)
+      meldingen.push(
+        a.nachtstroom_kwh === null || b.nachtstroom_kwh === null
+          ? "Dubbele meter: verplichte nachtstroomstand ontbreekt"
+          : "Dubbele meter: nachtstroomstand loopt terug of is ongeldig",
+      );
   } else if (
     configuratie === undefined &&
     a.dagstroom_kwh === null &&
@@ -68,7 +93,9 @@ export function elektriciteitsMeting(
       "Historische totaalstanden gebruikt; dag-/nachtverdeling is niet bevestigd.",
     );
   } else {
-    meldingen.push("Registerconfiguratie of registerstanden onvolledig");
+    meldingen.push(
+      "Elektriciteitsmeterconfiguratie ontbreekt; registreer of de meter enkelvoudig, dubbel of totaalmeter is.",
+    );
   }
   return {
     waarde: meldingen.some(

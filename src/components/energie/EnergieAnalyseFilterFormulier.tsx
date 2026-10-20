@@ -22,6 +22,7 @@ type Props = {
   drager: Energiedrager;
   minimum: string;
   maximum: string;
+  modus: "exact" | "schatting";
   validationError?: string;
 };
 
@@ -43,6 +44,7 @@ export default function EnergieAnalyseFilterFormulier({
   drager,
   minimum,
   maximum,
+  modus,
   validationError,
 }: Props) {
   const router = useRouter();
@@ -63,7 +65,7 @@ export default function EnergieAnalyseFilterFormulier({
       if (typeof waarde === "string") parameters.append(naam, waarde);
     });
     startTransition(() =>
-      router.push(`/bedrijven/energieanalyse?${parameters.toString()}`),
+      router.push(`/bedrijven/energieanalyse/periode?${parameters.toString()}`),
     );
   }
 
@@ -74,6 +76,9 @@ export default function EnergieAnalyseFilterFormulier({
       aria-busy={pending}
       className="grid min-w-0 gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2 xl:grid-cols-4"
     >
+      <input type="hidden" name="niveau" value="totaal" />
+      <input type="hidden" name="kwaliteit" value="alle" />
+      <input type="hidden" name="dekking" value="0" />
       <label className="min-w-0 text-sm font-semibold">
         Klant
         <select
@@ -156,8 +161,21 @@ export default function EnergieAnalyseFilterFormulier({
         totEnMet={eindDatum}
         minimum={minimum}
         maximum={maximum}
+        eindeExclusief
         onWijzigBereik={wijzigBereik}
       />
+
+      <label className="min-w-0 text-sm font-semibold">
+        Berekeningsmethode
+        <select
+          name="modus"
+          defaultValue={modus}
+          className="mt-1 min-h-11 w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3"
+        >
+          <option value="schatting">Naar rato + randschattingen (standaard)</option>
+          <option value="exact">Alleen volledige meetintervallen</option>
+        </select>
+      </label>
 
       <div className="flex min-w-0 items-end">
         <button

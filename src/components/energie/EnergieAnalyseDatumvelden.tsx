@@ -8,6 +8,7 @@ type Props = {
   minimum: string;
   maximum: string;
   onWijzigBereik: (vanaf: string, totEnMet: string) => void;
+  eindeExclusief?: boolean;
   validationError?: {
     veld: "vanaf" | "tot";
     bericht: string;
@@ -179,6 +180,7 @@ export default function EnergieAnalyseDatumvelden({
   minimum,
   maximum,
   onWijzigBereik,
+  eindeExclusief = false,
   validationError,
 }: Props) {
   const [vanaf, setVanaf] = useState(oorspronkelijkeVanaf);
@@ -214,9 +216,9 @@ export default function EnergieAnalyseDatumvelden({
         }
       />
       <Datumveld
-        label="Tot en met"
+        label={eindeExclusief ? "Tot (einddatum exclusief)" : "Tot en met"}
         naam="tot"
-        parameterNaam="tot_en_met"
+        parameterNaam={eindeExclusief ? "tot" : "tot_en_met"}
         waarde={totEnMet}
         minimum={minimum}
         maximum={maximum}
@@ -228,8 +230,9 @@ export default function EnergieAnalyseDatumvelden({
         }
       />
       <p className="text-sm text-slate-600 md:col-span-2">
-        Een analyse kan niet vóór 1 september 2026 beginnen. Latere
-        begindatums zijn toegestaan.
+        {eindeExclusief
+          ? "De periode begint op de vanafdatum en eindigt vóór de gekozen einddatum. Beide grenzen worden als kalenderdagen berekend."
+          : "Een analyse kan niet vóór 1 september 2026 beginnen. Latere begindatums zijn toegestaan."}
       </p>
     </>
   );

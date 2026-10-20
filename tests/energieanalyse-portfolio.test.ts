@@ -153,6 +153,10 @@ test("energieanalyse biedt compacte kalendermaandkeuzes voor tablet en desktop",
     "src/app/bedrijven/energieanalyse/page.tsx",
     "utf8",
   );
+  const legacyDateFields = await readFile(
+    "src/components/energie/EnergieAnalyseDatumvelden.tsx",
+    "utf8",
+  );
   const analysePagina = await readFile(
     "src/components/energie/EnergieMaandAnalysePagina.tsx",
     "utf8",
@@ -183,6 +187,12 @@ test("energieanalyse biedt compacte kalendermaandkeuzes voor tablet en desktop",
     "utf8",
   );
   assert.match(serverPagina, /EnergieMaandAnalysePagina/);
+  assert.doesNotMatch(serverPagina, /EnergieAnalyseFilterFormulier/);
+  assert.match(legacyDateFields, /naam="vanaf"/);
+  assert.match(
+    legacyDateFields,
+    /parameterNaam=\{eindeExclusief \? "tot" : "tot_en_met"\}/,
+  );
   assert.match(analysePagina, /EnergieMaandSelectie/);
   assert.doesNotMatch(selectie, /type="month"/);
   assert.match(selectie, /aria-label="Jaar voor maandselectie"/);

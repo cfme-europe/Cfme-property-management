@@ -534,6 +534,74 @@ async function maakEnergiePdf(
       }
     }
 
+    if (!anonymous) {
+      for (const home of buildings) {
+        for (const month of home.months) {
+          if (!month.periodes.length && !month.uitgeslotenPeriodes.length) continue;
+          document.addPage();
+          let detailY = 16;
+          const detailPage = () => {
+            document.setFillColor(20, 83, 45);
+            document.rect(0, 0, pageWidth, 24, "F");
+            document.setFont("helvetica", "bold");
+            document.setFontSize(8);
+            document.setTextColor(110, 231, 183);
+            document.text("CFME CONTROL", margin, 10);
+            document.setFontSize(12);
+            document.setTextColor(255, 255, 255);
+            document.text("Meetdetails", margin, 19);
+            document.setFont("helvetica", "normal");
+            document.setFontSize(6);
+            document.setTextColor(71, 85, 105);
+            document.text(
+              "Periode begin inclusief, einde exclusief. Schattingen zijn apart verantwoord en tellen niet mee in meetdekking of benchmarks.",
+              margin,
+              29,
+            );
+            detailY = 36;
+          };
+          const writeDetail = (text: string, bold = false) => {
+            const lines = document.splitTextToSize(
+              text,
+              pageWidth - margin * 2,
+            ) as string[];
+            const lineHeight = 3.2;
+            if (detailY + lines.length * lineHeight > pageHeight - 14) {
+              document.addPage();
+              detailPage();
+            }
+            document.setFont("helvetica", bold ? "bold" : "normal");
+            document.setFontSize(7);
+            document.setTextColor(51, 65, 85);
+            document.text(lines, margin, detailY);
+            detailY += lines.length * lineHeight + 2;
+          };
+          detailPage();
+          writeDetail(
+            `${home.label} · ${monthLabel(month.maand)} · ${formatted(month.verbruik)} ${analyse.eenheid} totaal · ${formatted(month.persoonsdagen, 1)} persoonsdagen · ${formatted(month.normaliseerbaarVerbruik, 3)} ${analyse.eenheid} normaliseerbaar verbruik · ${formatted(month.onbekendeBezettingsdagen, 1)} dagen met onbekende bezetting · ${formatted(month.dekking, 1)}% meetdekking`,
+            true,
+          );
+          for (const period of month.periodes) {
+            const readings = period.gebruikteStanden
+              .map(
+                (reading) =>
+                  `${reading.register}: ${formatted(reading.begin, 3)} → ${formatted(reading.eind, 3)}`,
+              )
+              .join("; ");
+            writeDetail(
+              `${period.vanaf}–${period.tot} (${formatted(period.dagen, 1)} overlapdagen) · ${formatted(period.verbruik, 3)} ${analyse.eenheid} · ${period.rekenwijze.replaceAll("_", " ")} · meter ${period.meteridentiteit ?? "niet vastgelegd"} · bron ${period.bronVanaf}–${period.bronTot} (opnames ${period.bronIds.join(" → ") || "onbekend"}) · register(s) ${period.bronVelden.join(", ") || "onbekend"} · standen ${readings || "onbekend"} · bewonersbron ${period.bewonersbron} · bezetting ${period.bezettingBekend ? "bekend" : "onbekend"} · ${formatted(period.persoonsdagen, 1)} persoonsdagen`,
+            );
+          }
+          for (const period of month.uitgeslotenPeriodes)
+            writeDetail(
+              `Uitgesloten ${period.vanaf}–${period.tot} · bron ${period.bronVanaf}–${period.bronTot} · ${period.reden}`,
+            );
+          for (const warning of month.waarschuwingen)
+            writeDetail(`Waarschuwing: ${warning}`);
+        }
+      }
+    }
+
     for (const home of buildings) {
       const measures =
         anonymous || home.sourceId === undefined

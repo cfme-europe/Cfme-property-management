@@ -268,8 +268,15 @@ function MonthDetails({
       <div className="space-y-2 pb-2 text-sm text-slate-700">
         <p>
           {monthTitle(month.maand)}: {month.vanaf} t/m {vorigeDag(month.tot)} ·{" "}
-          {getal(month.dekking, 1)}% tijdsdekking.
+          begin inclusief, einde exclusief · {getal(month.dekking, 1)}%
+          meetdekking.
         </p>
+        {month.geschatteDagen > 0 && (
+          <p>
+            {getal(month.geschatteDagen, 1)} dagen expliciet geschat; deze
+            dagen tellen niet mee in de meetdekking of benchmark.
+          </p>
+        )}
         <p>
           Meetgegevens beschikbaar t/m{" "}
           {month.laatsteMeetdatum ? datum(month.laatsteMeetdatum) : "onbekend"}.
@@ -298,24 +305,50 @@ function MonthDetails({
         )}
         {month.status === "volledig" && month.naarRato && (
           <p>
-            De maand heeft volledige tijdsdekking door interpolatie tussen
-            bruikbare meterstanden. Dit is niet hetzelfde als dagelijks gemeten
-            verbruik.
+            De maand heeft volledige kalenderdekking, maar bevat naar rato
+            berekende of geschatte intervallen. Dit is niet hetzelfde als
+            dagelijks gemeten verbruik; de methode staat per interval vermeld.
           </p>
         )}
         {!month.persoonsdagen && (
           <p>Er zijn geen geregistreerde persoonsdagen; de persoonsnorm is onbekend.</p>
         )}
         {intern && (
-          <p>{getal(month.persoonsdagen, 1)} geregistreerde persoonsdagen.</p>
+          <p>
+            {getal(month.persoonsdagen, 1)} persoonsdagen uit{" "}
+            {getal(month.normaliseerbaarVerbruik)} {analyse.eenheid} met bekende
+            bezetting.
+            {month.onbekendeBezettingsdagen > 0
+              ? ` Bezetting voor ${getal(month.onbekendeBezettingsdagen, 1)} dagen onbekend; die verbruiksdagen zijn uitgesloten van de persoonsnorm.`
+              : ""}
+          </p>
         )}
         {month.periodes.map((period) => (
           <p key={`${period.vanaf}:${period.tot}`}>
             {period.vanaf}–{period.tot} (einddatum exclusief):{" "}
-            {getal(period.verbruik)} {analyse.eenheid}, bronopnames{" "}
-            {period.bronVanaf}–{period.bronTot}, bronvelden{" "}
-            {period.bronVelden.join(", ") || "onbekend"}, {getal(period.persoonsdagen, 1)} persoonsdagen
-            {period.geschat ? ", naar rato geïnterpoleerd" : ""}.
+            {getal(period.verbruik)} {analyse.eenheid},{" "}
+            {period.rekenwijze.replaceAll("_", " ")}
+            {";"} bronopnames {period.bronVanaf}–{period.bronTot}
+            {period.bronIds.length
+              ? ` (opname-ID ${period.bronIds.join(" → ")})`
+              : ""}
+            ; meter {period.meteridentiteit ?? "niet vastgelegd"}; register(s){" "}
+            {period.bronVelden.join(", ") || "onbekend"}; gebruikte standen{" "}
+            {period.gebruikteStanden
+              .map(
+                (stand) =>
+                  `${stand.register} ${getal(stand.begin, 3)} → ${getal(stand.eind, 3)}`,
+              )
+              .join("; ") || "onbekend"}
+            ; {getal(period.dagen, 1)} overlappende kalenderdagen,{" "}
+            {getal(period.persoonsdagen, 1)} persoonsdagen; bewonersbron:{" "}
+            {period.bewonersbron}.
+          </p>
+        ))}
+        {month.uitgeslotenPeriodes.map((period) => (
+          <p key={`uitgesloten:${period.vanaf}:${period.tot}`}>
+            Uitgesloten {period.vanaf}–{period.tot}; bronopnames{" "}
+            {period.bronVanaf}–{period.bronTot}: {period.reden}
           </p>
         ))}
         {month.status === "geen" && (
@@ -363,7 +396,9 @@ function MetricRow({
         ? "Nog geen meetgegevens"
         : "Geen gegevens"
       : month.status === "gedeeltelijk"
-        ? "Onvolledig"
+        ? value === null
+          ? "Onvolledig"
+          : `${valueDetails(month, analyse)} ${valueUnit(month, analyse)} · gedeeltelijk`
         : value === null && analyse.selectie.aggregatie === "persoon" &&
             month.persoonsdagen === 0
           ? "Bewoning onbekend"
@@ -754,6 +789,12 @@ export default async function EnergieMaandAnalysePagina({
               className="inline-flex min-h-11 items-center rounded-xl border border-emerald-800 px-4 font-semibold text-emerald-900"
             >
               Beheer gegevens
+            </Link>
+            <Link
+              href="/bedrijven/energieanalyse/periode"
+              className="inline-flex min-h-11 items-center rounded-xl border border-emerald-800 bg-emerald-50 px-4 font-semibold text-emerald-900"
+            >
+              Vrije periode analyseren
             </Link>
           </header>
         )}
