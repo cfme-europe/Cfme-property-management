@@ -83,3 +83,10 @@ export function tijdlijnVerschil(a: TijdlijnPunt | null, b: TijdlijnPunt | null,
   const x = tijdlijnWaarde(a, product, persoon), y = tijdlijnWaarde(b, product, persoon);
   return x !== null && y !== null && y !== 0 ? 100 * (x - y) / y : null;
 }
+
+// Alleen aangrenzende beschikbare waarden verbinden. Gedeeltelijke maandwaarden
+// blijven zichtbaar zonder volledige dekking of vergelijkbaarheid te suggereren.
+export function tijdlijnVerbinding(a: TijdlijnPunt | null, b: TijdlijnPunt | null, product: TijdlijnProduct, persoon: boolean): "volledig" | "gedeeltelijk" | null {
+  if (!a || !b || tijdlijnWaarde(a, product, persoon) === null || tijdlijnWaarde(b, product, persoon) === null) return null;
+  return !a.lopend && !b.lopend && a.dekking >= 99.99 && b.dekking >= 99.99 ? "volledig" : "gedeeltelijk";
+}

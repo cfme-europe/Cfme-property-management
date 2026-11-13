@@ -2,7 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { combineerTijdlijn, tijdlijnProducten, tijdlijnWaarde, tijdlijnVerschil, type TijdlijnPand, type TijdlijnProduct, type TijdlijnPunt } from "@/lib/energie/tijdlijn";
+import { combineerTijdlijn, tijdlijnProducten, tijdlijnWaarde, tijdlijnVerschil, tijdlijnVerbinding, type TijdlijnPand, type TijdlijnProduct, type TijdlijnPunt } from "@/lib/energie/tijdlijn";
 
 const namen = { elektriciteit: "Elektriciteit", gas: "Gas", water: "Water" };
 const maanden = ["Jan", "Feb", "Mrt", "Apr", "Mei", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dec"];
@@ -40,10 +40,10 @@ function Grafiek({ product, reeksen, persoon, gekozen, kies, zoom, selectiesleut
   const som = combineerTijdlijn(complete.map(c => c.p!));
   return <section className="rounded-2xl border border-emerald-900/15 bg-white p-4 sm:p-6 space-y-4" aria-label={`${namen[product]} door de tijd`}>
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-2xl font-semibold text-emerald-950">{namen[product]}</h2><span className="text-sm text-slate-600">{unit} · langere lijn omhoog = hoger verbruik</span></div>
-    <div className="grid gap-3 sm:grid-cols-3 text-sm">
-      <div className="rounded-xl bg-emerald-50 p-4"><p>{eerste?.naam} · {complete.length} volledige maanden</p><strong className="block text-2xl mt-1">{fmt(tijdlijnWaarde(som, product, persoon), 2)} {unit}</strong><p>{persoon ? "Gewogen op persoonsdagen" : "Som van de volledig gedekte maanden"}</p></div>
-      <div className="rounded-xl bg-slate-50 p-4"><p>Geselecteerd: {maanden[gekozen]}</p><strong className="block text-2xl mt-1">{fmt(tijdlijnWaarde(a, product, persoon), 2)} {unit}</strong><p>{a?.lopend ? `Lopende maand · tot ${a.tot} exclusief` : `${fmt(a?.dekking ?? null)}% meetdekking`}</p></div>
-      <div className="rounded-xl bg-blue-50 p-4"><p>{ref ? `T.o.v. ${ref.naam}` : "Geen vergelijking gekozen"}</p><strong className="block text-2xl mt-1">{verschil === null ? "—" : `${verschil > 0 ? "+" : ""}${fmt(verschil)}%`}</strong><p>Verschil voor de geselecteerde maand{reeksen.filter(r => !r.vergelijking).length > 1 ? " · eerste pand" : ""}</p></div>
+    <div className="grid gap-3 lg:grid-cols-3 text-sm text-slate-900">
+      <div className="min-w-0 rounded-xl bg-emerald-50 p-4 text-slate-900 break-words"><p>{eerste?.naam} · {complete.length} volledige maanden</p><strong className="block text-2xl mt-2 leading-tight text-slate-950 tabular-nums">{fmt(tijdlijnWaarde(som, product, persoon), 2)}</strong><p className="mt-1 mb-3 text-slate-700">{unit}</p><p>{persoon ? "Gewogen op persoonsdagen" : "Som van de volledig gedekte maanden"}</p></div>
+      <div className="min-w-0 rounded-xl bg-slate-50 p-4 text-slate-900 break-words"><p>Geselecteerd: {maanden[gekozen]}</p><strong className="block text-2xl mt-2 leading-tight text-slate-950 tabular-nums">{fmt(tijdlijnWaarde(a, product, persoon), 2)}</strong><p className="mt-1 mb-3 text-slate-700">{unit}</p><p>{a?.lopend ? `Lopende maand · tot ${a.tot} exclusief` : `${fmt(a?.dekking ?? null)}% meetdekking`}</p></div>
+      <div className="min-w-0 rounded-xl bg-blue-50 p-4 text-slate-900 break-words"><p>{ref ? `T.o.v. ${ref.naam}` : "Geen vergelijking gekozen"}</p><strong className="block text-2xl mt-2 leading-tight text-slate-950 tabular-nums">{verschil === null ? "—" : `${verschil > 0 ? "+" : ""}${fmt(verschil)}%`}</strong><p>Verschil voor de geselecteerde maand{reeksen.filter(r => !r.vergelijking).length > 1 ? " · eerste pand" : ""}</p></div>
     </div>
     {piek && !verborgen.includes(signaalKey) && <div className="flex items-center justify-between gap-2 rounded-lg bg-amber-50 px-4 py-2 text-amber-950"><button onClick={() => kies(piek.i)} className="text-left">Hoogste volledige maand: {maanden[piek.i]} · {fmt(piek.v)} {unit} — onderzoeken</button><button className="p-2" aria-label="Signaaltekst verbergen" onClick={() => bewaar([...verborgen, signaalKey])}>×</button></div>}
     {verborgen.includes(signaalKey) && <button className={knop} onClick={() => bewaar(verborgen.filter(k => k !== signaalKey))}>Signaaltekst tonen</button>}
@@ -58,16 +58,17 @@ function Grafiek({ product, reeksen, persoon, gekozen, kies, zoom, selectiesleut
           const vorige = j > 0 ? r.punten[indices[j - 1]] : null;
           const pv = tijdlijnWaarde(vorige, product, persoon);
           const volledig = !p.lopend && p.dekking >= 99.99;
+          const verbinding = tijdlijnVerbinding(vorige, p, product, persoon);
           return <g key={i}>
-            {volledig && vorige && !vorige.lopend && vorige.dekking >= 99.99 && pv !== null && <line x1={x(indices[j - 1])} y1={y(pv)} x2={x(i)} y2={y(v)} stroke={r.kleur} strokeWidth="3" strokeDasharray={r.vergelijking ? "7 5" : undefined}/>}
-            <circle cx={x(i)} cy={y(v)} r="7" fill={volledig ? r.kleur : "white"} stroke={r.kleur} strokeWidth="3" onClick={() => kies(i)} className="cursor-pointer"><title>{r.naam}: {maanden[i]} · {fmt(v)} {unit}{!volledig ? " · onvolledig" : ""}</title></circle>
+            {verbinding && pv !== null && <line data-dekking={verbinding} x1={x(indices[j - 1])} y1={y(pv)} x2={x(i)} y2={y(v)} stroke={r.kleur} strokeWidth="3" strokeDasharray={verbinding === "gedeeltelijk" ? "2 5" : r.vergelijking ? "7 5" : undefined}/>}
+            <circle cx={x(i)} cy={y(v)} r="7" fill={volledig ? r.kleur : "white"} stroke={r.kleur} strokeWidth="3" onClick={() => kies(i)} className="cursor-pointer"><title>{`${r.naam}: ${maanden[i]} · ${fmt(v)} ${unit}${!volledig ? " · onvolledig" : ""}`}</title></circle>
           </g>;
         })}</g>)}
       </svg>
     </div>}
     <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">{reeksen.map(r => <span key={r.id} className="flex items-center gap-2"><span style={{ borderColor: r.kleur, borderTopStyle: r.vergelijking ? "dashed" : "solid" }} className="w-8 border-t-4"/>{r.naam}</span>)}<span>○ Lopende maand of onvolledige meetdekking</span></div>
     <div className="flex flex-wrap gap-1" aria-label="Selecteer een maand">{maanden.map((m, i) => <button key={m} aria-pressed={gekozen === i} className={`rounded px-3 py-2 ${gekozen === i ? "bg-emerald-800 text-white" : "bg-slate-100 text-slate-800"}`} onClick={() => kies(i)}>{m}</button>)}</div>
-    <p className="text-sm text-slate-600">Maandwaarden zijn verdeeld vanuit meteropnames; geen dagelijkse metingen. Open punten zijn gedeeltelijk en worden niet verbonden. Ontbrekende maanden blijven leeg.</p>
+    <p className="text-sm text-slate-600">Maandwaarden zijn verdeeld vanuit meteropnames; geen dagelijkse metingen. Open punten en stippellijnen tonen gedeeltelijke gegevens, inclusief de lopende maand. Bij samengevoegde panden kan een deel van de selectie ontbreken; vergelijk deze punten niet als volledige maandtotalen. Ontbrekende maanden blijven leeg.</p>
     <div className="border-t pt-4">
       <h3 className="font-semibold text-lg">{maanden[gekozen]} · geselecteerde maand</h3>
       <div className="overflow-x-auto"><table className="w-full text-sm text-left mt-2"><thead><tr className="border-b"><th className="p-2">Pand / periode</th><th className="p-2">{unit}</th><th className="p-2">Persoonsdagen</th><th className="p-2">Meetdekking</th><th className="p-2">Berekening</th></tr></thead><tbody>{reeksen.map(r => {
@@ -129,7 +130,7 @@ export default function EnergieTijdlijn({ panden, referentie, jaar, vergelijkjaa
       {vergelijk === "pand" && <label className="grid text-sm gap-1">Referentiepand<select value={ander} onChange={e => setAnder(Number(e.target.value))} className={input}>{panden.map(p => <option key={p.id} value={p.id}>{p.adres}</option>)}</select></label>}
       <button className={knop} onClick={() => { setZoom(!zoom); if (vergelijk === "vorige") setVergelijk("geen"); }}>{zoom ? "Heel jaar tonen" : "Inzoomen rond gekozen maand"}</button>
     </div>
-    {!selected.length ? <p className="rounded-xl bg-white p-10">Selecteer minimaal één pand. Er wordt niet automatisch een andere selectie gebruikt.</p> : modus === "panden" && selected.length > 6 ? <p className="rounded-xl bg-amber-50 p-6">Selecteer maximaal zes panden om de lijnen leesbaar te vergelijken, of kies Samenvoegen voor alle panden.</p> : (product === "alle" ? tijdlijnProducten : [product]).map(p => <Grafiek key={p} product={p} reeksen={reeksen(p)} persoon={persoon} gekozen={gekozen} kies={kies} zoom={zoom} selectiesleutel={`${jaar}:${bedrijf}:${ids.slice().sort().join(",")}:${modus}`}/>)}
+    {!selected.length ? <p className="rounded-xl bg-white p-10">Selecteer minimaal één pand. Er wordt niet automatisch een andere selectie gebruikt.</p> : (product === "alle" ? tijdlijnProducten : [product]).map(p => <Grafiek key={p} product={p} reeksen={reeksen(p)} persoon={persoon} gekozen={gekozen} kies={kies} zoom={zoom} selectiesleutel={`${jaar}:${bedrijf}:${ids.slice().sort().join(",")}:${modus}`}/>)}
     <p className="text-sm text-slate-600">Per persoon: elektriciteit en gas per week, water in liters per dag. Bij onbekende bezetting ontbreekt de persoonswaarde. Groepen worden gewogen op hun persoonsdagen; onvolledige panden worden zichtbaar in de meetdekking. Een hoog verbruik is een aanleiding tot onderzoek, geen bewijs van verspilling.</p>
   </main>;
 }

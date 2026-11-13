@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bouwTijdlijn, combineerTijdlijn, tijdlijnBereik, tijdlijnWaarde, tijdlijnVerschil, type TijdlijnPunt } from "../src/lib/energie/tijdlijn";
+import { bouwTijdlijn, combineerTijdlijn, tijdlijnBereik, tijdlijnWaarde, tijdlijnVerschil, tijdlijnVerbinding, type TijdlijnPunt } from "../src/lib/energie/tijdlijn";
 import type { Brondata } from "../src/lib/energie/portfolio-analyse";
 
 const punt = (verbruik: number | null, pd: number): TijdlijnPunt => ({
@@ -46,4 +46,16 @@ test("alle drie producten behouden dezelfde meetperiode, bewonershistorie en gat
   assert.equal(p.producten.gas[1].verbruik, null, "geen extrapolatie na laatste opname");
   assert.equal(p.producten.gas[11].verbruik, null, "geen toekomstige meetwaarden");
   assert.equal(bouwTijdlijn(bron, 2026, "2026-11-13", [99])[0].producten.gas[0].verbruik, null);
+});
+
+test("meerdere panden behouden een zichtbare gedeeltelijke lijn zonder gaten of onbekende bezetting in te vullen", () => {
+  const a = combineerTijdlijn([punt(70, 7), punt(null, 0)]);
+  const b = combineerTijdlijn([punt(90, 7), punt(40, 7)]);
+  assert.equal(tijdlijnVerbinding(a, b, "elektriciteit", false), "gedeeltelijk");
+  assert.equal(tijdlijnVerbinding(a, b, "elektriciteit", true), null);
+  assert.equal(tijdlijnVerbinding(punt(null, 0), b, "gas", false), null);
+  assert.equal(tijdlijnVerbinding(null, b, "water", false), null);
+  assert.equal(tijdlijnVerbinding(punt(0, 7), b, "gas", false), "volledig");
+  assert.equal(tijdlijnVerbinding({ ...punt(70, 7), lopend: true }, b, "water", false), "gedeeltelijk");
+  assert.equal(tijdlijnVerschil(a, b, "elektriciteit", false), null);
 });
