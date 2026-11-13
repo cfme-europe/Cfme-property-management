@@ -29,6 +29,7 @@ function Grafiek({ product, reeksen, persoon, gekozen, kies, zoom, selectiesleut
   const x = (i: number) => 70 + indices.indexOf(i) * (900 / Math.max(1, indices.length - 1));
   const y = (v: number) => 275 - v / max * 220;
   const eerste = reeksen[0];
+  const meerdere = reeksen.filter(r => !r.vergelijking).length > 1;
   const complete = eerste?.punten.map((p, i) => ({ p, i, v: tijdlijnWaarde(p, product, persoon) })).filter(a => a.v !== null && a.p && !a.p.lopend && a.p.dekking >= 99.99) ?? [];
   const piek = complete.length ? complete.reduce((a, b) => a.v! >= b.v! ? a : b) : null;
   const signaalKey = `${selectiesleutel}:${product}:${persoon}:${piek?.p?.maand}:${piek?.v}`;
@@ -40,7 +41,8 @@ function Grafiek({ product, reeksen, persoon, gekozen, kies, zoom, selectiesleut
   const som = combineerTijdlijn(complete.map(c => c.p!));
   return <section className="rounded-2xl border border-emerald-900/15 bg-white p-4 sm:p-6 space-y-4" aria-label={`${namen[product]} door de tijd`}>
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-2xl font-semibold text-emerald-950">{namen[product]}</h2><span className="text-sm text-slate-600">{unit} · langere lijn omhoog = hoger verbruik</span></div>
-    <div className="grid gap-3 lg:grid-cols-3 text-sm text-slate-900">
+    {meerdere && <p className="font-semibold text-slate-900">Samenvatting: {eerste?.naam}. Alle panden staan afzonderlijk in de grafiek en de maandtabel.</p>}
+    <div className="grid gap-3 lg:grid-cols-3 text-base text-slate-900">
       <div className="min-w-0 rounded-xl bg-emerald-50 p-4 text-slate-900 break-words"><p>{eerste?.naam} · {complete.length} volledige maanden</p><strong className="block text-2xl mt-2 leading-tight text-slate-950 tabular-nums">{fmt(tijdlijnWaarde(som, product, persoon), 2)}</strong><p className="mt-1 mb-3 text-slate-700">{unit}</p><p>{persoon ? "Gewogen op persoonsdagen" : "Som van de volledig gedekte maanden"}</p></div>
       <div className="min-w-0 rounded-xl bg-slate-50 p-4 text-slate-900 break-words"><p>Geselecteerd: {maanden[gekozen]}</p><strong className="block text-2xl mt-2 leading-tight text-slate-950 tabular-nums">{fmt(tijdlijnWaarde(a, product, persoon), 2)}</strong><p className="mt-1 mb-3 text-slate-700">{unit}</p><p>{a?.lopend ? `Lopende maand · tot ${a.tot} exclusief` : `${fmt(a?.dekking ?? null)}% meetdekking`}</p></div>
       <div className="min-w-0 rounded-xl bg-blue-50 p-4 text-slate-900 break-words"><p>{ref ? `T.o.v. ${ref.naam}` : "Geen vergelijking gekozen"}</p><strong className="block text-2xl mt-2 leading-tight text-slate-950 tabular-nums">{verschil === null ? "—" : `${verschil > 0 ? "+" : ""}${fmt(verschil)}%`}</strong><p>Verschil voor de geselecteerde maand{reeksen.filter(r => !r.vergelijking).length > 1 ? " · eerste pand" : ""}</p></div>
@@ -66,7 +68,7 @@ function Grafiek({ product, reeksen, persoon, gekozen, kies, zoom, selectiesleut
         })}</g>)}
       </svg>
     </div>}
-    <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">{reeksen.map(r => <span key={r.id} className="flex items-center gap-2"><span style={{ borderColor: r.kleur, borderTopStyle: r.vergelijking ? "dashed" : "solid" }} className="w-8 border-t-4"/>{r.naam}</span>)}<span>○ Lopende maand of onvolledige meetdekking</span></div>
+    <div className="flex flex-wrap gap-x-6 gap-y-2 text-base text-slate-900">{reeksen.map(r => <span key={r.id} className="flex items-center gap-2"><span style={{ borderColor: r.kleur, borderTopStyle: r.vergelijking ? "dashed" : "solid" }} className="w-8 border-t-4"/>{r.naam}{!r.punten.some(p => tijdlijnWaarde(p, product, persoon) !== null) ? " · geen bruikbare gegevens" : ""}</span>)}<span>○ Lopende maand of onvolledige meetdekking</span></div>
     <div className="flex flex-wrap gap-1" aria-label="Selecteer een maand">{maanden.map((m, i) => <button key={m} aria-pressed={gekozen === i} className={`rounded px-3 py-2 ${gekozen === i ? "bg-emerald-800 text-white" : "bg-slate-100 text-slate-800"}`} onClick={() => kies(i)}>{m}</button>)}</div>
     <p className="text-sm text-slate-600">Maandwaarden zijn verdeeld vanuit meteropnames; geen dagelijkse metingen. Open punten en stippellijnen tonen gedeeltelijke gegevens, inclusief de lopende maand. Bij samengevoegde panden kan een deel van de selectie ontbreken; vergelijk deze punten niet als volledige maandtotalen. Ontbrekende maanden blijven leeg.</p>
     <div className="border-t pt-4">
@@ -92,7 +94,7 @@ export default function EnergieTijdlijn({ panden, referentie, jaar, vergelijkjaa
   start?: { ids?: number[]; product?: string; persoon?: boolean; modus?: string; vergelijk?: string; ander?: number };
 }) {
   const [ids, setIds] = useState<number[]>(start?.ids ?? panden.map(p => p.id));
-  const [modus, setModus] = useState(start?.modus === "panden" ? "panden" : "samen");
+  const [modus, setModus] = useState(start?.modus === "totaal" ? "samen" : "panden");
   const [product, setProduct] = useState<TijdlijnProduct | "alle">(["alle", ...tijdlijnProducten].includes(start?.product ?? "") ? start!.product as TijdlijnProduct | "alle" : "elektriciteit");
   const [persoon, setPersoon] = useState(start?.persoon ?? false);
   const [vergelijk, setVergelijk] = useState(["geen", "jaar", "pand"].includes(start?.vergelijk ?? "") ? start!.vergelijk! : "jaar");
@@ -111,19 +113,19 @@ export default function EnergieTijdlijn({ panden, referentie, jaar, vergelijkjaa
     if (vergelijk === "vorige") result.push({ id: "vorige", naam: "Dezelfde selectie · maand ervoor", kleur: "#2563eb", vergelijking: true, punten: [null, ...make(selected).slice(0, 11)] });
     return result;
   }
-  return <main className="mx-auto max-w-7xl px-4 py-8 text-slate-900 space-y-6">
+  return <main style={{ colorScheme: "light" }} className="mx-auto min-h-screen max-w-7xl bg-slate-50 px-4 py-8 text-slate-900 space-y-6">
     <header><p className="font-bold text-emerald-800">CFME CONTROL</p><h1 className="text-3xl sm:text-4xl font-semibold text-emerald-950 mt-2">Verbruik door de tijd</h1><p className="mt-2 text-slate-600">Historie, huidig verbruik en verschillen in één overzicht. Gegevens bekeken op {vandaag}.</p></header>
     <nav className="flex flex-wrap gap-3 text-sm"><Link className={knop} href="/bedrijven">Bedrijven</Link><Link className={knop} href="/bedrijven/energieanalyse?weergave=maanden">Maandtabel / klantversie / export</Link><Link className={knop} href="/bedrijven/energieanalyse/periode">Vrije periode</Link><Link className={knop} href="/bedrijven/energieanalyse/beheer">Beheer gegevens</Link></nav>
     <form className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4">
       <input type="hidden" name="panden_ingediend" value="1"/>{ids.map(id => <input key={id} type="hidden" name="woning" value={id}/>)}
-      <input type="hidden" name="product" value={product}/><input type="hidden" name="eenheid" value={persoon ? "persoon" : "totaal"}/><input type="hidden" name="modus" value={modus}/><input type="hidden" name="vergelijk" value={vergelijk}/><input type="hidden" name="ander" value={ander}/>
+      <input type="hidden" name="product" value={product}/><input type="hidden" name="eenheid" value={persoon ? "persoon" : "totaal"}/><input type="hidden" name="modus" value={modus === "samen" ? "totaal" : "panden"}/><input type="hidden" name="vergelijk" value={vergelijk}/><input type="hidden" name="ander" value={ander}/>
       <label className="grid gap-1 text-sm">Klant<select name="bedrijf" defaultValue={bedrijf ?? ""} className={input}><option value="">Alle klanten</option>{bedrijven.map(b => <option key={b.id} value={b.id}>{b.naam}</option>)}</select></label>
       <label className="grid gap-1 text-sm">Jaar<select name="jaar" defaultValue={jaar} className={input}>{jaren.map(y => <option key={y}>{y}</option>)}</select></label>
       <label className="grid gap-1 text-sm">Vergelijkingsjaar<select name="vergelijkjaar" defaultValue={vergelijkjaar} className={input}>{jaren.map(y => <option key={y}>{y}</option>)}</select></label><button className="rounded-lg bg-emerald-800 px-5 py-3 text-white">Periode / klant toepassen</button><p className="text-sm text-slate-600">Bewaart uw pandkeuze en eenheid. Bij een andere klant blijven alleen passende panden geselecteerd.</p>
     </form>
-    <div className="flex flex-wrap items-start gap-3">
+    <div className="flex flex-wrap items-start gap-4 rounded-xl border border-slate-300 bg-white p-4 text-slate-900">
       <details className="rounded-lg border bg-white p-3 min-w-64"><summary className="cursor-pointer font-medium">Panden kiezen · {ids.length} geselecteerd</summary><div className="flex gap-3 py-3"><button onClick={() => setIds(panden.map(p => p.id))}>Alle</button><button onClick={() => setIds([])}>Geen</button></div><div className="max-h-64 overflow-y-auto">{panden.map(p => <label key={p.id} className="flex items-center gap-2 py-2"><input type="checkbox" checked={ids.includes(p.id)} onChange={e => setIds(e.target.checked ? [...ids, p.id] : ids.filter(id => id !== p.id))}/>{p.adres}</label>)}</div></details>
-      <label className="grid text-sm gap-1">Weergave<select className={input} value={modus} onChange={e => { setModus(e.target.value); if (vergelijk === "vorige") setVergelijk("geen"); }}><option value="samen">Samenvoegen</option><option value="panden">Panden vergelijken</option></select></label>
+      <fieldset className="w-full border-b border-slate-200 pb-4"><legend className="mb-2 font-semibold">Lijnen in de grafiek</legend><div className="flex flex-wrap gap-2">{[{ waarde: "panden", label: "Elk pand een eigen lijn" }, { waarde: "samen", label: "Totaal van geselecteerde panden" }].map(optie => <button key={optie.waarde} type="button" aria-pressed={modus === optie.waarde} className={`min-h-12 rounded-lg border px-4 py-3 font-semibold ${modus === optie.waarde ? "border-emerald-800 bg-emerald-800 text-white" : "border-slate-400 bg-white text-slate-900"}`} onClick={() => { setModus(optie.waarde); if (vergelijk === "vorige") setVergelijk("geen"); }}>{optie.label}</button>)}</div><p className="mt-2 text-slate-700">{modus === "panden" ? `${selected.length} panden geselecteerd: een eigen kleur per pand. Zonder meetgegevens blijft de lijn afwezig.` : `${selected.length} panden opgeteld: één totaallijn.`}</p></fieldset>
       <label className="grid text-sm gap-1">Product<select className={input} value={product} onChange={e => setProduct(e.target.value as TijdlijnProduct | "alle")}><option value="alle">Alle drie producten</option>{tijdlijnProducten.map(p => <option key={p} value={p}>{namen[p]}</option>)}</select></label>
       <label className="grid text-sm gap-1">Eenheid<select className={input} value={persoon ? "persoon" : "totaal"} onChange={e => setPersoon(e.target.value === "persoon")}><option value="totaal">Totaalverbruik</option><option value="persoon">Per persoon</option></select></label>
       <label className="grid text-sm gap-1">Vergelijken met<select className={input} value={vergelijk} onChange={e => setVergelijk(e.target.value)}><option value="geen">Geen vergelijking</option><option value="jaar">Jaar {vergelijkjaar}</option><option value="pand">Ander pand (zelfde jaar)</option>{zoom && modus === "samen" && <option value="vorige">Maand ervoor (verschoven)</option>}</select></label>
