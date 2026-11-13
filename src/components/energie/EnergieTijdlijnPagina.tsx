@@ -23,8 +23,9 @@ export default async function EnergieTijdlijnPagina({ parameters }: { parameters
   const referentie = bouwTijdlijn(brondata, vergelijkjaar, vandaag, bedrijf ? [bedrijf] : [], jaar);
   const ruweIds = parameters.woning;
   const ids = (Array.isArray(ruweIds) ? ruweIds : ruweIds ? [ruweIds] : []).map(Number).filter(id => woningen.some(w => w.id === id));
+  const klantGewijzigd = enkel("selectie_bedrijf") !== undefined && enkel("selectie_bedrijf") !== String(bedrijf ?? "");
   const start = {
-    ids: enkel("panden_ingediend") === "1" ? ids : undefined,
+    ids: enkel("panden_ingediend") === "1" && !klantGewijzigd ? ids : undefined,
     product: enkel("product"), persoon: enkel("eenheid") === "persoon",
     modus: enkel("modus"), vergelijk: enkel("vergelijk"), ander: Number(enkel("ander")),
   };
