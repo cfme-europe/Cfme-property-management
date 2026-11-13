@@ -800,6 +800,9 @@ export default async function EnergieMaandAnalysePagina({
             >
               Beheer gegevens
             </Link>
+            <Link href="/bedrijven/energieanalyse" className="inline-flex min-h-11 items-center rounded-xl border border-emerald-800 px-4 font-semibold text-emerald-900">
+              Verbruik door de tijd
+            </Link>
             <Link
               href="/bedrijven/energieanalyse/periode"
               className="inline-flex min-h-11 items-center rounded-xl border border-emerald-800 bg-emerald-50 px-4 font-semibold text-emerald-900"
