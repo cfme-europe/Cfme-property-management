@@ -6,6 +6,7 @@ import {
   type ChangeEvent,
 } from "react";
 import { useRouter } from "next/navigation";
+import ControleurMeterstandCorrectie from "@/components/controleur/ControleurMeterstandCorrectie";
 import ControleurWerkpuntTerugmelding from "@/components/controleur/ControleurWerkpuntTerugmelding";
 import {
   annuleerControleflow,
@@ -1561,6 +1562,12 @@ export default function ControleurFlow({
                         );
                       },
                     )}
+
+                    <ControleurMeterstandCorrectie
+                      sessieId={gegevens.sessie.id}
+                      historie={gegevens.meterstand_historie}
+                      onGecorrigeerd={() => router.refresh()}
+                    />
 
                     <button
                       type="button"

@@ -148,4 +148,12 @@ export type ControleurFlowGegevens = {
     gas_m3: number | null;
     water_m3: number | null;
   } | null;
+  meterstand_historie: {
+    id: number;
+    opnamedatum: string;
+    dagstroom_kwh: number | null;
+    nachtstroom_kwh: number | null;
+    gas_m3: number | null;
+    water_m3: number | null;
+  }[];
 };

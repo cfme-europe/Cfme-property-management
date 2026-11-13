@@ -45,7 +45,7 @@ export async function getEnergieAnalyseBrondata(): Promise<Brondata> {
     await Promise.all([
       read(
         "meterstanden",
-        "id, woning_id, opnamedatum, bewoners_aantal, dagstroom_kwh, nachtstroom_kwh, elektriciteit_kwh, elektriciteit_dag_kwh, elektriciteit_nacht_kwh, gas_m3, water_m3, analyse_status, analyse_resultaat, opvolging_nodig, meteruitzonderingen, updated_at",
+        "id, woning_id, opnamedatum, bewoners_aantal, dagstroom_kwh, nachtstroom_kwh, elektriciteit_kwh, elektriciteit_dag_kwh, elektriciteit_nacht_kwh, gas_m3, water_m3, analyse_status, analyse_resultaat, opvolging_nodig, meteruitzonderingen, updated_at, geanalyseerd_at",
       ),
       read("woningen", "id, adres, postcode, plaats, status"),
       read("bedrijven", "id, naam"),

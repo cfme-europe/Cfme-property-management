@@ -4,12 +4,16 @@ import { createClient } from "@/lib/supabase/server";
 import {
   getActieveControlebriefingVoorWoning,
 } from "@/services/intelligence-server";
+import { bepaalVoorgangers } from "@/lib/meterstanden/voorganger";
 import type {
   ControleAfwijking,
   ControleResultaat,
   ControleurFlowGegevens,
   ControleurRoutepunt,
 } from "@/types/controleurflow";
+
+const numeriek = (waarde: unknown) =>
+  waarde === null || waarde === undefined ? null : Number(waarde);
 
 export async function getControleurFlow(
   sessieId: number,
@@ -234,18 +238,32 @@ export async function getControleurFlow(
   const meterstandResultaat = await supabase
     .from("meterstanden")
     .select(
-      "dagstroom_kwh,nachtstroom_kwh,gas_m3,water_m3",
+      "id,opnamedatum,dagstroom_kwh,nachtstroom_kwh,gas_m3,water_m3",
     )
     .eq("woning_id", sessie.woning_id)
     .order("opnamedatum", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1000);
 
   if (meterstandResultaat.error) {
     throw new Error(
       `Laatste meterstand ophalen mislukt: ${meterstandResultaat.error.message}`,
     );
   }
+
+  const meterstandRijen = (meterstandResultaat.data ?? []).map((rij) => ({
+    id: rij.id as number,
+    opnamedatum: rij.opnamedatum as string,
+    dagstroom_kwh: numeriek(rij.dagstroom_kwh),
+    nachtstroom_kwh: numeriek(rij.nachtstroom_kwh),
+    gas_m3: numeriek(rij.gas_m3),
+    water_m3: numeriek(rij.water_m3),
+  }));
+  const voorgangers = meterstandRijen.length
+    ? bepaalVoorgangers(
+        meterstandRijen,
+        new Date().toISOString().slice(0, 10),
+      )
+    : null;
 
   const controlebriefing =
     await getActieveControlebriefingVoorWoning(
@@ -272,6 +290,7 @@ export async function getControleurFlow(
     ),
     controlebriefing,
     werkpunt_terugmeldingen: werkpuntTerugmeldingen,
-    laatste_meterstand: meterstandResultaat.data ?? null,
+    laatste_meterstand: voorgangers,
+    meterstand_historie: meterstandRijen,
   };
 }

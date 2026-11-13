@@ -7,7 +7,6 @@ import {
 } from "@/lib/energie/selectie";
 import {
   ENERGIE_ANALYSE_STARTDATUM,
-  vorigeDag,
 } from "@/lib/energie/rekenregels";
 import {
   bouwEnergiePeriodeAnalyse,
@@ -137,10 +136,10 @@ export default async function EnergiePeriodeAnalysePagina({
                   Gevraagde periode
                 </p>
                 <p className="font-bold text-emerald-950">
-                  {selectie.vanaf} t/m {vorigeDag(selectie.totEnMet)}
+                  {selectie.vanaf} tot {selectie.totEnMet}
                 </p>
                 <p className="text-xs text-slate-600">
-                  Begin inclusief, einde exclusief
+                  Begin inclusief, einddatum exclusief
                 </p>
               </div>
               <div>
@@ -225,6 +224,20 @@ export default async function EnergiePeriodeAnalysePagina({
                       <br />{getal(row.exacte_dekking_percentage, 1)}% volledig gemeten
                     </p>
                   </header>
+                  {row.totaal !== null &&
+                    row.intervallen.some(
+                      (i) => i.waarde === null || !i.betrouwbaar,
+                    ) && (
+                      <p className="text-sm font-semibold text-amber-900">
+                        Deeltotaal: {getal(
+                          row.intervallen
+                            .filter((i) => i.waarde === null || !i.betrouwbaar)
+                            .reduce((som, i) => som + i.dagen, 0),
+                          1,
+                        )}{" "}
+                        dagen ontbreken door niet-berekenbare opnamen; zie Details.
+                      </p>
+                    )}
                   {row.onbekende_bezettingsdagen > 0 && (
                     <p className="text-sm text-amber-900">
                       Bezetting onbekend voor {getal(row.onbekende_bezettingsdagen, 1)} dagen; deze dagen blijven in het verbruik maar niet in de persoonsnorm.

@@ -18,7 +18,6 @@ import {
   bouwEnergiePortfolioAnalyse,
   type Energiedrager,
 } from "@/lib/energie/portfolio-analyse";
-import { vorigeDag } from "@/lib/energie/rekenregels";
 import { kleurEnergieMaand } from "@/lib/energie/maand-kleuren";
 import { beoordeelMaatregel } from "@/lib/energie/resultaten";
 import EnergieMaandSelectie from "./EnergieMaandSelectie";
@@ -267,8 +266,8 @@ function MonthDetails({
       </summary>
       <div className="space-y-2 pb-2 text-sm text-slate-700">
         <p>
-          {monthTitle(month.maand)}: {month.vanaf} t/m {vorigeDag(month.tot)} ·{" "}
-          begin inclusief, einde exclusief · {getal(month.dekking, 1)}%
+          {monthTitle(month.maand)}: {month.vanaf} tot {month.tot} ·{" "}
+          begin inclusief, einddatum exclusief · {getal(month.dekking, 1)}%
           meetdekking.
         </p>
         {month.geschatteDagen > 0 && (
@@ -296,7 +295,7 @@ function MonthDetails({
         )}
         {month.status === "gedeeltelijk" && (
           <p>
-            Werkelijk toegerekend verbruik: {getal(month.verbruik)} {analyse.eenheid}
+            Deeltotaal (niet alle dagen berekenbaar): {getal(month.verbruik)} {analyse.eenheid}
             {month.periodes.length
               ? ` over ${month.periodes.map((period) => `${period.vanaf}–${period.tot}`).join(", ")}`
               : ""}
@@ -348,7 +347,18 @@ function MonthDetails({
         {month.uitgeslotenPeriodes.map((period) => (
           <p key={`uitgesloten:${period.vanaf}:${period.tot}`}>
             Uitgesloten {period.vanaf}–{period.tot}; bronopnames{" "}
-            {period.bronVanaf}–{period.bronTot}: {period.reden}
+            {period.bronVanaf}–{period.bronTot}
+            {period.bronIds.length
+              ? ` (opname-ID ${period.bronIds.join(" → ")})`
+              : ""}
+            : {period.reden}. Beschikbare standen:{" "}
+            {period.gebruikteStanden
+              .map(
+                (stand) =>
+                  `${stand.register} ${getal(stand.begin, 3)} → ${getal(stand.eind, 3)}`,
+              )
+              .join("; ") || "geen"}
+            .
           </p>
         ))}
         {month.status === "geen" && (
@@ -398,7 +408,7 @@ function MetricRow({
       : month.status === "gedeeltelijk"
         ? value === null
           ? "Onvolledig"
-          : `${valueDetails(month, analyse)} ${valueUnit(month, analyse)} · gedeeltelijk`
+          : `${valueDetails(month, analyse)} ${valueUnit(month, analyse)} · deeltotaal`
         : value === null && analyse.selectie.aggregatie === "persoon" &&
             month.persoonsdagen === 0
           ? "Bewoning onbekend"

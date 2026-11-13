@@ -204,7 +204,7 @@ export default function EnergieAnalyseFilterFormulier({
         </p>
       )}
       <span className="sr-only" aria-live="polite">
-        Datumbereik: {startDatum} tot en met {eindDatum}
+        Datumbereik: {startDatum} tot {eindDatum} (einddatum exclusief)
       </span>
     </form>
   );

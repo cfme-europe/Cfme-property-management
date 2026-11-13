@@ -6,7 +6,11 @@ import {
   kwartiel,
   verschil,
 } from "./rekenregels";
-import { elektriciteitsMeting, type RegisterType } from "./metingen";
+import {
+  beschikbareElektriciteitsstanden,
+  elektriciteitsMeting,
+  type RegisterType,
+} from "./metingen";
 export type Energiedrager =
   | "elektriciteit"
   | "dagstroom"
@@ -30,6 +34,7 @@ export type EnergieMeterstand = {
   analyse_resultaat?: unknown;
   opvolging_nodig?: boolean;
   updated_at?: string;
+  geanalyseerd_at?: string | null;
   meteruitzonderingen?: unknown;
 };
 export type EnergieWoning = {
@@ -367,6 +372,21 @@ function status(m: EnergieMeterstand, drager: string): string | null {
   // Never assign a gas anomaly to electricity through the global worst status.
   return typeof s === "string" ? s : null;
 }
+function afwijkendeDragers(m: EnergieMeterstand): string[] {
+  const dragers = object(m.analyse_resultaat).dragers;
+  return (Array.isArray(dragers) ? dragers : [])
+    .map(object)
+    .filter(
+      (d) =>
+        typeof d.drager === "string" &&
+        ["verhoogd", "kritiek", "onwaarschijnlijk"].includes(
+          String(d.status),
+        ),
+    )
+    .map((d) => String(d.drager));
+}
+const opnameNaam = (m: EnergieMeterstand) =>
+  `opname ${m.id ?? "onbekend"} (${m.opnamedatum})`;
 export function maakMeetperioden(
   bron: Brondata,
   sel: EnergieAnalyseSelectie,
@@ -477,14 +497,32 @@ export function maakMeetperioden(
         status(a, meterProduct) === "onwaarschijnlijk";
       if (beginOnwaarschijnlijk)
         meldingen.push(
-          "Beginopname heeft onwaarschijnlijk verbruik; controle vereist",
+          `Beginopname heeft onwaarschijnlijk verbruik; controle vereist (opgeslagen ${meterProduct}-status bij ${opnameNaam(a)})`,
         );
-      if (anomalie === "onwaarschijnlijk")
-        meldingen.push("Onwaarschijnlijk verbruik: controle vereist");
-      if (a.opvolging_nodig || b.opvolging_nodig)
+      if (anomalie === "onwaarschijnlijk") {
+        const verouderd =
+          !!a.updated_at &&
+          !!b.geanalyseerd_at &&
+          a.updated_at > b.geanalyseerd_at;
         meldingen.push(
-          "Opvolging is bij een grensopname gemarkeerd; controleer de actuele status per energiedrager",
+          `Onwaarschijnlijk verbruik: controle vereist (opgeslagen ${meterProduct}-status bij ${opnameNaam(b)})` +
+            (verouderd
+              ? `; historische status: beginopname ${opnameNaam(a)} is na deze analyse gewijzigd, dus dit is geen actuele rekenfout maar een verouderde opgeslagen controle die heranalyse vraagt`
+              : ""),
         );
+      }
+      for (const grens of [a, b].filter((m) => m.opvolging_nodig)) {
+        const afwijkend = afwijkendeDragers(grens);
+        meldingen.push(
+          afwijkend.includes(meterProduct)
+            ? `Opvolging is bij een grensopname gemarkeerd (${opnameNaam(grens)}, ${meterProduct}); controleer de actuele status`
+            : `Opvolging is bij een grensopname gemarkeerd (${opnameNaam(grens)}) ${
+                afwijkend.length
+                  ? `voor ${afwijkend.join(", ")}`
+                  : "zonder vastgelegde energiedrager"
+              }; geen aantoonbare invloed op de ${meterProduct}-berekening, maar het punt blijft openstaan`,
+        );
+      }
       // High-consumption alerts trigger review but do not erase valid positive meter deltas.
       const betrouwbaar =
         bronWaarde !== null &&
@@ -498,7 +536,10 @@ export function maakMeetperioden(
         dag: electric.dag,
         nacht: electric.nacht,
         bronVelden,
-        gebruikteStanden: bronVelden.map((veld) => {
+        gebruikteStanden:
+          bronVelden.length === 0 && sel.drager === "elektriciteit"
+            ? beschikbareElektriciteitsstanden(a, b)
+            : bronVelden.map((veld) => {
           const waarde = (stand: EnergieMeterstand) => {
             switch (veld) {
               case "dagstroom_kwh":

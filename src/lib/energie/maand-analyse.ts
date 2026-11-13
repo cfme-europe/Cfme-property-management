@@ -68,6 +68,8 @@ export type EnergieMaandMeting = {
     tot: string;
     bronVanaf: string;
     bronTot: string;
+    bronIds: number[];
+    gebruikteStanden: EnergieInterval["gebruikteStanden"];
     reden: string;
   }>;
   laatsteMeetdatum: string | null;
@@ -611,6 +613,8 @@ export function bouwEnergieMaandAnalyse(
               tot: interval.totDatum,
               bronVanaf: interval.bronVanaf,
               bronTot: interval.bronTot,
+              bronIds: interval.bronIds,
+              gebruikteStanden: interval.gebruikteStanden,
               reden:
                 interval.meldingen.join("; ") ||
                 "Standen zijn niet betrouwbaar genoeg om te berekenen.",

@@ -7,6 +7,25 @@ export type ElektriciteitsStand = {
   elektriciteit_nacht_kwh?: number | null;
 };
 export type RegisterType = "dag_nacht" | "enkel" | "totaal";
+const REGISTERS = [
+  "dagstroom_kwh",
+  "nachtstroom_kwh",
+  "elektriciteit_kwh",
+  "elektriciteit_dag_kwh",
+  "elektriciteit_nacht_kwh",
+] as const;
+export function beschikbareElektriciteitsstanden(
+  a: ElektriciteitsStand,
+  b: ElektriciteitsStand,
+) {
+  return REGISTERS.filter(
+    (veld) => (a[veld] ?? null) !== null || (b[veld] ?? null) !== null,
+  ).map((register) => ({
+    register,
+    begin: a[register] ?? null,
+    eind: b[register] ?? null,
+  }));
+}
 export function elektriciteitsMeting(
   a: ElektriciteitsStand,
   b: ElektriciteitsStand,
@@ -93,8 +112,16 @@ export function elektriciteitsMeting(
       "Historische totaalstanden gebruikt; dag-/nachtverdeling is niet bevestigd.",
     );
   } else {
+    const aanwezig = (m: ElektriciteitsStand) =>
+      [
+        m.dagstroom_kwh !== null ? "dag" : null,
+        m.nachtstroom_kwh !== null ? "nacht" : null,
+        m.elektriciteit_kwh !== null ? "totaal" : null,
+      ]
+        .filter(Boolean)
+        .join("+") || "geen";
     meldingen.push(
-      "Elektriciteitsmeterconfiguratie ontbreekt; registreer of de meter enkelvoudig, dubbel of totaalmeter is.",
+      `Elektriciteitsmeterconfiguratie ontbreekt en de opgeslagen standen zijn niet gelijkwaardig (begin: ${aanwezig(a)}; eind: ${aanwezig(b)}); registreer of de meter enkelvoudig, dubbel of totaalmeter is. Een leeg nachtveld bewijst niet dat de meter enkelvoudig is.`,
     );
   }
   return {

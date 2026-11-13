@@ -3,7 +3,9 @@ import {
   bouwEnergiePortfolioAnalyse,
   type Brondata,
   type EnergieMeterstand,
+  type EnergieBewoner,
   type Energiedrager,
+  type EnergieVerhuurperiode,
   type Meterconfiguratie,
 } from "@/lib/energie/portfolio-analyse";
 import { volgendeDag } from "@/lib/energie/rekenregels";
@@ -136,4 +138,100 @@ export function berekenVerbruiksperiodes(
   ).filter((periode) =>
     dragers.some((drager) => periode[drager].totaal !== null),
   );
+}
+
+export type Bezettingsbron = {
+  verhuurperioden: EnergieVerhuurperiode[];
+  bewoners: EnergieBewoner[];
+};
+
+export type BronInterval = {
+  drager: "elektriciteit" | "gas" | "water";
+  van_datum: string;
+  tot_datum: string;
+  dagen: number;
+  waarde: number | null;
+  persoonsdagen: number;
+  bezetting_bekend: boolean;
+};
+
+/**
+ * Gemeten bronintervallen per drager (tussen twee opnames van dezelfde meter), met
+ * persoonsdagen uit de daggeldige bewonersregistraties en verhuurperioden. De
+ * bewoners_aantal-snapshot van een opname speelt hierbij geen rol.
+ */
+export function berekenBronIntervallen(
+  meterstanden: Meterstand[],
+  totExclusief: string,
+  bezetting: Bezettingsbron = { verhuurperioden: [], bewoners: [] },
+  meterconfiguraties: Meterconfiguratie[] = [],
+): BronInterval[] {
+  const bereik = bepaalEnergieDatumbereik(meterstanden);
+  if (!bereik) return [];
+  const woningIds = [...new Set(meterstanden.map((meter) => meter.woning_id))];
+  const bron: Brondata = {
+    meterstanden: meterstanden.map(
+      (meter): EnergieMeterstand => ({
+        id: meter.id,
+        woning_id: meter.woning_id,
+        opnamedatum: meter.opnamedatum,
+        bewoners_aantal: meter.bewoners_aantal,
+        dagstroom_kwh: meter.dagstroom_kwh,
+        nachtstroom_kwh: meter.nachtstroom_kwh,
+        elektriciteit_kwh: meter.elektriciteit_kwh,
+        gas_m3: meter.gas_m3,
+        water_m3: meter.water_m3,
+        analyse_status: meter.analyse_status,
+        analyse_resultaat: meter.analyse_resultaat,
+        opvolging_nodig: meter.opvolging_nodig,
+        updated_at: meter.updated_at,
+        meteruitzonderingen: meter.meteruitzonderingen,
+      }),
+    ),
+    woningen: woningIds.map((id) => ({ id, adres: "", postcode: "", plaats: "" })),
+    bedrijven: [],
+    verhuurperioden: bezetting.verhuurperioden,
+    bewoners: bezetting.bewoners,
+    meterconfiguraties,
+  };
+  const resultaat: BronInterval[] = [];
+  for (const drager of ["elektriciteit", "gas", "water"] as const) {
+    const analyse = bouwEnergiePortfolioAnalyse(bron, {
+      niveau: "totaal",
+      drager,
+      vanaf: bereik.vanaf,
+      totEnMet: totExclusief,
+      archief: true,
+      modus: "schatting",
+    });
+    const groepen = new Map<string, BronInterval>();
+    for (const interval of analyse.rijen.flatMap((rij) => rij.intervallen)) {
+      if (interval.geschat) continue;
+      const sleutel = `${interval.woningId}:${interval.bronVanaf}:${interval.bronTot}`;
+      const waarde =
+        interval.betrouwbaar && interval.waarde !== null ? interval.waarde : null;
+      const bestaand = groepen.get(sleutel);
+      if (!bestaand) {
+        groepen.set(sleutel, {
+          drager,
+          van_datum: interval.bronVanaf,
+          tot_datum: interval.bronTot,
+          dagen: interval.dagen,
+          waarde,
+          persoonsdagen: interval.persoonsdagen,
+          bezetting_bekend: interval.bezettingBekend,
+        });
+        continue;
+      }
+      bestaand.dagen += interval.dagen;
+      bestaand.persoonsdagen += interval.persoonsdagen;
+      bestaand.bezetting_bekend &&= interval.bezettingBekend;
+      bestaand.waarde =
+        bestaand.waarde === null || waarde === null
+          ? null
+          : bestaand.waarde + waarde;
+    }
+    resultaat.push(...groepen.values());
+  }
+  return resultaat;
 }
