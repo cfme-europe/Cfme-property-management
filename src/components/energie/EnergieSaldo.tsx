@@ -56,7 +56,7 @@ export default function EnergieSaldo({
           ["Afgesproken voorschot", overzicht.voorschot],
           ["Geschatte kosten", overzicht.kosten],
           [saldo === null ? "Opgebouwd saldo" : saldo < 0 ? "Opgebouwd tekort" : "Opgebouwd tegoed", saldo === null ? null : Math.abs(saldo)],
-        ].map(([label,value],i)=><div className="px-3 py-2" key={String(label)}><p className="text-sm font-semibold">{label}</p><strong className={`block text-3xl tabular-nums ${i===2 && saldo!==null && saldo<0 ? "text-amber-800" : "text-emerald-950"}`}>{value===null ? "Nog niet beschikbaar" : geld(value as number)}</strong></div>)}
+        ].map(([label,value],i)=><div className="min-w-0 px-3 py-2" key={String(label)}><p className="text-sm font-semibold">{label}</p><strong className={`block break-words ${value === null ? "mt-1 text-base font-medium leading-snug" : "text-2xl lg:text-3xl tabular-nums"} ${i===2 && saldo!==null && saldo<0 ? "text-amber-800" : "text-emerald-950"}`}>{value===null ? "Nog niet beschikbaar" : geld(value as number)}</strong></div>)}
       </div>
       <p className="mt-2 text-xs">Beginsaldo van deze periode: {geld(overzicht.beginsaldo)} · lopende maand niet meegenomen.</p>
       {(overzicht.ontbrekend>0 || overzicht.kosten===null || overzicht.saldo===null) && <p className="mt-2 text-sm text-amber-900">{overzicht.ontbrekend>0 ? "Voorschotgegevens: nog niet ingevuld of buiten de gekozen periode." : "Tarief, startsaldo of meetgegevens ontbreken; het volledige saldo is nog onbekend."} Het verbruik blijft zichtbaar.</p>}
