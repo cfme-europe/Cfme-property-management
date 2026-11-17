@@ -1,3 +1,4 @@
+import { klantTijdlijn, type TijdlijnRapport } from "./tijdlijn-rapport";
 import {
   bouwEnergiePortfolioAnalyse,
   type Brondata,
@@ -32,6 +33,7 @@ export type EnergieKlantProduct = {
   meldingen: string[];
 };
 export type EnergieKlantSnapshot = {
+  tijdlijn?: TijdlijnRapport;
   versie: string;
   gegenereerd_op: string;
   vanaf: string;
@@ -194,6 +196,7 @@ export function klantSnapshot(
   snapshot: EnergieKlantSnapshot,
 ): EnergieKlantSnapshot {
   return {
+    ...(snapshot.tijdlijn ? {tijdlijn:klantTijdlijn(snapshot.tijdlijn)} : {}),
     versie: snapshot.versie,
     gegenereerd_op: snapshot.gegenereerd_op,
     vanaf: snapshot.vanaf,
