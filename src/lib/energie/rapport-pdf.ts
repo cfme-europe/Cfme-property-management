@@ -1,3 +1,4 @@
+import { tekenTijdlijnBijlage } from "./tijdlijn-rapport-pdf";
 import { registreerEnergieLettertypen } from "./pdf-lettertypen";
 import type { jsPDF } from "jspdf";
 import type { EnergieKlantSnapshot } from "./snapshot";
@@ -8,6 +9,7 @@ export function tekenEnergieRapportPagina(
   adres: string,
 ) {
   registreerEnergieLettertypen(doc);
+  if(s.tijdlijn) return tekenTijdlijnBijlage(doc,s.tijdlijn,adres,s.gegenereerd_op);
   doc.addPage();
   const x = 16,
     w = 178;

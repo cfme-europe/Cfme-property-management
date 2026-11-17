@@ -1,3 +1,4 @@
+import EnergieTijdlijnRapport from "./EnergieTijdlijnRapport";
 import type { EnergieKlantSnapshot } from "@/lib/energie/snapshot";
 const number = (n: number | null, d = 1) =>
   n === null ? "—" : n.toLocaleString("nl-NL", { maximumFractionDigits: d });
@@ -12,6 +13,7 @@ export default function EnergieRapportPagina({
   pagina?: number;
   totaalPaginas?: number;
 }) {
+  if(snapshot.tijdlijn) return <EnergieTijdlijnRapport data={snapshot.tijdlijn} adres={adres} datum={snapshot.gegenereerd_op}/>;
   return (
     <section
       data-energiepagina

@@ -46,115 +46,170 @@ export async function GET(
       ["Berekening", s.modus],
       ["Toelichting", s.conclusie],
     ]);
-    add("Verbruik", [
-      [
-        "Product",
-        "Eenheid",
-        "Verbruik",
-        "Verbruik per persoon in periode",
-        "Persoonsnorm/week",
-        "Kalenderdekking %",
-        "Naar rato berekend",
-        "Kwaliteit",
-        "Vorige norm",
-        "Verschil %",
-        "Mediaan",
-        "Benchmarkpanden",
-      ],
-      ...s.producten.map((p) => [
-        p.product,
-        p.eenheid,
-        p.verbruik,
-        p.verbruik_per_persoon_per_periode,
-        p.norm,
-        p.dekking,
-        p.naar_rato_berekend ? "ja" : "nee",
-        p.kwaliteit,
-        p.vorige_norm,
-        p.verschil_percentage,
-        p.mediaan,
-        p.benchmark_aantal,
-      ]),
-    ]);
-    add("Meetperioden", [
-      ["Product", "Gebruikte meetperiode"],
-      ...s.producten.flatMap((p) =>
-        p.gebruikte_perioden.map((d) => [p.product, d]),
-      ),
-    ]);
-    add("Kosten", [
-      [
-        "Product",
-        "Variabel excl. btw",
-        "Vast excl. btw",
-        "Belastingen excl. btw",
-        "Btw",
-        "Totaal",
-        "Valuta",
-        "Naar rato berekend",
-        "Ontbrekend",
-        "Kosten per persoon/week",
-      ],
-      ...s.producten.map((p) => [
-        p.product,
-        p.kosten.variabel,
-        p.kosten.vast,
-        p.kosten.belastingen,
-        p.kosten.btw,
-        p.kosten.totaal,
-        p.kosten.valuta,
-        p.kosten.geschat ? "ja" : "nee",
-        p.kosten.ontbrekend.join("; "),
-          p.kosten_per_persoon_per_week,
-      ]),
-    ]);
-    add("Tariefregels", [
-      [
-        "Product",
-        "Van",
-        "Tot exclusief",
-        "Component",
-        "Hoeveelheid",
-        "Eenheidsprijs",
-        "Excl. btw",
-        "Btw",
-        "Totaal",
-        "Valuta",
-        "Bron",
-        "Tariefversie",
-        "Naar rato berekend",
-      ],
-      ...s.producten.flatMap((p) =>
-        p.kosten.regels.map((r) => [
+    if (s.tijdlijn) {
+      const t = s.tijdlijn;
+      add("Maandgrafieken", [
+        [
+          "Product",
+          "Maand",
+          "Eenheid",
+          String(t.jaar),
+          "Volledige maand",
+          t.vergelijkjaar === null
+            ? "Geen vergelijking"
+            : String(t.vergelijkjaar),
+          "Referentie volledig",
+        ],
+        ...t.grafieken.flatMap((g) =>
+          g.waarden.flatMap((v, i) =>
+            i < t.van || i > t.tot
+              ? []
+              : [
+                  [
+                    g.product,
+                    i + 1,
+                    g.eenheid,
+                    v,
+                    g.volledig[i] ? "ja" : "nee",
+                    g.referentie[i],
+                    g.referentieVolledig[i] ? "ja" : "nee",
+                  ],
+                ],
+          ),
+        ),
+      ]);
+      if (t.saldo)
+        add("Informatief saldo", [
+          [
+            "Maand",
+            "Voorschot EUR",
+            "Geschatte kosten EUR incl btw",
+            "Bekend kostendeel EUR",
+            "Verschil EUR",
+            "Cumulatief saldo EUR",
+            "Opmerking",
+          ],
+          ...t.saldo.maanden.map((m) => [
+            m.maand,
+            m.voorschot,
+            m.kosten,
+            m.bekend,
+            m.verschil,
+            m.saldo,
+            m.ontbrekend.join("; ") + (m.lopend ? "; lopende maand" : ""),
+          ]),
+        ]);
+    } else {
+      add("Verbruik", [
+        [
+          "Product",
+          "Eenheid",
+          "Verbruik",
+          "Verbruik per persoon in periode",
+          "Persoonsnorm/week",
+          "Kalenderdekking %",
+          "Naar rato berekend",
+          "Kwaliteit",
+          "Vorige norm",
+          "Verschil %",
+          "Mediaan",
+          "Benchmarkpanden",
+        ],
+        ...s.producten.map((p) => [
           p.product,
-          r.vanaf,
-          r.tot,
-          r.soort,
-          r.hoeveelheid,
-          r.eenheidsprijs,
-          r.exclusief_btw,
-          r.btw,
-          r.totaal,
-          r.valuta,
-          r.bron,
-          r.tarief_id,
-          r.geschat ? "ja" : "nee",
+          p.eenheid,
+          p.verbruik,
+          p.verbruik_per_persoon_per_periode,
+          p.norm,
+          p.dekking,
+          p.naar_rato_berekend ? "ja" : "nee",
+          p.kwaliteit,
+          p.vorige_norm,
+          p.verschil_percentage,
+          p.mediaan,
+          p.benchmark_aantal,
         ]),
-      ),
-    ]);
-    add("CFME maatregelen", [
-      ["Titel", "Status", "Uitvoerdatum", "Goedgekeurde klanttoelichting"],
-      ...s.maatregelen.map((m) => [
-        m.titel,
-        m.status,
-        m.uitvoerdatum,
-        m.toelichting,
-      ]),
-    ]);
-    add("Datakwaliteit", [
-      ["Product", "Melding"],
-      ...s.producten.flatMap((p) => p.meldingen.map((m) => [p.product, m])),
-    ]);
+      ]);
+      add("Meetperioden", [
+        ["Product", "Gebruikte meetperiode"],
+        ...s.producten.flatMap((p) =>
+          p.gebruikte_perioden.map((d) => [p.product, d]),
+        ),
+      ]);
+      add("Kosten", [
+        [
+          "Product",
+          "Variabel excl. btw",
+          "Vast excl. btw",
+          "Belastingen excl. btw",
+          "Btw",
+          "Totaal",
+          "Valuta",
+          "Naar rato berekend",
+          "Ontbrekend",
+          "Kosten per persoon/week",
+        ],
+        ...s.producten.map((p) => [
+          p.product,
+          p.kosten.variabel,
+          p.kosten.vast,
+          p.kosten.belastingen,
+          p.kosten.btw,
+          p.kosten.totaal,
+          p.kosten.valuta,
+          p.kosten.geschat ? "ja" : "nee",
+          p.kosten.ontbrekend.join("; "),
+          p.kosten_per_persoon_per_week,
+        ]),
+      ]);
+      add("Tariefregels", [
+        [
+          "Product",
+          "Van",
+          "Tot exclusief",
+          "Component",
+          "Hoeveelheid",
+          "Eenheidsprijs",
+          "Excl. btw",
+          "Btw",
+          "Totaal",
+          "Valuta",
+          "Bron",
+          "Tariefversie",
+          "Naar rato berekend",
+        ],
+        ...s.producten.flatMap((p) =>
+          p.kosten.regels.map((r) => [
+            p.product,
+            r.vanaf,
+            r.tot,
+            r.soort,
+            r.hoeveelheid,
+            r.eenheidsprijs,
+            r.exclusief_btw,
+            r.btw,
+            r.totaal,
+            r.valuta,
+            r.bron,
+            r.tarief_id,
+            r.geschat ? "ja" : "nee",
+          ]),
+        ),
+      ]);
+      add("CFME maatregelen", [
+        ["Titel", "Status", "Uitvoerdatum", "Goedgekeurde klanttoelichting"],
+        ...s.maatregelen.map((m) => [
+          m.titel,
+          m.status,
+          m.uitvoerdatum,
+          m.toelichting,
+        ]),
+      ]);
+      add("Datakwaliteit", [
+        ["Product", "Melding"],
+        ...s.producten.flatMap((p) => p.meldingen.map((m) => [p.product, m])),
+      ]);
+    }
     const bytes = await book.xlsx.writeBuffer();
     return new Response(new Uint8Array(bytes), {
       headers: {
