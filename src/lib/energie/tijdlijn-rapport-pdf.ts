@@ -1,3 +1,4 @@
+import { saldoOverzicht } from "./saldo-overzicht";
 import type { jsPDF } from "jspdf";
 import type { TijdlijnRapport } from "./tijdlijn-rapport";
 export function tekenTijdlijnBijlage(
@@ -18,7 +19,7 @@ export function tekenTijdlijnBijlage(
       ? "Onbekend"
       : v.toLocaleString("nl-NL", { maximumFractionDigits: 2 });
   text("CFME CONTROL", 16, 15, 10);
-  text("Verbruik door de tijd", 16, 25, 19);
+  text("Verbruik en voorschot", 16, 25, 19);
   text(`${adres} | ${t.jaar} | maanden ${t.van + 1} t/m ${t.tot + 1}`, 16, 33);
   const indices = Array.from(
       { length: t.tot - t.van + 1 },
@@ -78,7 +79,7 @@ export function tekenTijdlijnBijlage(
       });
     }
     indices.forEach((i) => text(namen[i], x(i) - 2, top + 43, 6));
-    top += 50;
+    top += 46;
   }
   text(
     `${t.jaar}: groen${t.vergelijkjaar !== null ? ` | ${t.vergelijkjaar}: blauw gestreept` : ""} | Open punt: lopend of onvolledig`,
@@ -112,6 +113,11 @@ export function tekenTijdlijnBijlage(
       top,
       7,
     );
+    top += 6;
+    const overzicht = saldoOverzicht([t.saldo], [t.saldo.woning_id], t.jaar, t.van, t.tot, t.tot);
+    text(`Afgesproken voorschot: EUR ${n(overzicht.voorschot)} | Geschatte kosten: EUR ${n(overzicht.kosten)}`,16,top,8);
+    top += 5;
+    text(`${overzicht.saldo !== null && overzicht.saldo < 0 ? "Opgebouwd tekort" : "Opgebouwd saldo"}: EUR ${n(overzicht.saldo === null ? null : Math.abs(overzicht.saldo))} | Afgesloten maanden ${overzicht.van} t/m ${overzicht.tot}`,16,top,8);
     top += 6;
     [
       "Maand",

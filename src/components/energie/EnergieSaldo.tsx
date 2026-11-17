@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { saldoOverzicht } from "@/lib/energie/saldo-overzicht";
 import type { PandSaldo } from "@/lib/energie/voorschotten";
 export const geld = (n: number | null) =>
   n === null
@@ -21,39 +23,21 @@ export default function EnergieSaldo({
   sluit?: () => void;
 }) {
   const scope = saldi.filter((p) => ids.includes(p.woning_id));
-  const ontbrekende = ids.filter(
-    (id) =>
-      !scope.some(
-        (p) =>
-          p.woning_id === id &&
-          p.maanden.some(
-            (m) => m.maand === `${jaar}-${String(maand + 1).padStart(2, "0")}`,
-          ),
-      ),
-  );
-  const key = `${jaar}-${String(maand + 1).padStart(2, "0")}`;
-  const gekozen = scope.flatMap((p) =>
-    p.maanden.filter((m) => m.maand === key).map((m) => ({ p, m })),
-  );
-  const som = (field: "kosten" | "voorschot" | "saldo" | "verschil") =>
-    !gekozen.length ||
-    ontbrekende.length ||
-    gekozen.some((r) => r.m[field] === null)
-      ? null
-      : gekozen.reduce((s, r) => s + r.m[field]!, 0);
-  const saldo = som("saldo");
+  const overzicht = saldoOverzicht(saldi, ids, jaar, van, tot, maand);
+  const saldo = overzicht.saldo;
+  const periode = (key:string) => new Date(`${key}-01T12:00:00Z`).toLocaleDateString("nl-NL",{month:"long",year:"numeric",timeZone:"UTC"});
   return (
     <section
-      className="rounded-2xl border border-emerald-900/20 bg-white p-5 text-slate-950"
+      className="rounded-2xl border border-emerald-900/20 bg-white p-3 text-slate-950"
       aria-label="Informatief voorschotsaldo"
     >
       <header className="flex justify-between gap-4">
         <div>
           <h2 className="text-xl font-semibold text-emerald-950">
-            Voorschot en geschatte kosten
+            Voorschot en geschatte kosten · alle producten
           </h2>
           <p className="text-sm mt-1">
-            Stroom + gas + water · inclusief btw · {key} · geen afrekening
+            {periode(overzicht.van)} t/m {periode(overzicht.tot)} · afgesloten maanden
           </p>
         </div>
         {sluit && (
@@ -67,52 +51,18 @@ export default function EnergieSaldo({
           </button>
         )}
       </header>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x mt-3">
         {[
-          ["Afgesproken voorschot", som("voorschot")],
-          ["Geschatte totale kosten", som("kosten")],
-          ["Verschil deze maand", som("verschil")],
-          [
-            saldo === null
-              ? "Opgebouwd saldo"
-              : saldo < 0
-                ? "Opgebouwd tekort"
-                : "Opgebouwd tegoed",
-            saldo,
-          ],
-        ].map(([label, value]) => (
-          <div key={String(label)} className="rounded-xl bg-slate-50 p-3">
-            <p className="text-sm">{label}</p>
-            <strong className="block mt-1 text-xl tabular-nums">
-              {geld(value as number | null)}
-            </strong>
-          </div>
-        ))}
+          ["Afgesproken voorschot", overzicht.voorschot],
+          ["Geschatte kosten", overzicht.kosten],
+          [saldo === null ? "Opgebouwd saldo" : saldo < 0 ? "Opgebouwd tekort" : "Opgebouwd tegoed", saldo === null ? null : Math.abs(saldo)],
+        ].map(([label,value],i)=><div className="px-3 py-2" key={String(label)}><p className="text-sm font-semibold">{label}</p><strong className={`block text-3xl tabular-nums ${i===2 && saldo!==null && saldo<0 ? "text-amber-800" : "text-emerald-950"}`}>{value===null ? "Nog niet beschikbaar" : geld(value as number)}</strong></div>)}
       </div>
-      {ontbrekende.length > 0 && (
-        <p className="mt-3 text-amber-900">
-          Voor {ontbrekende.length} geselecteerde pand(en) ontbreekt een
-          voorschotafspraak. Geen volledig groepssaldo beschikbaar.
-        </p>
-      )}
-      {!gekozen.length && (
-        <p className="mt-3">Geen afspraakgegevens in de geselecteerde maand.</p>
-      )}
-      {gekozen.some((r) => r.m.lopend) && (
-        <p className="mt-3 font-semibold">
-          Lopende maand: alleen tot de getoonde peildatum, geen maandprognose.
-          Ontbrekende metingen houden het saldo onbekend.
-        </p>
-      )}
-      <p className="mt-3 text-sm">
-        Positief = informatief tegoed; negatief = informatief tekort. Het saldo
-        telt vanaf het startsaldo en de startdatum van de klantafspraak.
-        Grafiek- en maandfilters veranderen deze berekening niet. Voorschotten
-        zijn afspraken, geen gecontroleerde betalingen.
-      </p>
+      <p className="mt-2 text-xs">Beginsaldo van deze periode: {geld(overzicht.beginsaldo)} · lopende maand niet meegenomen.</p>
+      {(overzicht.ontbrekend>0 || overzicht.kosten===null || overzicht.saldo===null) && <p className="mt-2 text-sm text-amber-900">{overzicht.ontbrekend>0 ? "Voorschotgegevens: nog niet ingevuld of buiten de gekozen periode." : "Tarief, startsaldo of meetgegevens ontbreken; het volledige saldo is nog onbekend."} Het verbruik blijft zichtbaar.</p>}
       <details className="mt-3">
         <summary className="cursor-pointer font-semibold">
-          Maanden en onderbouwing
+          Maandoverzicht bekijken
         </summary>
         {scope.map((p) => (
           <div className="mt-4" key={p.verhuurperiode_id}>
@@ -212,6 +162,10 @@ export default function EnergieSaldo({
           </div>
         ))}
       </details>
+      <footer className="mt-3 border-t pt-2 flex flex-wrap justify-between items-center gap-2 text-xs">
+        <p>Informatieve raming · inclusief btw · geen afrekening</p>
+        <Link href="/bedrijven/energieanalyse/beheer" className="rounded border border-emerald-800 px-3 py-2 font-semibold text-emerald-950">Tarieven en voorschot instellen</Link>
+      </footer>
     </section>
   );
 }

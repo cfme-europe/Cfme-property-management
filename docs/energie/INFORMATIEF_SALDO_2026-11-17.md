@@ -33,3 +33,13 @@ Zonder deze migratie blijft verbruik beschikbaar; nieuwe financiële invoer kan 
 - PDF met drie producten en twaalf maandregels gerenderd en visueel gecontroleerd: één aanvullende pagina, geen afgesneden tabel.
 - Geen claim van live browser/iPad-verificatie: lokale Chromium kon door de uitvoeromgeving niet starten.
 - Niet op de echte database gemigreerd; lokale PGlite-test verifieert rechten en versiebeheer, geen bewijs van live PostgREST/RLS-werking.
+
+## Presentatie volgens goedgekeurde foto 2 (17 november)
+- Eén paneel met gestapelde stroom/gas/watergrafieken, gedeelde legenda en maandstrook.
+- Product- en eenheidsknoppen direct bereikbaar; klant/pand/periode/vergelijking bovenaan.
+- Geen grote samenvattingskaarten boven de grafieken. Broninformatie ingeklapt.
+- Financieel blok direct onder de grafieken; alle producten onafhankelijk van grafiekfilter.
+- Presentatietotalen vanaf geselecteerde beginmaand t/m geselecteerde maand, uitsluitend afgesloten maanden. Cumulatief saldo blijft de bestaande waarde uit de afspraakketen; beginsaldo van de weergegeven periode wordt apart aangegeven.
+- Ontbrekende afspraak/prijs/metingen worden niet als nul weergegeven.
+- Geen wijziging in database, RLS, opslag of onderliggende verbruiksberekening.
+- Verificatie: 11 gerichte tests, TypeScript, ESLint en Next-build geslaagd. PDF op één extra pagina visueel gecontroleerd. Browser/iPad niet visueel getest: lokale Chromiumstart geblokkeerd (socket Operation not permitted).

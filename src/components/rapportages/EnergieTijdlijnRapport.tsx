@@ -1,3 +1,4 @@
+import { saldoOverzicht } from "@/lib/energie/saldo-overzicht";
 import type { TijdlijnRapport } from "@/lib/energie/tijdlijn-rapport";
 import { geld } from "@/components/energie/EnergieSaldo";
 const maanden = [
@@ -27,6 +28,7 @@ export default function EnergieTijdlijnRapport({
     { length: data.tot - data.van + 1 },
     (_, i) => i + data.van,
   );
+  const overzicht = data.saldo ? saldoOverzicht([data.saldo], [data.saldo.woning_id], data.jaar, data.van, data.tot, data.tot) : null;
   return (
     <section
       data-energiepagina
@@ -34,10 +36,12 @@ export default function EnergieTijdlijnRapport({
       style={{ colorScheme: "light" }}
     >
       <p className="font-bold text-emerald-900">CFME CONTROL</p>
-      <h2 className="text-3xl font-semibold mt-2">Verbruik door de tijd</h2>
+      <h2 className="text-3xl font-semibold mt-2">Verbruik en voorschot</h2>
       <p className="mb-4">
         {adres} · {maanden[data.van]}–{maanden[data.tot]} {data.jaar}
       </p>
+      <div className="rounded-xl border bg-white p-3">
+      <h3 className="font-bold text-emerald-950">Verbruik per maand</h3>
       {data.grafieken.map((g) => {
         const maximum =
           Math.max(
@@ -49,13 +53,13 @@ export default function EnergieTijdlijnRapport({
             55 + ((i - data.van) * 720) / Math.max(1, indices.length - 1),
           y = (v: number) => 150 - (v / maximum) * 120;
         return (
-          <div className="rounded-lg border bg-white p-3 mb-3" key={g.product}>
+          <div className="py-1" key={g.product}>
             <h3 className="font-semibold capitalize">
               {g.product} · {g.eenheid}
             </h3>
             <svg
               viewBox="0 0 810 180"
-              className="w-full"
+              className="w-full max-h-40"
               role="img"
               aria-label={`${g.product} ${data.jaar}`}
             >
@@ -151,6 +155,7 @@ export default function EnergieTijdlijnRapport({
         . Open punten: lopende maand of onvolledige metingen. Maandwaarden
         verdeeld uit meteropnames; geen dagelijkse metingen.
       </p>
+      </div>
       {data.saldoOntbreekt && (
         <p className="mt-4">
           Voorschotsaldo onbekend: er is nog geen voorschotafspraak voor deze
@@ -165,6 +170,12 @@ export default function EnergieTijdlijnRapport({
           <p className="text-sm">
             Start {data.saldo.vanaf} · startsaldo {geld(data.saldo.startsaldo)}
           </p>
+          {overzicht && <div className="grid grid-cols-3 gap-3 my-3">
+            <div><p>Afgesproken voorschot</p><strong>{geld(overzicht.voorschot)}</strong></div>
+            <div><p>Geschatte kosten</p><strong>{geld(overzicht.kosten)}</strong></div>
+            <div><p>{overzicht.saldo !== null && overzicht.saldo < 0 ? "Opgebouwd tekort" : "Opgebouwd tegoed / saldo"}</p><strong>{geld(overzicht.saldo === null ? null : Math.abs(overzicht.saldo))}</strong></div>
+          </div>}
+          <details><summary className="cursor-pointer">Maandoverzicht bekijken</summary>
           <table className="mt-2 w-full text-left text-sm">
             <thead>
               <tr>
@@ -191,7 +202,7 @@ export default function EnergieTijdlijnRapport({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></details>
           <p className="mt-2 text-sm">
             Positief = tegoed; negatief = tekort. * Lopende maand, nog
             onvolledig. Onbekend betekent dat invoer of metingen ontbreken.
