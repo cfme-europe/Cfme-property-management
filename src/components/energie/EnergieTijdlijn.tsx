@@ -955,6 +955,7 @@ export default function EnergieTijdlijn({
       }
       {selected.length > 0 && zichtbaar("saldo") && (
         <EnergieSaldo
+          bedrijf={bedrijf}
           saldi={saldi}
           ids={ids}
           jaar={jaar}

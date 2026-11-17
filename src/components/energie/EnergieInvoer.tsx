@@ -7,7 +7,7 @@ import {
   type VoorschotAfspraak,
 } from "@/lib/energie/voorschotten";
 const veld =
-  "mt-1 w-full min-h-11 rounded-lg border border-slate-400 bg-white px-3 py-2 text-slate-950";
+  "mt-1 min-w-0 max-w-full w-full min-h-11 rounded-lg border border-slate-400 bg-white px-3 py-2 text-slate-950";
 function Form({
   soort,
   vorig,
@@ -52,6 +52,7 @@ export default function EnergieInvoer({
   afspraken,
   beschikbaar,
   initieel,
+  initieelJaar,
 }: {
   woningen: { id: number; adres: string }[];
   bedrijven: { id: number; naam: string }[];
@@ -66,9 +67,10 @@ export default function EnergieInvoer({
   afspraken: VoorschotAfspraak[];
   beschikbaar: boolean;
   initieel?: number;
+  initieelJaar?: number;
 }) {
   const [woning, setWoning] = useState(initieel ?? woningen[0]?.id ?? 0),
-    [jaar, setJaar] = useState(new Date().getFullYear());
+    [jaar, setJaar] = useState(initieelJaar ?? new Date().getFullYear());
   const verhuur = huren.filter((h) => h.woning_id === woning);
   const [huurKeuze, setHuur] = useState<number | null>(null);
   const huur = verhuur.find((h) => h.id === huurKeuze) ?? verhuur.at(-1);
@@ -95,6 +97,7 @@ export default function EnergieInvoer({
       />
     </label>
   );
+  if (!woningen.length) return <p>Geen panden binnen deze selectie. Kies eerst een pand in het verbruiksoverzicht.</p>;
   return (
     <section
       className="rounded-2xl border border-slate-300 bg-white p-5 text-slate-950"

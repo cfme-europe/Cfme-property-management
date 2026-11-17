@@ -21,6 +21,9 @@ export default async function EnergieBeheer({
     fout?: string;
     klaar?: string;
     woning_id?: string | string[];
+    panden?: string;
+    bedrijf?: string;
+    jaar?: string;
   }>;
 }) {
   const [bron, ext, params, invoer] = await Promise.all([
@@ -36,6 +39,11 @@ export default async function EnergieBeheer({
     bron.woningen.some((woning) => woning.id === Number(params.woning_id))
       ? Number(params.woning_id)
       : undefined;
+  const klantId = typeof params.bedrijf === "string" && /^\d+$/.test(params.bedrijf) ? Number(params.bedrijf) : undefined;
+  const prijsjaar = typeof params.jaar === "string" && /^\d{4}$/.test(params.jaar) && Number(params.jaar) >= 1900 && Number(params.jaar) <= 2200 ? Number(params.jaar) : new Date().getFullYear();
+  const pandIds = typeof params.panden === "string" ? params.panden.split(",").filter(id => /^\d+$/.test(id)).map(Number) : undefined;
+  const invoerHuren = bron.verhuurperioden.filter(h => !klantId || h.bedrijf_id === klantId);
+  const invoerWoningen = bron.woningen.filter(w => (!pandIds || pandIds.includes(w.id)) && (!klantId || invoerHuren.some(h => h.woning_id === w.id)));
   const product = (
     <label>
       Product
@@ -95,13 +103,14 @@ export default async function EnergieBeheer({
         </header>
         <div id="energie-invoer" />
         <EnergieInvoer
-          woningen={bron.woningen}
+          woningen={invoerWoningen}
           bedrijven={bron.bedrijven}
-          huren={bron.verhuurperioden}
+          huren={invoerHuren}
           prijzen={invoer.prijzen}
           afspraken={invoer.afspraken}
           beschikbaar={invoer.beschikbaar}
-          initieel={initieelWoningId}
+          initieel={invoerWoningen.some(w => w.id === initieelWoningId) ? initieelWoningId : undefined}
+          initieelJaar={prijsjaar}
         />
         <details>
           <summary className="cursor-pointer font-semibold">

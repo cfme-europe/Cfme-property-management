@@ -43,3 +43,7 @@ Zonder deze migratie blijft verbruik beschikbaar; nieuwe financiële invoer kan 
 - Ontbrekende afspraak/prijs/metingen worden niet als nul weergegeven.
 - Geen wijziging in database, RLS, opslag of onderliggende verbruiksberekening.
 - Verificatie: 11 gerichte tests, TypeScript, ESLint en Next-build geslaagd. PDF op één extra pagina visueel gecontroleerd. Browser/iPad niet visueel getest: lokale Chromiumstart geblokkeerd (socket Operation not permitted).
+
+## Activatie en invoercontext 17 november
+Na expliciet gebruikersakkoord is de bestaande SQL-migratie toegepast op lorimlzpadrsckgjvshy via MCP; remote migratieversie 20261117154549 (lokale bron 20261117143139). Beide tabellen, RLS en management-insertpolicies gecontroleerd. Geen anonieme SELECT en geen authenticated UPDATE. Geen klantbedragen ingevoerd. Houd bij toekomstige CLI-migratievergelijking rekening met dit versieverschil; niet blind db push uitvoeren.
+De invoerlink neemt geselecteerde pand-IDs, klant en prijsjaar mee. Server beperkt panden en huurkeuzes tot deze context; lege selectie valt niet terug op Test pand. Het fysieke testpand wordt niet gewijzigd/verwijderd.

@@ -13,6 +13,7 @@ export default function EnergieSaldo({
   tot = 11,
   maand,
   sluit,
+  bedrijf,
 }: {
   saldi: PandSaldo[];
   ids: number[];
@@ -21,6 +22,7 @@ export default function EnergieSaldo({
   tot?: number;
   maand: number;
   sluit?: () => void;
+  bedrijf?: number | null;
 }) {
   const scope = saldi.filter((p) => ids.includes(p.woning_id));
   const overzicht = saldoOverzicht(saldi, ids, jaar, van, tot, maand);
@@ -164,7 +166,7 @@ export default function EnergieSaldo({
       </details>
       <footer className="mt-3 border-t pt-2 flex flex-wrap justify-between items-center gap-2 text-xs">
         <p>Informatieve raming · inclusief btw · geen afrekening</p>
-        <Link href="/bedrijven/energieanalyse/beheer" className="rounded border border-emerald-800 px-3 py-2 font-semibold text-emerald-950">Tarieven en voorschot instellen</Link>
+        <Link href={`/bedrijven/energieanalyse/beheer?${new URLSearchParams({ panden: ids.join(","), jaar: String(jaar), ...(bedrijf ? { bedrijf: String(bedrijf) } : {}) })}`} className="rounded border border-emerald-800 px-3 py-2 font-semibold text-emerald-950">Tarieven en voorschot instellen</Link>
       </footer>
     </section>
   );
