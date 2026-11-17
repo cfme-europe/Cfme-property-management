@@ -1,19 +1,15 @@
-import {bouwEnergiePortfolioAnalyse,type Brondata,type Energiedrager} from "@/lib/energie/portfolio-analyse";
-import {volgendeDag} from "@/lib/energie/rekenregels";
-import { berekenVerbruiksperiodes } from "@/services/energieverbruik";
+import {
+  bouwEnergiePortfolioAnalyse,
+  type Brondata,
+  type Energiedrager,
+} from "@/lib/energie/portfolio-analyse";
+import { volgendeDag } from "@/lib/energie/rekenregels";
 import type {
   EnergieKengetal,
   RapportagemotorInvoer,
   RapportagemotorUitkomst,
   RapportageVerschil,
 } from "@/types/rapportagemotor";
-
-const DAG_MILLISECONDEN = 86_400_000;
-
-function datumTijd(waarde: string): number {
-  const [jaar, maand, dag] = waarde.split("-").map(Number);
-  return Date.UTC(jaar, maand - 1, dag);
-}
 
 function datumDeel(waarde: string): string {
   return waarde.slice(0, 10);
@@ -37,125 +33,6 @@ function verschil(huidig: number, vorig: number): RapportageVerschil {
       vorig === 0
         ? null
         : ((huidig - vorig) / vorig) * 100,
-  };
-}
-
-function persoonsdagen(
-  bewoners: RapportagemotorInvoer["bewoners"],
-  vanaf: string,
-  totExclusief: string,
-): number {
-  const begin = datumTijd(vanaf);
-  const einde = datumTijd(totExclusief);
-
-  return bewoners.reduce((totaal, bewoner) => {
-    const bewonerBegin = Math.max(
-      begin,
-      datumTijd(bewoner.incheckdatum),
-    );
-    const bewonerEinde = Math.min(
-      einde,
-      datumTijd(bewoner.uitcheckdatum ?? totExclusief),
-    );
-
-    if (bewonerEinde <= bewonerBegin) {
-      return totaal;
-    }
-
-    return (
-      totaal +
-      (bewonerEinde - bewonerBegin) /
-        DAG_MILLISECONDEN
-    );
-  }, 0);
-}
-
-type VerbruiksSleutel =
-  | "dagstroom"
-  | "nachtstroom"
-  | "elektriciteit"
-  | "gas"
-  | "water";
-
-function kengetal(
-  sleutel: VerbruiksSleutel,
-  periodes: ReturnType<typeof berekenVerbruiksperiodes>,
-  vorigePeriodes: ReturnType<typeof berekenVerbruiksperiodes>,
-  bewoners: RapportagemotorInvoer["bewoners"],
-): EnergieKengetal {
-  function bereken(
-    selectie: ReturnType<typeof berekenVerbruiksperiodes>,
-  ): {
-    totaal: number | null;
-    persoonsweken: number;
-    perPersoonPerWeek: number | null;
-  } {
-    let totaal = 0;
-    let heeftTotaal = false;
-    let gewogenPersoonsweken = 0;
-
-    for (const periode of selectie) {
-      const waarde = periode[sleutel].totaal;
-
-      if (waarde === null) {
-        continue;
-      }
-
-      const dagen = persoonsdagen(
-        bewoners,
-        periode.van_datum,
-        periode.tot_datum,
-      );
-      const weken = dagen / 7;
-
-      totaal += waarde;
-      heeftTotaal = true;
-      gewogenPersoonsweken += weken;
-    }
-
-    return {
-      totaal: heeftTotaal ? totaal : null,
-      persoonsweken: gewogenPersoonsweken,
-      perPersoonPerWeek:
-        heeftTotaal && gewogenPersoonsweken > 0
-          ? totaal / gewogenPersoonsweken
-          : null,
-    };
-  }
-
-  const huidig = bereken(periodes);
-  const vorig = bereken(vorigePeriodes);
-
-  const afwijking =
-    huidig.perPersoonPerWeek !== null &&
-    vorig.perPersoonPerWeek !== null &&
-    vorig.perPersoonPerWeek > 0
-      ? ((huidig.perPersoonPerWeek -
-          vorig.perPersoonPerWeek) /
-          vorig.perPersoonPerWeek) *
-        100
-      : null;
-
-  const absoluteAfwijking =
-    afwijking === null ? null : Math.abs(afwijking);
-
-  return {
-    totaal: huidig.totaal,
-    persoonsweken: huidig.persoonsweken,
-    per_persoon_per_week: huidig.perPersoonPerWeek,
-    vorige_per_persoon_per_week:
-      vorig.perPersoonPerWeek,
-    afwijking_percentage: afwijking,
-    signalering:
-      afwijking === null
-        ? "onvoldoende_data"
-        : absoluteAfwijking !== null &&
-            absoluteAfwijking >= 35
-          ? "kritiek"
-          : absoluteAfwijking !== null &&
-              absoluteAfwijking >= 20
-            ? "waarschuwing"
-            : "normaal",
   };
 }
 
@@ -220,52 +97,6 @@ export function bouwRapportagemotor(
   const openAfwijking = (status: string) =>
     !["opgelost", "niet_relevant"].includes(status);
 
-  const alleVerbruiksperiodes =
-    berekenVerbruiksperiodes(invoer.meterstanden);
-
-  const huidigeVerbruiksperiodes =
-    alleVerbruiksperiodes.filter((periode) =>
-      periode.van_datum >= huidig.vanaf && periode.tot_datum <= volgendeDag(huidig.tot_en_met),
-    );
-
-  const vorigeVerbruiksperiodes =
-    alleVerbruiksperiodes.filter((periode) =>
-      periode.van_datum >= vorig.vanaf && periode.tot_datum <= volgendeDag(vorig.tot_en_met),
-    );
-
-  const energie = {
-    dagstroom: kengetal(
-      "dagstroom",
-      huidigeVerbruiksperiodes,
-      vorigeVerbruiksperiodes,
-      invoer.bewoners,
-    ),
-    nachtstroom: kengetal(
-      "nachtstroom",
-      huidigeVerbruiksperiodes,
-      vorigeVerbruiksperiodes,
-      invoer.bewoners,
-    ),
-    elektriciteit: kengetal(
-      "elektriciteit",
-      huidigeVerbruiksperiodes,
-      vorigeVerbruiksperiodes,
-      invoer.bewoners,
-    ),
-    gas: kengetal(
-      "gas",
-      huidigeVerbruiksperiodes,
-      vorigeVerbruiksperiodes,
-      invoer.bewoners,
-    ),
-    water: kengetal(
-      "water",
-      huidigeVerbruiksperiodes,
-      vorigeVerbruiksperiodes,
-      invoer.bewoners,
-    ),
-  };
-
   const woningIds = [...new Set(invoer.meterstanden.map(m => m.woning_id))];
   const bron: Brondata = invoer.energie_brondata ?? {
     meterstanden: invoer.meterstanden,
@@ -274,12 +105,58 @@ export function bouwRapportagemotor(
     bewoners: woningIds.length === 1 ? invoer.bewoners.map((b,i)=>({...b,id:i+1,verhuurperiode_id:woningIds[0]})) : [],
   };
   let onvolledigeMeetperioden = 0;
-  for (const drager of ["elektriciteit","gas","water"] as Energiedrager[]) {
-    const analyse = (vanaf:string,tot:string) => bouwEnergiePortfolioAnalyse(bron,{niveau:"totaal",drager,vanaf,totEnMet:volgendeDag(tot),archief:true});
-    const a = analyse(huidig.vanaf,huidig.tot_en_met), b = analyse(vorig.vanaf,vorig.tot_en_met);
-    const comparable = a.dekking_percentage === 100 && b.dekking_percentage === 100 && a.rijen.every(r=>r.betrouwbaarheid==="exact") && b.rijen.every(r=>r.betrouwbaarheid==="exact");
-    const delta = comparable && a.per_persoon_per_week!==null && b.per_persoon_per_week!==null && b.per_persoon_per_week>0 ? 100*(a.per_persoon_per_week-b.per_persoon_per_week)/b.per_persoon_per_week : null;
-    energie[drager] = {totaal:a.totaal,persoonsweken:a.persoonsdagen/7,per_persoon_per_week:a.per_persoon_per_week,vorige_per_persoon_per_week:comparable?b.per_persoon_per_week:null,afwijking_percentage:delta,signalering:delta===null?"onvoldoende_data":delta>=35?"kritiek":delta>=20?"waarschuwing":"normaal"};
+  const energie = {} as Record<Energiedrager, EnergieKengetal>;
+  for (const drager of [
+    "elektriciteit",
+    "dagstroom",
+    "nachtstroom",
+    "gas",
+    "water",
+  ] as Energiedrager[]) {
+    const analyse = (vanaf: string, tot: string) =>
+      bouwEnergiePortfolioAnalyse(bron, {
+        niveau: "totaal",
+        drager,
+        vanaf,
+        totEnMet: volgendeDag(tot),
+        archief: true,
+        modus: "schatting",
+      });
+    const a = analyse(huidig.vanaf, huidig.tot_en_met);
+    const b = analyse(vorig.vanaf, vorig.tot_en_met);
+    const compleet = (resultaat: ReturnType<typeof analyse>) =>
+      resultaat.rijen.length > 0 &&
+      resultaat.rijen.every(
+        (rij) =>
+          rij.dekking_percentage === 100 &&
+          rij.per_persoon_per_week !== null,
+      );
+    const vergelijkbaar = compleet(a) && compleet(b);
+    const huidigeNorm = compleet(a) ? a.per_persoon_per_week : null;
+    const vorigeNorm = compleet(b) ? b.per_persoon_per_week : null;
+    const delta =
+      vergelijkbaar &&
+      huidigeNorm !== null &&
+      vorigeNorm !== null &&
+      vorigeNorm > 0
+        ? (100 * (huidigeNorm - vorigeNorm)) / vorigeNorm
+        : null;
+    const absoluteAfwijking = delta === null ? null : Math.abs(delta);
+    energie[drager] = {
+      totaal: a.totaal,
+      persoonsweken: a.persoonsdagen / 7,
+      per_persoon_per_week: huidigeNorm,
+      vorige_per_persoon_per_week: vergelijkbaar ? vorigeNorm : null,
+      afwijking_percentage: delta,
+      signalering:
+        delta === null
+          ? "onvoldoende_data"
+          : absoluteAfwijking !== null && absoluteAfwijking >= 35
+            ? "kritiek"
+            : absoluteAfwijking !== null && absoluteAfwijking >= 20
+              ? "waarschuwing"
+              : "normaal",
+    };
     onvolledigeMeetperioden += a.uitgesloten_meetperioden;
   }
 
@@ -449,7 +326,7 @@ export function bouwRapportagemotor(
   }
 
   return {
-    rekenregels_versie: 2,
+    rekenregels_versie: 3,
     huidige_periode: {
       vanaf: huidig.vanaf,
       tot_en_met: huidig.tot_en_met,
@@ -511,8 +388,9 @@ export function bouwRapportagemotor(
     acties,
     toelichting_rekenregels: [
       "De vorige periode is de direct voorafgaande kalendermaand.",
-      "Alleen volledig ingesloten meetintervallen worden exact toegerekend; ontbrekende kalenderdagen worden niet geschat.",
-      "Verbruik per persoon per week gebruikt persoonsdagen binnen de exacte meetperiode.",
+      "Historische meterstanden blijven als bron beschikbaar; halfopen meetintervallen worden tijdsevenredig over de geselecteerde periode verdeeld.",
+      "Tijdsdekking telt unieke kalenderdagen met een bruikbaar meetinterval; naar rato berekende grensintervallen tellen mee.",
+      "Verbruik per persoon per week gebruikt geregistreerde persoonsdagen over dezelfde bruikbare meetperiode.",
       "Werkelijke kosten gaan vóór geschatte kosten; beide worden nooit bij dezelfde afwijking dubbel geteld.",
       "Een energieafwijking vanaf 20% geeft een waarschuwing en vanaf 35% een kritisch signaal.",
       "De risicoscore is uitlegbaar opgebouwd uit veiligheid, achterstallige taken, energie en open afwijkingen.",

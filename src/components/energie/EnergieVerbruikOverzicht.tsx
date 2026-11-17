@@ -53,48 +53,52 @@ export default function EnergieVerbruikOverzicht({
 
   return (
     <div className="overflow-x-auto">
-      <p className="mb-4 text-sm text-slate-600">Historische opnamevergelijking: persoonsnormen gebruiken het gemiddelde bewonersaantal van de twee meteropnames en zijn indicatief. Gebruik Energie-intelligence voor normalisatie met de volledige bewonershistorie en datakwaliteitscontrole.</p>
+      <p className="mb-4 text-sm text-slate-600">
+        Intervallen volgen dezelfde meetvalidatie en tijdsevenredige berekening
+        als de energieanalyse. Persoonsnormen zijn hier niet beschikbaar,
+        omdat de volledige bewonersregistratie niet is geladen.
+      </p>
       <table className="w-full min-w-[1450px]">
         <thead className="border-b bg-slate-100">
           <tr>
             <th className="p-4 text-left">
-              Periode
+              Periode (eind exclusief)
             </th>
             <th className="p-4 text-left">
               Dagen
             </th>
             <th className="p-4 text-left">
-              Gem. bewoners
+              Bewonersnorm
             </th>
             <th className="p-4 text-left">
               Dagstroom totaal
             </th>
             <th className="p-4 text-left">
-              Dagstroom p.p./week
+              Dagstroom per week
             </th>
             <th className="p-4 text-left">
               Nachtstroom totaal
             </th>
             <th className="p-4 text-left">
-              Nachtstroom p.p./week
+              Nachtstroom per week
             </th>
             <th className="p-4 text-left">
               Elektriciteit totaal
             </th>
             <th className="p-4 text-left">
-              Elektriciteit p.p./week
+              Elektriciteit per week
             </th>
             <th className="p-4 text-left">
               Gas totaal
             </th>
             <th className="p-4 text-left">
-              Gas p.p./week
+              Gas per week
             </th>
             <th className="p-4 text-left">
               Water totaal
             </th>
             <th className="p-4 text-left">
-              Water p.p./week
+              Water per week
             </th>
           </tr>
         </thead>
@@ -116,11 +120,11 @@ export default function EnergieVerbruikOverzicht({
               </td>
 
               <td className="p-4">
-                {new Intl.NumberFormat("nl-NL", {
-                  maximumFractionDigits: 1,
-                }).format(
-                  periode.gemiddeld_bewoners_aantal
-                )}
+                {periode.gemiddeld_bewoners_aantal === null
+                  ? "—"
+                  : new Intl.NumberFormat("nl-NL", {
+                      maximumFractionDigits: 1,
+                    }).format(periode.gemiddeld_bewoners_aantal)}
               </td>
 
               <td className="p-4">
@@ -132,8 +136,7 @@ export default function EnergieVerbruikOverzicht({
 
               <td className="p-4 font-semibold text-emerald-800">
                 {getal(
-                  periode.dagstroom
-                    .per_bewoner_per_week,
+                  periode.dagstroom.per_week,
                   "kWh"
                 )}
               </td>
@@ -147,8 +150,7 @@ export default function EnergieVerbruikOverzicht({
 
               <td className="p-4 font-semibold text-emerald-800">
                 {getal(
-                  periode.nachtstroom
-                    .per_bewoner_per_week,
+                  periode.nachtstroom.per_week,
                   "kWh"
                 )}
               </td>
@@ -162,8 +164,7 @@ export default function EnergieVerbruikOverzicht({
 
               <td className="p-4 font-semibold text-emerald-800">
                 {getal(
-                  periode.elektriciteit
-                    .per_bewoner_per_week,
+                  periode.elektriciteit.per_week,
                   "kWh"
                 )}
               </td>
@@ -177,7 +178,7 @@ export default function EnergieVerbruikOverzicht({
 
               <td className="p-4 font-semibold text-emerald-800">
                 {getal(
-                  periode.gas.per_bewoner_per_week,
+                  periode.gas.per_week,
                   "m³"
                 )}
               </td>
@@ -191,7 +192,7 @@ export default function EnergieVerbruikOverzicht({
 
               <td className="p-4 font-semibold text-emerald-800">
                 {getal(
-                  periode.water.per_bewoner_per_week,
+                  periode.water.per_week,
                   "m³"
                 )}
               </td>

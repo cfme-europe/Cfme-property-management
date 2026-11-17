@@ -1,5 +1,6 @@
 /** Halfopen kalenderintervallen. Geen lokale DST-uren in dagberekeningen. */
-export const ENERGIE_REKENREGELS = "energie-2.0.0";
+export const ENERGIE_REKENREGELS = "energie-3.0.0";
+export const ENERGIE_ANALYSE_STARTDATUM = "2026-09-01";
 export function datumTijd(datum: string): number {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(datum))
     throw new Error("Ongeldige kalenderdatum.");
@@ -17,6 +18,9 @@ export function dagen(van: string, tot: string) {
 export function volgendeDag(datum: string) {
   return new Date(datumTijd(datum) + 86400000).toISOString().slice(0, 10);
 }
+export function vorigeDag(datum: string) {
+  return new Date(datumTijd(datum) - 86400000).toISOString().slice(0, 10);
+}
 export function datumNaDagen(datum: string, aantal: number) {
   return new Date(datumTijd(datum) + aantal * 86400000)
     .toISOString()
@@ -25,6 +29,9 @@ export function datumNaDagen(datum: string, aantal: number) {
 export function controleerPeriode(van: string, tot: string) {
   if (dagen(van, tot) <= 0)
     throw new Error("Eindmeetdatum moet na beginmeetdatum liggen.");
+}
+export function controleerEnergieAnalysePeriode(van: string, tot: string) {
+  controleerPeriode(van, tot);
 }
 export function verschil(
   begin: number | null | undefined,

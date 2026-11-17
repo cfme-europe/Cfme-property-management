@@ -7,12 +7,32 @@ export type ElektriciteitsStand = {
   elektriciteit_nacht_kwh?: number | null;
 };
 export type RegisterType = "dag_nacht" | "enkel" | "totaal";
+const REGISTERS = [
+  "dagstroom_kwh",
+  "nachtstroom_kwh",
+  "elektriciteit_kwh",
+  "elektriciteit_dag_kwh",
+  "elektriciteit_nacht_kwh",
+] as const;
+export function beschikbareElektriciteitsstanden(
+  a: ElektriciteitsStand,
+  b: ElektriciteitsStand,
+) {
+  return REGISTERS.filter(
+    (veld) => (a[veld] ?? null) !== null || (b[veld] ?? null) !== null,
+  ).map((register) => ({
+    register,
+    begin: a[register] ?? null,
+    eind: b[register] ?? null,
+  }));
+}
 export function elektriciteitsMeting(
   a: ElektriciteitsStand,
   b: ElektriciteitsStand,
   configuratie?: RegisterType,
 ) {
   const meldingen: string[] = [];
+  let bronVelden: string[] = [];
   for (const m of [a, b]) {
     if (
       (m.elektriciteit_dag_kwh != null &&
@@ -34,10 +54,41 @@ export function elektriciteitsMeting(
     nacht = verschil(a.nachtstroom_kwh, b.nachtstroom_kwh),
     totaal = verschil(a.elektriciteit_kwh, b.elektriciteit_kwh);
   let waarde: number | null = null;
-  if (configuratie === "totaal") waarde = totaal;
-  else if (configuratie === "enkel") waarde = dag;
-  else if (dag !== null && nacht !== null) waarde = dag + nacht;
-  else if (
+  if (configuratie === "totaal") {
+    waarde = totaal;
+    bronVelden = ["elektriciteit_kwh"];
+    if (waarde === null)
+      meldingen.push(
+        a.elektriciteit_kwh === null || b.elektriciteit_kwh === null
+          ? "Totaalmeter: verplichte totaalmeterstand ontbreekt"
+          : "Totaalmeter: stand loopt terug of is ongeldig",
+      );
+  } else if (configuratie === "enkel") {
+    waarde = dag;
+    bronVelden = ["dagstroom_kwh"];
+    if (waarde === null)
+      meldingen.push(
+        a.dagstroom_kwh === null || b.dagstroom_kwh === null
+          ? "Enkelvoudige meter: verplichte dagstroomstand ontbreekt"
+          : "Enkelvoudige meter: dagstroomstand loopt terug of is ongeldig",
+      );
+  } else if (dag !== null && nacht !== null) {
+    waarde = dag + nacht;
+    bronVelden = ["dagstroom_kwh", "nachtstroom_kwh"];
+  } else if (configuratie === "dag_nacht") {
+    if (dag === null)
+      meldingen.push(
+        a.dagstroom_kwh === null || b.dagstroom_kwh === null
+          ? "Dubbele meter: verplichte dagstroomstand ontbreekt"
+          : "Dubbele meter: dagstroomstand loopt terug of is ongeldig",
+      );
+    if (nacht === null)
+      meldingen.push(
+        a.nachtstroom_kwh === null || b.nachtstroom_kwh === null
+          ? "Dubbele meter: verplichte nachtstroomstand ontbreekt"
+          : "Dubbele meter: nachtstroomstand loopt terug of is ongeldig",
+      );
+  } else if (
     configuratie === undefined &&
     a.dagstroom_kwh === null &&
     b.dagstroom_kwh === null &&
@@ -45,9 +96,33 @@ export function elektriciteitsMeting(
     b.nachtstroom_kwh === null
   ) {
     waarde = totaal;
+    bronVelden = ["elektriciteit_kwh"];
     meldingen.push("Totaalmeterconfiguratie nog niet bevestigd");
+  } else if (
+    configuratie === undefined &&
+    totaal !== null &&
+    a.elektriciteit_kwh === a.dagstroom_kwh &&
+    b.elektriciteit_kwh === b.dagstroom_kwh &&
+    a.nachtstroom_kwh === null &&
+    b.nachtstroom_kwh === null
+  ) {
+    waarde = totaal;
+    bronVelden = ["elektriciteit_kwh"];
+    meldingen.push(
+      "Historische totaalstanden gebruikt; dag-/nachtverdeling is niet bevestigd.",
+    );
   } else {
-    meldingen.push("Registerconfiguratie of registerstanden onvolledig");
+    const aanwezig = (m: ElektriciteitsStand) =>
+      [
+        m.dagstroom_kwh !== null ? "dag" : null,
+        m.nachtstroom_kwh !== null ? "nacht" : null,
+        m.elektriciteit_kwh !== null ? "totaal" : null,
+      ]
+        .filter(Boolean)
+        .join("+") || "geen";
+    meldingen.push(
+      `Elektriciteitsmeterconfiguratie ontbreekt en de opgeslagen standen zijn niet gelijkwaardig (begin: ${aanwezig(a)}; eind: ${aanwezig(b)}); registreer of de meter enkelvoudig, dubbel of totaalmeter is. Een leeg nachtveld bewijst niet dat de meter enkelvoudig is.`,
+    );
   }
   return {
     waarde: meldingen.some(
@@ -58,6 +133,14 @@ export function elektriciteitsMeting(
       : waarde,
     dag,
     nacht,
+    bronVelden:
+      meldingen.some(
+        (melding) =>
+          melding.startsWith("Tegenstrijdige") ||
+          melding.startsWith("Totaalmeter wijkt"),
+      )
+        ? []
+        : bronVelden,
     meldingen,
   };
 }

@@ -9,6 +9,7 @@ import {
 } from "@/services/energieanalyse-server";
 import {
   valideerTarief,
+  vindGeldendTarief,
   type Tariefplan,
   type Tariefcomponent,
 } from "@/lib/energie/tarieven";
@@ -18,6 +19,7 @@ import {
   ENERGIE_REKENREGELS,
 } from "@/lib/energie/rekenregels";
 import { bouwEnergieSnapshot } from "@/lib/energie/snapshot";
+import type { Energiedrager } from "@/lib/energie/portfolio-analyse";
 const text = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 function id(f: FormData, k: string, optional = false) {
   const v = text(f, k);
@@ -44,6 +46,178 @@ async function admin() {
       "Alleen beheer en management mogen tarieven en meterconfiguraties vastleggen.",
     );
   return { supabase, user };
+}
+const decimaal = (waarde: string, label: string) => {
+  const opgeschoond = waarde.replace(",", ".");
+  if (!/^\d+(\.\d{1,9})?$/.test(opgeschoond))
+    throw new Error(`${label}: gebruik een niet-negatief getal met maximaal 9 decimalen.`);
+  return opgeschoond;
+};
+function planId(sleutel: string) {
+  const bytes = createHash("sha256").update(sleutel).digest().subarray(0, 16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x50;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+export async function slaEnergiePrijzen(f: FormData) {
+  let fout = "";
+  try {
+    const { supabase } = await admin();
+    const uitbreiding = await getEnergieUitbreiding();
+    if (!uitbreiding.beschikbaar)
+      throw new Error("De tariefregistratie is nog niet beschikbaar.");
+    const woningId = id(f, "woning_id")!;
+    const vanaf = text(f, "vanaf");
+    datumTijd(vanaf);
+    const btw = decimaal(text(f, "btw_percentage"), "Btw-percentage");
+    if (Number(btw) > 100) throw new Error("Btw-percentage mag maximaal 100 zijn.");
+    const inclusief = text(f, "inclusief_btw") === "ja";
+    const producten = ["elektriciteit", "gas", "water"] as const;
+    const tariefPlannen = uitbreiding.tarieven;
+    const nieuwePlannen: Tariefplan[] = [];
+    const contract = [...(await getEnergieAnalyseBrondata()).verhuurperioden]
+      .filter(
+        (periode) =>
+          periode.woning_id === woningId &&
+          (!periode.startdatum || periode.startdatum <= vanaf) &&
+          (!periode.werkelijke_einddatum || periode.werkelijke_einddatum > vanaf),
+      )
+      .sort((a, b) => (b.startdatum ?? "").localeCompare(a.startdatum ?? ""))[0];
+    const bedrijfId = contract?.bedrijf_id ?? null;
+
+    for (const product of producten) {
+      const veld =
+        product === "elektriciteit" ? "dagstroom" : `${product}_prijs`;
+      const ingevoerd =
+        product === "elektriciteit"
+          ? [text(f, "dagstroom_prijs"), text(f, "nachtstroom_prijs")]
+          : [text(f, veld)];
+      if (ingevoerd.every((prijs) => !prijs)) continue;
+      if (
+        tariefPlannen.some(
+          (tarief) =>
+            tarief.product === product &&
+            tarief.vanaf === vanaf &&
+            tarief.woning_id === woningId &&
+            tarief.bedrijf_id === null,
+        )
+      )
+        throw new Error(
+          `${product}: er bestaat al een prijswijziging op ${vanaf}. Kies een andere datum.`,
+        );
+
+      const huidig = vindGeldendTarief(
+        tariefPlannen,
+        product,
+        woningId,
+        bedrijfId,
+        vanaf,
+      );
+      const componenten = huidig?.componenten ?? [];
+      let nieuweComponenten: Tariefcomponent[];
+      if (product === "elektriciteit") {
+        const dag = componenten.find((c) => c.soort === "dag");
+        const nacht = componenten.find((c) => c.soort === "nacht");
+        const nieuweDag = ingevoerd[0]
+          ? {
+              soort: "dag" as const,
+              prijs: decimaal(ingevoerd[0], "Dagstroomprijs"),
+              btw_percentage: btw,
+              inclusief_btw: inclusief,
+            }
+          : dag;
+        const nieuweNacht = ingevoerd[1]
+          ? {
+              soort: "nacht" as const,
+              prijs: decimaal(ingevoerd[1], "Nachtstroomprijs"),
+              btw_percentage: btw,
+              inclusief_btw: inclusief,
+            }
+          : nacht;
+        if (!nieuweDag || !nieuweNacht)
+          throw new Error(
+            "Vul Dagstroom en Nachtstroom in als een van beide nog geen geregistreerd tarief heeft.",
+          );
+        nieuweComponenten = [
+          ...componenten.filter(
+            (c) =>
+              !["variabel", "dag", "nacht"].includes(c.soort),
+          ),
+          nieuweDag,
+          nieuweNacht,
+        ];
+      } else {
+        nieuweComponenten = [
+          ...componenten.filter((c) => c.soort !== "variabel"),
+          {
+            soort: "variabel",
+            prijs: decimaal(ingevoerd[0], `${product}prijs`),
+            btw_percentage: btw,
+            inclusief_btw: inclusief,
+          },
+        ];
+      }
+
+      const scope = tariefPlannen.filter(
+        (tarief) =>
+          tarief.product === product &&
+          tarief.woning_id === woningId &&
+          tarief.bedrijf_id === null,
+      );
+      const tot =
+        scope
+          .map((tarief) => tarief.vanaf)
+          .filter((datum) => datum > vanaf)
+          .sort()[0] ?? null;
+      const bestaandeOpvolgers = new Set(
+        scope
+          .map((tarief) => tarief.voorganger_id)
+          .filter((id): id is string => !!id),
+      );
+      const voorganger =
+        scope
+          .filter((tarief) => !bestaandeOpvolgers.has(tarief.id))
+          .filter((tarief) => tarief.vanaf < vanaf)
+          .sort((a, b) => b.vanaf.localeCompare(a.vanaf))[0] ?? null;
+      const input = {
+        id: planId(`${woningId}:${product}:${vanaf}`),
+        product,
+        eenheid: product === "elektriciteit" ? "kWh" : "m³",
+        valuta: huidig?.valuta ?? "EUR",
+        vanaf,
+        tot,
+        woning_id: woningId,
+        bedrijf_id: null,
+        bron: "Handmatig ingevoerde prijs",
+        componenten: nieuweComponenten,
+        voorganger_id: voorganger?.id ?? null,
+      };
+      valideerTarief(input);
+      nieuwePlannen.push(input);
+    }
+    if (
+      producten.every((product) =>
+        product === "elektriciteit"
+          ? !text(f, "dagstroom_prijs") && !text(f, "nachtstroom_prijs")
+          : !text(f, `${product}_prijs`),
+      )
+    )
+      throw new Error("Vul minimaal één nieuwe prijs in.");
+    const { error } = await supabase
+      .from("energie_tariefplannen")
+      .insert(nieuwePlannen);
+    if (error) throw new Error(error.message);
+  } catch (error) {
+    fout = error instanceof Error ? error.message : "Prijzen opslaan mislukt.";
+  }
+  revalidatePath("/bedrijven/energieanalyse");
+  revalidatePath("/bedrijven/energieanalyse/beheer");
+  redirect(
+    `/bedrijven/energieanalyse/beheer?${new URLSearchParams(
+      fout ? { fout } : { klaar: "Nieuwe prijzen opgeslagen; eerdere en toekomstige tarieven blijven bewaard." },
+    )}`,
+  );
 }
 export async function slaEnergieTarief(f: FormData) {
   let fout = "";
@@ -187,32 +361,37 @@ export async function maakEnergieRapportSnapshot(f: FormData) {
     tot = new Date(Date.UTC(rapport.rapportjaar, rapport.rapportmaand, 1))
       .toISOString()
       .slice(0, 10);
-  const vervangen = new Set(ext.tarieven.map((t) => t.voorganger_id));
   const dragers = f.getAll("drager").map(String);
   if (
     !dragers.length ||
-    dragers.some((d) => !["elektriciteit", "gas", "water"].includes(d))
+    dragers.some(
+      (d) =>
+        ![
+          "elektriciteit",
+          "dagstroom",
+          "nachtstroom",
+          "gas",
+          "water",
+        ].includes(d),
+    )
   )
     throw new Error("Selecteer geldige energieproducten.");
-  const modus = text(f, "modus");
-  if (!["exact", "schatting"].includes(modus))
-    throw new Error("Ongeldige berekeningsmodus.");
   const huur = bron.verhuurperioden.find(
     (v) => v.id === rapport.verhuurperiode_id,
   );
   const snapshot = bouwEnergieSnapshot(
     bron,
-    ext.tarieven.filter((t) => !vervangen.has(t.id)),
+    ext.tarieven,
     {
       niveau: "totaal",
       woningIds: [rapport.woning_id],
       bedrijfIds: huur ? [huur.bedrijf_id] : [],
       vanaf,
       totEnMet: tot,
-      modus: modus as "exact" | "schatting",
+      modus: "schatting",
       archief: true,
     },
-    dragers as ("elektriciteit" | "gas" | "water")[],
+    dragers as Energiedrager[],
     new Date().toISOString(),
     user.id,
     process.env.VERCEL_GIT_COMMIT_SHA ?? ENERGIE_REKENREGELS,

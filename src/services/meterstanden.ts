@@ -1,6 +1,12 @@
 import { createClient } from "@/lib/supabase/client";
 import { bepaalOpnemerNaam } from "@/lib/meterstanden/opgenomen-door";
 import {
+  normaliseerMeterconfiguraties,
+  type EnergieBewoner,
+  type EnergieVerhuurperiode,
+  type Meterconfiguratie,
+} from "@/lib/energie/portfolio-analyse";
+import {
   analyseerMeterstanden,
   type EnergieAnalyseResultaat,
 } from "@/services/energy-intelligence";
@@ -261,10 +267,17 @@ export async function slaEnergieVerklaringOp(
   return resultaat as Meterstand;
 }
 
+const ANALYSE_REGISTERS = [
+  "dagstroom_kwh",
+  "nachtstroom_kwh",
+  "gas_m3",
+  "water_m3",
+] as const;
+
 async function analyseerEnBewaarMeterstand(
   meterstand: Meterstand,
 ): Promise<RouteMeterstandOpslag> {
-  const { data: historie, error: historieFout } =
+  const { data: venster, error: historieFout } =
     await supabase
       .from("meterstanden")
       .select("*")
@@ -279,8 +292,92 @@ async function analyseerEnBewaarMeterstand(
     );
   }
 
+  // Per register de chronologische voorganger (zelfde regel als de opslagvalidatie:
+  // strikt eerdere opnamedatum, laatste opname met een stand voor dat register),
+  // ongeacht hoeveel opnames zonder dat register ertussen liggen.
+  const voorgangers = await Promise.all(
+    ANALYSE_REGISTERS.filter((register) => meterstand[register] !== null).map(
+      async (register) => {
+        const { data, error } = await supabase
+          .from("meterstanden")
+          .select("*")
+          .eq("woning_id", meterstand.woning_id)
+          .lt("opnamedatum", meterstand.opnamedatum)
+          .not(register, "is", null)
+          .order("opnamedatum", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) {
+          throw new Error(
+            `Voorgaande meterstand (${register}) ophalen mislukt: ${error.message}`,
+          );
+        }
+        return data as Meterstand | null;
+      },
+    ),
+  );
+
+  const historieMap = new Map<number, Meterstand>();
+  for (const rij of [...((venster ?? []) as Meterstand[]), ...voorgangers]) {
+    if (rij) historieMap.set(rij.id, rij);
+  }
+  const historie = [...historieMap.values()];
+
+  // Bezetting uit de werkelijke bewonersregistraties en verhuurperioden, niet uit bewoners_aantal.
+  const { data: verhuurperioden, error: verhuurFout } = await supabase
+    .from("verhuurperiodes")
+    .select("id, woning_id, bedrijf_id, startdatum, werkelijke_einddatum")
+    .eq("woning_id", meterstand.woning_id);
+
+  if (verhuurFout) {
+    throw new Error(
+      `Verhuurperioden voor analyse ophalen mislukt: ${verhuurFout.message}`,
+    );
+  }
+
+  const verhuurIds = (verhuurperioden ?? []).map((periode) => periode.id);
+  let bewoners: EnergieBewoner[] = [];
+  if (verhuurIds.length > 0) {
+    const { data, error: bewonersFout } = await supabase
+      .from("bewoners")
+      .select("id, verhuurperiode_id, incheckdatum, uitcheckdatum")
+      .in("verhuurperiode_id", verhuurIds);
+
+    if (bewonersFout) {
+      throw new Error(
+        `Bewoners voor analyse ophalen mislukt: ${bewonersFout.message}`,
+      );
+    }
+    bewoners = (data ?? []) as EnergieBewoner[];
+  }
+
+  // Zelfde bron en geldigheidsregels als de energieanalyse; ontbrekende tabel = geen configuraties.
+  const { data: configuratieRijen, error: configuratieFout } = await supabase
+    .from("energie_meterconfiguraties")
+    .select("*")
+    .eq("woning_id", meterstand.woning_id);
+
+  if (
+    configuratieFout &&
+    configuratieFout.code !== "42P01" &&
+    configuratieFout.code !== "PGRST205"
+  ) {
+    throw new Error(
+      `Meterconfiguraties voor analyse ophalen mislukt: ${configuratieFout.message}`,
+    );
+  }
+  const meterconfiguraties = normaliseerMeterconfiguraties(
+    (configuratieFout ? [] : (configuratieRijen ?? [])) as unknown as Meterconfiguratie[],
+  );
+
   const analyse = analyseerMeterstanden(
-    (historie ?? []) as Meterstand[],
+    historie,
+    {
+      verhuurperioden: (verhuurperioden ?? []) as EnergieVerhuurperiode[],
+      bewoners,
+    },
+    meterconfiguraties,
   );
 
   const { data: bijgewerkt, error: analyseFout } =
@@ -444,6 +541,72 @@ export async function slaRouteMeterstandenOp(invoer: {
   return analyseerEnBewaarMeterstand(
     meterstand,
   );
+}
+
+export type ControleurMeterstandCorrectieInvoer = {
+  controlesessie_id: number;
+  meterstand_id: number;
+  register: RouteMeterType;
+  waarde: number;
+  reden: string;
+};
+
+export type ControleurMeterstandCorrectieResultaat =
+  RouteMeterstandOpslag & {
+    volgende_analyse: RouteMeterstandOpslag | null;
+  };
+
+export async function corrigeerControleurMeterstand(
+  invoer: ControleurMeterstandCorrectieInvoer,
+): Promise<ControleurMeterstandCorrectieResultaat> {
+  const reden = invoer.reden.trim();
+  if (!reden) {
+    throw new Error("Een reden voor de correctie is verplicht.");
+  }
+  const [waarde] = Object.values(
+    valideerRouteMeterwaarden({ [invoer.register]: invoer.waarde }),
+  );
+
+  const { data, error } = await supabase.rpc(
+    "corrigeer_controleur_meterstand",
+    {
+      p_controlesessie_id: invoer.controlesessie_id,
+      p_meterstand_id: invoer.meterstand_id,
+      p_register: invoer.register,
+      p_nieuwe_waarde: waarde,
+      p_reden: reden,
+    },
+  );
+
+  if (error) {
+    throw new Error(`Meterstand corrigeren mislukt: ${error.message}`);
+  }
+
+  const gecorrigeerd = data as Meterstand;
+  const analyse = await analyseerEnBewaarMeterstand(gecorrigeerd);
+
+  const { data: volgende, error: volgendeFout } = await supabase
+    .from("meterstanden")
+    .select("*")
+    .eq("woning_id", gecorrigeerd.woning_id)
+    .gt("opnamedatum", gecorrigeerd.opnamedatum)
+    .not(invoer.register, "is", null)
+    .order("opnamedatum", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (volgendeFout) {
+    throw new Error(
+      `Volgende meteropname ophalen mislukt: ${volgendeFout.message}`,
+    );
+  }
+
+  return {
+    ...analyse,
+    volgende_analyse: volgende
+      ? await analyseerEnBewaarMeterstand(volgende as Meterstand)
+      : null,
+  };
 }
 
 /**

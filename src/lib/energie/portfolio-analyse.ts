@@ -1,13 +1,22 @@
 import {
-  controleerPeriode,
+  controleerEnergieAnalysePeriode,
   dagen,
   datumTijd,
   gedekteDagen,
   kwartiel,
   verschil,
 } from "./rekenregels";
-import { elektriciteitsMeting, type RegisterType } from "./metingen";
-export type Energiedrager = "elektriciteit" | "gas" | "water";
+import {
+  beschikbareElektriciteitsstanden,
+  elektriciteitsMeting,
+  type RegisterType,
+} from "./metingen";
+export type Energiedrager =
+  | "elektriciteit"
+  | "dagstroom"
+  | "nachtstroom"
+  | "gas"
+  | "water";
 export type EnergieAnalyseNiveau = "totaal" | "bedrijf" | "woning";
 export type EnergieMeterstand = {
   id?: number;
@@ -25,6 +34,7 @@ export type EnergieMeterstand = {
   analyse_resultaat?: unknown;
   opvolging_nodig?: boolean;
   updated_at?: string;
+  geanalyseerd_at?: string | null;
   meteruitzonderingen?: unknown;
 };
 export type EnergieWoning = {
@@ -58,6 +68,29 @@ export type Meterconfiguratie = {
   registertype: RegisterType;
   meteridentiteit: string;
 };
+export function normaliseerMeterconfiguraties(
+  configuraties: Meterconfiguratie[],
+): Meterconfiguratie[] {
+  const opvolgerVanaf = new Map<string, string>();
+  for (const configuratie of configuraties) {
+    if (!configuratie.voorganger_id) continue;
+    const bestaand = opvolgerVanaf.get(configuratie.voorganger_id);
+    if (!bestaand || configuratie.vanaf < bestaand)
+      opvolgerVanaf.set(configuratie.voorganger_id, configuratie.vanaf);
+  }
+  return configuraties.map((configuratie) => {
+    const volgendeVersieVanaf = configuratie.id
+      ? opvolgerVanaf.get(configuratie.id)
+      : undefined;
+    const tot =
+      volgendeVersieVanaf && configuratie.tot
+        ? configuratie.tot < volgendeVersieVanaf
+          ? configuratie.tot
+          : volgendeVersieVanaf
+        : (configuratie.tot ?? volgendeVersieVanaf ?? null);
+    return { ...configuratie, tot };
+  });
+}
 export type EnergieAnalyseSelectie = {
   niveau: EnergieAnalyseNiveau;
   drager: Energiedrager;
@@ -85,7 +118,17 @@ export type EnergieInterval = {
   waarde: number | null;
   dag: number | null;
   nacht: number | null;
+  bronVelden?: string[];
+  gebruikteStanden: Array<{
+    register: string;
+    begin: number | null;
+    eind: number | null;
+  }>;
+  meteridentiteit?: string | null;
   geschat: boolean;
+  rekenwijze: "gemeten" | "naar_rato" | "geschat";
+  bewonersbron: string;
+  bezettingBekend: boolean;
   meldingen: string[];
   bezettingsconflict: boolean;
   betrouwbaar: boolean;
@@ -98,9 +141,13 @@ export type EnergieAnalyseRij = {
   plaats: string;
   bedrijven: string[];
   totaal: number | null;
+  per_persoon_per_periode: number | null;
+  normaliseerbaar_verbruik: number;
   persoonsdagen: number;
+  onbekende_bezettingsdagen: number;
   per_persoon_per_week: number | null;
   meetperioden: number;
+  geschatte_dagen: number;
   beschikbare_meetperioden: number;
   dekking_percentage: number;
   exacte_dekking_percentage: number;
@@ -108,13 +155,59 @@ export type EnergieAnalyseRij = {
   signaal: "laag" | "normaal" | "verhoogd" | "uitschieter" | "onvoldoende_data";
   besparingsruimte_tot_mediaan: number;
   betrouwbaarheid:
-    "exact" | "gedeeltelijk" | "geschat" | "controleren" | "onvoldoende_data";
+    "exact" | "gedeeltelijk" | "controleren" | "onvoldoende_data";
   meldingen: string[];
   intervallen: EnergieInterval[];
   benchmark_geschikt: boolean;
 };
+export function berekenBruikbareVerbruiksraming(
+  rij: Pick<
+    EnergieAnalyseRij,
+    | "totaal"
+    | "normaliseerbaar_verbruik"
+    | "persoonsdagen"
+    | "meetperioden"
+    | "intervallen"
+  >,
+  periodeDagen: number,
+) {
+  if (
+    rij.totaal === null ||
+    rij.meetperioden === 0 ||
+    rij.persoonsdagen <= 0 ||
+    !Number.isFinite(periodeDagen) ||
+    periodeDagen <= 0
+  )
+    return null;
+
+  const perPersoonPerWeek =
+    rij.normaliseerbaar_verbruik / (rij.persoonsdagen / 7);
+  return {
+    per_persoon_per_week: perPersoonPerWeek,
+    per_persoon_per_periode: perPersoonPerWeek * (periodeDagen / 7),
+  };
+}
+export function sorteerEnergieAnalyseRijenOpVerbruiksraming(
+  rijen: EnergieAnalyseRij[],
+  periodeDagen: number,
+) {
+  return [...rijen].sort((a, b) => {
+    const waardeA =
+        berekenBruikbareVerbruiksraming(a, periodeDagen)
+          ?.per_persoon_per_periode ?? null,
+      waardeB =
+        berekenBruikbareVerbruiksraming(b, periodeDagen)
+          ?.per_persoon_per_periode ?? null;
+    if (waardeA === null)
+      return waardeB === null ? a.adres.localeCompare(b.adres) : 1;
+    if (waardeB === null) return -1;
+    return waardeB - waardeA || a.adres.localeCompare(b.adres);
+  });
+}
 export type EnergieAnalyseTrend = {
-  maand: string;
+  woning_id: number;
+  adres: string;
+  periode: string;
   totaal: number;
   persoonsdagen: number;
   per_persoon_per_week: number | null;
@@ -126,6 +219,7 @@ export type EnergiePortfolioAnalyse = {
   rijen: EnergieAnalyseRij[];
   trends: EnergieAnalyseTrend[];
   totaal: number | null;
+  normaliseerbaar_verbruik: number;
   persoonsdagen: number;
   per_persoon_per_week: number | null;
   gemiddelde_per_persoon_per_week: number | null;
@@ -165,6 +259,85 @@ export function berekenPersoonsdagen(
     0,
   );
 }
+export function ongedekteMeetperioden(
+  intervallen: EnergieInterval[],
+  vanaf: string,
+  totEnMet: string,
+): Array<{ vanDatum: string; totDatum: string; reden: string }> {
+  const bruikbaar = intervallen
+    .filter(
+      (interval) =>
+        interval.betrouwbaar &&
+        interval.waarde !== null &&
+        interval.rekenwijze !== "geschat",
+    )
+    .map((interval) => ({
+      vanDatum: interval.vanDatum < vanaf ? vanaf : interval.vanDatum,
+      totDatum: interval.totDatum > totEnMet ? totEnMet : interval.totDatum,
+    }))
+    .filter((interval) => interval.vanDatum < interval.totDatum)
+    .sort((a, b) => a.vanDatum.localeCompare(b.vanDatum));
+  const uitgesloten = intervallen.filter(
+    (interval) => !interval.betrouwbaar || interval.waarde === null,
+  );
+  const schattingen = intervallen.filter(
+    (interval) => interval.rekenwijze === "geschat" && interval.waarde !== null,
+  );
+  const redenVoor = (vanDatum: string, totDatum: string) => {
+    const redenen = [
+      ...new Set(
+        uitgesloten
+          .filter(
+            (interval) =>
+              interval.vanDatum < totDatum && interval.totDatum > vanDatum,
+          )
+          .flatMap((interval) => interval.meldingen),
+      ),
+    ];
+    const bronnen = [
+      ...new Set(
+        schattingen
+          .filter(
+            (interval) =>
+              interval.vanDatum < totDatum && interval.totDatum > vanDatum,
+          )
+          .map(
+            (interval) =>
+              `${interval.bronVanaf}–${interval.bronTot}`,
+          ),
+      ),
+    ];
+    if (bronnen.length)
+      return `Geschat buiten meetdekking met daggemiddelde uit bronperiode ${bronnen.join(", ")}.`;
+    return redenen.length
+      ? redenen.join("; ")
+      : "Buiten beschikbare metingen: er zijn geen twee meteropnamen die deze datums begrenzen.";
+  };
+  const ongedekt: Array<{
+    vanDatum: string;
+    totDatum: string;
+    reden: string;
+  }> = [];
+  let cursor = vanaf;
+  for (const interval of bruikbaar) {
+    if (interval.vanDatum > cursor) {
+      ongedekt.push({
+        vanDatum: cursor,
+        totDatum: interval.vanDatum,
+        reden: redenVoor(cursor, interval.vanDatum),
+      });
+    }
+    if (interval.totDatum > cursor) cursor = interval.totDatum;
+  }
+  if (cursor < totEnMet) {
+    ongedekt.push({
+      vanDatum: cursor,
+      totDatum: totEnMet,
+      reden: redenVoor(cursor, totEnMet),
+    });
+  }
+  return ongedekt;
+}
 function bewonersVoorWoning(bron: Brondata, id: number) {
   return bron.bewoners.flatMap((b) => {
     const huur = bron.verhuurperioden.find(
@@ -199,11 +372,31 @@ function status(m: EnergieMeterstand, drager: string): string | null {
   // Never assign a gas anomaly to electricity through the global worst status.
   return typeof s === "string" ? s : null;
 }
+function afwijkendeDragers(m: EnergieMeterstand): string[] {
+  const dragers = object(m.analyse_resultaat).dragers;
+  return (Array.isArray(dragers) ? dragers : [])
+    .map(object)
+    .filter(
+      (d) =>
+        typeof d.drager === "string" &&
+        ["verhoogd", "kritiek", "onwaarschijnlijk"].includes(
+          String(d.status),
+        ),
+    )
+    .map((d) => String(d.drager));
+}
+const opnameNaam = (m: EnergieMeterstand) =>
+  `opname ${m.id ?? "onbekend"} (${m.opnamedatum})`;
 export function maakMeetperioden(
   bron: Brondata,
   sel: EnergieAnalyseSelectie,
 ): EnergieInterval[] {
+  controleerEnergieAnalysePeriode(sel.vanaf, sel.totEnMet);
   const result: EnergieInterval[] = [];
+  const meterProduct =
+    sel.drager === "dagstroom" || sel.drager === "nachtstroom"
+      ? "elektriciteit"
+      : sel.drager;
   for (const woning of bron.woningen) {
     const bewoners = bewonersVoorWoning(bron, woning.id);
     const standen = bron.meterstanden
@@ -214,6 +407,10 @@ export function maakMeetperioden(
             ? m.gas_m3 !== null
             : sel.drager === "water"
               ? m.water_m3 !== null
+              : sel.drager === "dagstroom"
+                ? m.dagstroom_kwh !== null
+                : sel.drager === "nachtstroom"
+                  ? m.nachtstroom_kwh !== null
               : m.elektriciteit_kwh !== null ||
                 m.dagstroom_kwh !== null ||
                 m.nachtstroom_kwh !== null),
@@ -225,21 +422,29 @@ export function maakMeetperioden(
     const dubbeleDatums = new Set(
       [...datumAantal].filter(([, n]) => n > 1).map(([d]) => d),
     );
+    const bronIntervallen: Array<{
+      a: EnergieMeterstand;
+      b: EnergieMeterstand;
+      waarde: number | null;
+      dag: number | null;
+      nacht: number | null;
+      bronVelden: string[];
+      gebruikteStanden: EnergieInterval["gebruikteStanden"];
+      meteridentiteit: string | null;
+      meldingen: string[];
+      betrouwbaar: boolean;
+      anomalie: string | null;
+    }> = [];
     for (let n = 1; n < standen.length; n++) {
       const a = standen[n - 1],
         b = standen[n];
       if (dagen(a.opnamedatum, b.opnamedatum) <= 0) continue;
-      if (b.opnamedatum <= sel.vanaf || a.opnamedatum >= sel.totEnMet) continue;
-      const van = a.opnamedatum < sel.vanaf ? sel.vanaf : a.opnamedatum,
-        tot = b.opnamedatum > sel.totEnMet ? sel.totEnMet : b.opnamedatum;
-      const geschat = van !== a.opnamedatum || tot !== b.opnamedatum;
-      if (geschat && sel.modus !== "schatting") continue;
       const configs = (bron.meterconfiguraties ?? []).filter(
         (c) =>
           c.woning_id === woning.id &&
-          c.product === sel.drager &&
+          c.product === meterProduct &&
           c.vanaf <= a.opnamedatum &&
-          (!c.tot || c.tot >= b.opnamedatum),
+          (!c.tot || c.tot > b.opnamedatum),
       );
       const electric = elektriciteitsMeting(
         a,
@@ -254,9 +459,12 @@ export function maakMeetperioden(
         (bron.meterconfiguraties ?? []).some(
           (c) =>
             c.woning_id === woning.id &&
-            c.product === sel.drager &&
-            c.vanaf > a.opnamedatum &&
-            c.vanaf < b.opnamedatum,
+            c.product === meterProduct &&
+            ((c.vanaf > a.opnamedatum && c.vanaf <= b.opnamedatum) ||
+              (c.tot !== null &&
+                c.tot !== undefined &&
+                c.tot > a.opnamedatum &&
+                c.tot <= b.opnamedatum)),
         )
       )
         meldingen.push("Meterwissel binnen meetinterval");
@@ -264,82 +472,325 @@ export function maakMeetperioden(
       const bronWaarde =
         sel.drager === "elektriciteit"
           ? electric.waarde
+          : sel.drager === "dagstroom"
+            ? verschil(a.dagstroom_kwh, b.dagstroom_kwh)
+            : sel.drager === "nachtstroom"
+              ? verschil(a.nachtstroom_kwh, b.nachtstroom_kwh)
           : verschil(
               sel.drager === "gas" ? a.gas_m3 : a.water_m3,
               sel.drager === "gas" ? b.gas_m3 : b.water_m3,
             );
-      if (bronWaarde === null)
-        meldingen.push("Ontbrekende of teruglopende meterstand");
-      const aanwezig = (d: string) =>
-        bewoners.filter(
-          (x) =>
-            x.incheckdatum <= d && (!x.uitcheckdatum || x.uitcheckdatum > d),
-        ).length;
-      const conflict =
-        aanwezig(a.opnamedatum) !== a.bewoners_aantal ||
-        aanwezig(b.opnamedatum) !== b.bewoners_aantal;
-      if (conflict)
+      const bronVelden =
+        sel.drager === "elektriciteit"
+          ? electric.bronVelden
+          : sel.drager === "dagstroom"
+            ? ["dagstroom_kwh"]
+            : sel.drager === "nachtstroom"
+              ? ["nachtstroom_kwh"]
+              : [sel.drager === "gas" ? "gas_m3" : "water_m3"];
+      if (bronWaarde === null && !meldingen.length)
         meldingen.push(
-          "Bewonersadministratie en meteropname spreken elkaar tegen",
+          `Ontbrekende of teruglopende ${sel.drager}stand`,
         );
-      const pd = berekenPersoonsdagen(bewoners, van, tot);
-      if (pd === 0)
+      const anomalie = status(b, meterProduct);
+      const beginOnwaarschijnlijk =
+        status(a, meterProduct) === "onwaarschijnlijk";
+      if (beginOnwaarschijnlijk)
         meldingen.push(
-          "Geen geregistreerde bewonersdagen; persoonsnorm onbekend",
+          `Beginopname heeft onwaarschijnlijk verbruik; controle vereist (opgeslagen ${meterProduct}-status bij ${opnameNaam(a)})`,
         );
-      const huur = bron.verhuurperioden.filter(
-        (v) =>
-          v.woning_id === woning.id &&
-          (!v.startdatum || v.startdatum < tot) &&
-          (!v.werkelijke_einddatum || v.werkelijke_einddatum > van),
-      );
-      const bedrijfIds = [...new Set(huur.map((v) => v.bedrijf_id))];
-      const anomalie = status(b, sel.drager);
-      const beginOnwaarschijnlijk = status(a, sel.drager) === "onwaarschijnlijk";
-      if(beginOnwaarschijnlijk) meldingen.push("Beginopname heeft onwaarschijnlijk verbruik; controle vereist");
-      if (anomalie === "onwaarschijnlijk")
-        meldingen.push("Onwaarschijnlijk verbruik: controle vereist");
-      if (b.opvolging_nodig)
+      if (anomalie === "onwaarschijnlijk") {
+        const verouderd =
+          !!a.updated_at &&
+          !!b.geanalyseerd_at &&
+          a.updated_at > b.geanalyseerd_at;
         meldingen.push(
-          "Opvolging bij meteropname geregistreerd; zie status per energiedrager",
+          `Onwaarschijnlijk verbruik: controle vereist (opgeslagen ${meterProduct}-status bij ${opnameNaam(b)})` +
+            (verouderd
+              ? `; historische status: beginopname ${opnameNaam(a)} is na deze analyse gewijzigd, dus dit is geen actuele rekenfout maar een verouderde opgeslagen controle die heranalyse vraagt`
+              : ""),
         );
+      }
+      for (const grens of [a, b].filter((m) => m.opvolging_nodig)) {
+        const afwijkend = afwijkendeDragers(grens);
+        meldingen.push(
+          afwijkend.includes(meterProduct)
+            ? `Opvolging is bij een grensopname gemarkeerd (${opnameNaam(grens)}, ${meterProduct}); controleer de actuele status`
+            : `Opvolging is bij een grensopname gemarkeerd (${opnameNaam(grens)}) ${
+                afwijkend.length
+                  ? `voor ${afwijkend.join(", ")}`
+                  : "zonder vastgelegde energiedrager"
+              }; geen aantoonbare invloed op de ${meterProduct}-berekening, maar het punt blijft openstaan`,
+        );
+      }
+      // High-consumption alerts trigger review but do not erase valid positive meter deltas.
       const betrouwbaar =
         bronWaarde !== null &&
-        anomalie !== "onwaarschijnlijk" && !beginOnwaarschijnlijk &&
         !meldingen.some((m) =>
-          /Meterwissel|Dubbele|Overlappende|configuratie|Tegenstrijdige|Totaalmeter wijkt/.test(
-            m,
-          ),
+          /Meterwissel|Dubbele|Overlappende|Tegenstrijdige|Totaalmeter wijkt/.test(m),
         );
-      const factor = dagen(van, tot) / dagen(a.opnamedatum, b.opnamedatum);
-      result.push({
-        woningId: woning.id,
-        vanDatum: van,
-        totDatum: tot,
-        bronVanaf: a.opnamedatum,
-        bronTot: b.opnamedatum,
-        bronIds: [a.id, b.id].filter((i): i is number => i !== undefined),
-        dagen: dagen(van, tot),
-        persoonsdagen: pd,
-        bedrijfIds,
-        waarde: bronWaarde === null ? null : bronWaarde * factor,
-        dag: electric.dag === null ? null : electric.dag * factor,
-        nacht: electric.nacht === null ? null : electric.nacht * factor,
-        geschat,
+      bronIntervallen.push({
+        a,
+        b,
+        waarde: bronWaarde,
+        dag: electric.dag,
+        nacht: electric.nacht,
+        bronVelden,
+        gebruikteStanden:
+          bronVelden.length === 0 && sel.drager === "elektriciteit"
+            ? beschikbareElektriciteitsstanden(a, b)
+            : bronVelden.map((veld) => {
+          const waarde = (stand: EnergieMeterstand) => {
+            switch (veld) {
+              case "dagstroom_kwh":
+                return stand.dagstroom_kwh;
+              case "nachtstroom_kwh":
+                return stand.nachtstroom_kwh;
+              case "elektriciteit_kwh":
+                return stand.elektriciteit_kwh;
+              case "elektriciteit_dag_kwh":
+                return stand.elektriciteit_dag_kwh ?? null;
+              case "elektriciteit_nacht_kwh":
+                return stand.elektriciteit_nacht_kwh ?? null;
+              case "gas_m3":
+                return stand.gas_m3;
+              default:
+                return stand.water_m3;
+            }
+          };
+          return {
+            register: veld,
+            begin: waarde(a),
+            eind: waarde(b),
+          };
+        }),
+        meteridentiteit:
+          configs.length === 1 ? configs[0].meteridentiteit : null,
         meldingen,
-        bezettingsconflict: conflict,
         betrouwbaar,
         anomalie,
       });
     }
+
+    const huurVoor = (van: string, tot: string) =>
+      bron.verhuurperioden.filter(
+        (periode) =>
+          periode.woning_id === woning.id &&
+          (!periode.startdatum || periode.startdatum < tot) &&
+          (!periode.werkelijke_einddatum || periode.werkelijke_einddatum > van),
+      );
+    const aanwezigOp = (datum: string) =>
+      bewoners.filter(
+        (bewoner) =>
+          bewoner.incheckdatum <= datum &&
+          (!bewoner.uitcheckdatum || bewoner.uitcheckdatum > datum),
+      ).length;
+    const bezettingVolledigBekend = (van: string, tot: string) => {
+      const grenzen = [
+        van,
+        tot,
+        ...bewoners.flatMap((bewoner) =>
+          [bewoner.incheckdatum, bewoner.uitcheckdatum].filter(
+            (datum): datum is string =>
+              datum !== null && datum > van && datum < tot,
+          ),
+        ),
+      ].sort();
+      return grenzen.slice(0, -1).every(
+        (begin, index) =>
+          aanwezigOp(begin) > 0 && dagen(begin, grenzen[index + 1]) > 0,
+      );
+    };
+    const voegSegmentenToe = (
+      interval: (typeof bronIntervallen)[number],
+      van: string,
+      tot: string,
+      geschat: boolean,
+    ) => {
+      if (van >= tot) return;
+      const grenzen = [
+        van,
+        tot,
+        ...bron.verhuurperioden.flatMap((huur) =>
+          [huur.startdatum, huur.werkelijke_einddatum].filter(
+            (datum): datum is string =>
+              datum !== null &&
+              datum !== undefined &&
+              datum > van &&
+              datum < tot,
+          ),
+        ),
+        ...bewoners.flatMap((bewoner) =>
+          [bewoner.incheckdatum, bewoner.uitcheckdatum].filter(
+            (datum): datum is string =>
+              datum !== null && datum > van && datum < tot,
+          ),
+        ),
+      ];
+      const segmentgrenzen = [...new Set(grenzen)].sort();
+      for (let index = 0; index < segmentgrenzen.length - 1; index++) {
+        const segmentVan = segmentgrenzen[index];
+        const segmentTot = segmentgrenzen[index + 1];
+        const segmentDagen = dagen(segmentVan, segmentTot);
+        const factor =
+          segmentDagen / dagen(interval.a.opnamedatum, interval.b.opnamedatum);
+        const huur = huurVoor(segmentVan, segmentTot).filter(
+          (periode) =>
+            (!periode.startdatum || periode.startdatum <= segmentVan) &&
+            (!periode.werkelijke_einddatum ||
+              periode.werkelijke_einddatum > segmentVan),
+        );
+        const bedrijfIds = [...new Set(huur.map((periode) => periode.bedrijf_id))];
+        const persoonsdagen = berekenPersoonsdagen(
+          bewoners,
+          segmentVan,
+          segmentTot,
+        );
+        const bezettingBekend = bezettingVolledigBekend(
+          segmentVan,
+          segmentTot,
+        );
+        const meldingen = [...interval.meldingen];
+        if (persoonsdagen === 0)
+          meldingen.push(
+            "Bewoning onbekend: geen geregistreerde persoonsdagen; persoonsnorm niet berekend",
+          );
+        if (bedrijfIds.length > 1)
+          meldingen.push(
+            "Meerdere verhuurders actief in dit meetsegment; klanttoerekening onzeker",
+          );
+        const volledigInterval =
+          !geschat &&
+          segmentVan === interval.a.opnamedatum &&
+          segmentTot === interval.b.opnamedatum;
+        const rekenwijze = geschat
+          ? "geschat"
+          : volledigInterval
+            ? "gemeten"
+            : "naar_rato";
+        result.push({
+          woningId: woning.id,
+          vanDatum: segmentVan,
+          totDatum: segmentTot,
+          bronVanaf: interval.a.opnamedatum,
+          bronTot: interval.b.opnamedatum,
+          bronIds: [interval.a.id, interval.b.id].filter(
+            (id): id is number => id !== undefined,
+          ),
+          dagen: segmentDagen,
+          persoonsdagen,
+          bedrijfIds,
+          waarde:
+            interval.waarde === null ? null : interval.waarde * factor,
+          dag: interval.dag === null ? null : interval.dag * factor,
+          nacht: interval.nacht === null ? null : interval.nacht * factor,
+          bronVelden: interval.bronVelden,
+          gebruikteStanden: interval.gebruikteStanden,
+          meteridentiteit: interval.meteridentiteit,
+          geschat,
+          rekenwijze,
+          bewonersbron: bezettingBekend
+            ? "Bewonersregistratie"
+            : "Onbekend: geen volledige bewonersregistratie voor deze dagen",
+          bezettingBekend,
+          meldingen,
+          bezettingsconflict: !bezettingBekend,
+          betrouwbaar: interval.betrouwbaar,
+          anomalie: interval.anomalie,
+        });
+      }
+    };
+    for (const interval of bronIntervallen) {
+      const van =
+        interval.a.opnamedatum < sel.vanaf
+          ? sel.vanaf
+          : interval.a.opnamedatum;
+      const tot =
+        interval.b.opnamedatum > sel.totEnMet
+          ? sel.totEnMet
+          : interval.b.opnamedatum;
+      if (van >= tot) continue;
+      if (
+        sel.modus === "exact" &&
+        (van !== interval.a.opnamedatum ||
+          tot !== interval.b.opnamedatum)
+      )
+        continue;
+      voegSegmentenToe(
+        interval,
+        van,
+        tot,
+        false,
+      );
+    }
+
+    if (sel.modus !== "exact" && bronIntervallen.length) {
+      const eerste = bronIntervallen[0];
+      if (
+        eerste.betrouwbaar &&
+        eerste.waarde !== null &&
+        sel.vanaf < eerste.a.opnamedatum
+      ) {
+        const configBreuk = (bron.meterconfiguraties ?? []).some(
+          (configuratie) =>
+            configuratie.woning_id === woning.id &&
+            configuratie.product === meterProduct &&
+            ((configuratie.vanaf > sel.vanaf &&
+              configuratie.vanaf < eerste.a.opnamedatum) ||
+              (configuratie.tot !== null &&
+                configuratie.tot !== undefined &&
+                configuratie.tot > sel.vanaf &&
+                configuratie.tot < eerste.a.opnamedatum)),
+        );
+        if (!configBreuk) {
+          const tot =
+            sel.totEnMet < eerste.a.opnamedatum
+              ? sel.totEnMet
+              : eerste.a.opnamedatum;
+          if (sel.vanaf < tot) voegSegmentenToe(eerste, sel.vanaf, tot, true);
+        }
+      }
+      const laatste = bronIntervallen.at(-1)!;
+      if (
+        laatste.betrouwbaar &&
+        laatste.waarde !== null &&
+        laatste.b.opnamedatum < sel.totEnMet
+      ) {
+        const configBreuk = (bron.meterconfiguraties ?? []).some(
+          (configuratie) =>
+            configuratie.woning_id === woning.id &&
+            configuratie.product === meterProduct &&
+            ((configuratie.vanaf > laatste.b.opnamedatum &&
+              configuratie.vanaf < sel.totEnMet) ||
+              (configuratie.tot !== null &&
+                configuratie.tot !== undefined &&
+                configuratie.tot > laatste.b.opnamedatum &&
+                configuratie.tot < sel.totEnMet)),
+        );
+        if (!configBreuk)
+          voegSegmentenToe(
+            laatste,
+            laatste.b.opnamedatum < sel.vanaf
+              ? sel.vanaf
+              : laatste.b.opnamedatum,
+            sel.totEnMet,
+            true,
+          );
+      }
+    }
   }
-  return result;
+  return result.sort(
+    (a, b) =>
+      a.vanDatum.localeCompare(b.vanDatum) ||
+      a.woningId - b.woningId ||
+      a.totDatum.localeCompare(b.totDatum),
+  );
 }
 export function bouwEnergiePortfolioAnalyse(
   bron: Brondata,
   sel: EnergieAnalyseSelectie,
 ): EnergiePortfolioAnalyse {
-  controleerPeriode(sel.vanaf, sel.totEnMet);
+  controleerEnergieAnalysePeriode(sel.vanaf, sel.totEnMet);
   const min = sel.minimaleDekking ?? 100;
   if (!Number.isFinite(min) || min < 0 || min > 100)
     throw new Error("Dekking moet tussen 0 en 100 liggen.");
@@ -380,27 +831,46 @@ export function bouwEnergiePortfolioAnalyse(
     const totaal = usable.length
         ? usable.reduce((s, i) => s + i.waarde!, 0)
         : null,
-      pd = usable.reduce((s, i) => s + i.persoonsdagen, 0);
-    const norm =
-      pd > 0 && !usable.some((i) => i.bezettingsconflict)
-        ? totaal! / (pd / 7)
-        : null;
+      normaliseerbaar = usable.filter((i) => i.bezettingBekend),
+      normaliseerbaarVerbruik = normaliseerbaar.reduce(
+        (som, interval) => som + interval.waarde!,
+        0,
+      ),
+      pd = normaliseerbaar.reduce(
+        (som, interval) => som + interval.persoonsdagen,
+        0,
+      ),
+      onbekendeBezettingsdagen = usable
+        .filter((interval) => !interval.bezettingBekend)
+        .reduce((som, interval) => som + interval.dagen, 0);
     const dekking =
-        (100 * gedekteDagen(usable)) / dagen(sel.vanaf, sel.totEnMet),
-      exact =
-        (100 * gedekteDagen(usable.filter((i) => !i.geschat))) /
-        dagen(sel.vanaf, sel.totEnMet);
+      (100 *
+        gedekteDagen(usable.filter((interval) => !interval.geschat))) /
+      dagen(sel.vanaf, sel.totEnMet);
+    const norm =
+      pd > 0 ? normaliseerbaarVerbruik / (pd / 7) : null;
+    const normPerPeriode =
+      pd > 0
+        ? normaliseerbaarVerbruik / (pd / dagen(sel.vanaf, sel.totEnMet))
+        : null;
+    const exact =
+      (100 *
+        gedekteDagen(
+          usable.filter((interval) => interval.rekenwijze === "gemeten"),
+        )) /
+      dagen(sel.vanaf, sel.totEnMet);
     const kwaliteit: EnergieAnalyseRij["betrouwbaarheid"] = all.some(
-      (i) => !i.betrouwbaar || i.bezettingsconflict,
+      (i) => !i.betrouwbaar,
     )
       ? "controleren"
       : !usable.length
         ? "onvoldoende_data"
-        : usable.some((i) => i.geschat)
-          ? "geschat"
-          : dekking < 100
-            ? "gedeeltelijk"
-            : "exact";
+        : dekking < 100 ||
+            usable.some((interval) => interval.geschat) ||
+            usable.some((interval) => interval.rekenwijze === "naar_rato") ||
+            usable.some((interval) => !interval.bezettingBekend)
+              ? "gedeeltelijk"
+              : "exact";
     return {
       woning_id: w.id,
       adres: w.adres,
@@ -411,9 +881,15 @@ export function bouwEnergiePortfolioAnalyse(
           bron.bedrijven.find((b) => b.id === id)?.naam ?? "Onbekende klant",
       ),
       totaal,
+      per_persoon_per_periode: normPerPeriode,
+      normaliseerbaar_verbruik: normaliseerbaarVerbruik,
       persoonsdagen: pd,
+      onbekende_bezettingsdagen: onbekendeBezettingsdagen,
       per_persoon_per_week: norm,
       meetperioden: usable.length,
+      geschatte_dagen: gedekteDagen(
+        usable.filter((interval) => interval.geschat),
+      ),
       beschikbare_meetperioden: all.length,
       dekking_percentage: dekking,
       exacte_dekking_percentage: exact,
@@ -437,8 +913,9 @@ export function bouwEnergiePortfolioAnalyse(
       benchmark_geschikt:
         norm !== null &&
         dekking >= min &&
-        kwaliteit !== "controleren" &&
-        kwaliteit !== "geschat",
+        !usable.some((interval) => interval.geschat) &&
+        usable.every((interval) => interval.bezettingBekend) &&
+        kwaliteit !== "controleren",
     };
   });
   // Only identical observed windows form a cohort, even with a lowered exploratory threshold.
@@ -493,10 +970,20 @@ export function bouwEnergiePortfolioAnalyse(
           r.betrouwbaarheid !== "onvoldoende_data"),
   );
   filtered.sort(
-    (a, b) => (b.per_persoon_per_week ?? -1) - (a.per_persoon_per_week ?? -1),
+    (a, b) => {
+      const waardeA = a.per_persoon_per_week;
+      const waardeB = b.per_persoon_per_week;
+      if (waardeA === null) return waardeB === null ? a.adres.localeCompare(b.adres) : 1;
+      if (waardeB === null) return -1;
+      return waardeB - waardeA || a.adres.localeCompare(b.adres);
+    },
   );
   const present = filtered.filter((r) => r.totaal !== null),
     totaal = present.length ? present.reduce((s, r) => s + r.totaal!, 0) : null,
+    normaliseerbaarVerbruik = present.reduce(
+      (som, rij) => som + rij.normaliseerbaar_verbruik,
+      0,
+    ),
     pd = present.reduce((s, r) => s + r.persoonsdagen, 0);
   // Exact mode displays actual measurement windows, never falsely assigns a whole interval to its end month.
   const trends = filtered
@@ -504,27 +991,39 @@ export function bouwEnergiePortfolioAnalyse(
       r.intervallen
         .filter((i) => i.betrouwbaar && i.waarde !== null)
         .map((i) => ({
-          maand: `${i.vanDatum} → ${i.totDatum}`,
+          woning_id: r.woning_id,
+          adres: r.adres,
+          periode: `${i.vanDatum} → ${i.totDatum}`,
           totaal: i.waarde!,
           persoonsdagen: i.persoonsdagen,
           per_persoon_per_week:
-            i.bezettingsconflict || !i.persoonsdagen
+            !i.bezettingBekend || !i.persoonsdagen
               ? null
               : i.waarde! / (i.persoonsdagen / 7),
           geschat: i.geschat,
         })),
     )
-    .sort((a, b) => a.maand.localeCompare(b.maand));
+    .sort(
+      (a, b) =>
+        a.periode.localeCompare(b.periode) ||
+        a.woning_id - b.woning_id,
+    );
   return {
     selectie: sel,
-    eenheid: sel.drager === "elektriciteit" ? "kWh" : "m³",
+    eenheid:
+      sel.drager === "elektriciteit" ||
+      sel.drager === "dagstroom" ||
+      sel.drager === "nachtstroom"
+        ? "kWh"
+        : "m³",
     rijen: filtered,
     trends,
     totaal,
+    normaliseerbaar_verbruik: normaliseerbaarVerbruik,
     persoonsdagen: pd,
     per_persoon_per_week:
-      pd > 0 && present.every((r) => r.per_persoon_per_week !== null)
-        ? totaal! / (pd / 7)
+      pd > 0
+        ? normaliseerbaarVerbruik / (pd / 7)
         : null,
     gemiddelde_per_persoon_per_week:
       rates.length >= 5

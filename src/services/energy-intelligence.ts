@@ -1,6 +1,8 @@
+import type { Meterconfiguratie } from "@/lib/energie/portfolio-analyse";
 import {
-  berekenVerbruiksperiodes,
-  type Verbruiksperiode,
+  berekenBronIntervallen,
+  type Bezettingsbron,
+  type BronInterval,
   type Verbruikswaarde,
 } from "@/services/energieverbruik";
 import type { Meterstand } from "@/types/meterstand";
@@ -46,6 +48,11 @@ export type EnergieDragerAnalyse = {
   afwijking_percentage: number | null;
   referentie_periodes: number;
   toelichting: string;
+  // Bronperiode van de gemeten waarde en de persoonsdagen waarmee is genormaliseerd.
+  van_datum?: string;
+  tot_datum?: string;
+  aantal_dagen?: number;
+  persoonsdagen?: number | null;
 };
 
 export type EnergieAnalyseResultaat = {
@@ -260,13 +267,6 @@ function hoogsteStatus(
   );
 }
 
-function dragerWaarde(
-  periode: Verbruiksperiode,
-  drager: EnergieDrager,
-): Verbruikswaarde {
-  return periode[drager];
-}
-
 function datumNaarTijd(datum: string): number {
   const [jaar, maand, dag] = datum
     .split("-")
@@ -285,11 +285,24 @@ function detecteerTeruglopendeMeterstanden(
   );
 
   const huidig = aflopend[0];
-  const vorig = aflopend[1];
 
-  if (!huidig || !vorig) {
+  if (!huidig || aflopend.length < 2) {
     return [];
   }
+
+  // Per register vergelijken met de eerstvolgende eerdere opname die dat register heeft.
+  const vorigVoor = (
+    register:
+      | "dagstroom_kwh"
+      | "nachtstroom_kwh"
+      | "gas_m3"
+      | "water_m3",
+  ) =>
+    huidig[register] === null
+      ? null
+      : (aflopend
+          .slice(1)
+          .find((rij) => rij[register] !== null)?.[register] ?? null);
 
   const analyses: EnergieDragerAnalyse[] = [];
 
@@ -311,18 +324,21 @@ function detecteerTeruglopendeMeterstanden(
     });
   };
 
-  if (
-    (
-      huidig.dagstroom_kwh !== null &&
-      vorig.dagstroom_kwh !== null &&
-      huidig.dagstroom_kwh < vorig.dagstroom_kwh
-    ) ||
-    (
-      huidig.nachtstroom_kwh !== null &&
-      vorig.nachtstroom_kwh !== null &&
-      huidig.nachtstroom_kwh < vorig.nachtstroom_kwh
-    )
-  ) {
+  const lager = (
+    register:
+      | "dagstroom_kwh"
+      | "nachtstroom_kwh"
+      | "gas_m3"
+      | "water_m3",
+  ) => {
+    const vorig = vorigVoor(register);
+    return (
+      vorig !== null &&
+      (huidig[register] as number) < vorig
+    );
+  };
+
+  if (lager("dagstroom_kwh") || lager("nachtstroom_kwh")) {
     voegOnwaarschijnlijkToe(
       "elektriciteit",
       "kWh",
@@ -330,11 +346,7 @@ function detecteerTeruglopendeMeterstanden(
     );
   }
 
-  if (
-    huidig.gas_m3 !== null &&
-    vorig.gas_m3 !== null &&
-    huidig.gas_m3 < vorig.gas_m3
-  ) {
+  if (lager("gas_m3")) {
     voegOnwaarschijnlijkToe(
       "gas",
       "m³",
@@ -342,11 +354,7 @@ function detecteerTeruglopendeMeterstanden(
     );
   }
 
-  if (
-    huidig.water_m3 !== null &&
-    vorig.water_m3 !== null &&
-    huidig.water_m3 < vorig.water_m3
-  ) {
+  if (lager("water_m3")) {
     voegOnwaarschijnlijkToe(
       "water",
       "m³",
@@ -359,6 +367,8 @@ function detecteerTeruglopendeMeterstanden(
 
 export function analyseerMeterstanden(
   meterstanden: Meterstand[],
+  bezetting?: Bezettingsbron,
+  meterconfiguraties: Meterconfiguratie[] = [],
 ): EnergieAnalyseResultaat {
   const gesorteerd = [...meterstanden].sort(
     (a, b) =>
@@ -369,27 +379,77 @@ export function analyseerMeterstanden(
   const teruglopendeMeterstanden =
     detecteerTeruglopendeMeterstanden(gesorteerd);
 
-  if (teruglopendeMeterstanden.length > 0) {
+  const laatsteDatum = gesorteerd[0]?.opnamedatum;
+  const intervallen = gesorteerd.length
+    ? berekenBronIntervallen(
+        gesorteerd,
+        laatsteDatum,
+        bezetting,
+        meterconfiguraties,
+      )
+    : [];
+
+  // Persoonsdagen komen uit de daggeldige bewonersregistraties en verhuurperioden; onbekende
+  // bezetting blijft onbekend (geen normalisatie), het gemeten verbruik blijft beschikbaar.
+  const naarVerbruik = (interval: BronInterval): Verbruikswaarde => {
+    const perWeek =
+      interval.waarde !== null && interval.dagen > 0
+        ? interval.waarde / (interval.dagen / 7)
+        : null;
+    return {
+      totaal: interval.waarde,
+      per_week: perWeek,
+      per_bewoner_per_week:
+        interval.waarde !== null &&
+        interval.bezetting_bekend &&
+        interval.persoonsdagen > 0
+          ? interval.waarde / (interval.persoonsdagen / 7)
+          : null,
+    };
+  };
+
+  const DRAGERS: { drager: EnergieDrager; eenheid: "kWh" | "m³" }[] = [
+    { drager: "elektriciteit", eenheid: "kWh" },
+    { drager: "gas", eenheid: "m³" },
+    { drager: "water", eenheid: "m³" },
+  ];
+  // Per drager het bronframe dat op de laatste opname eindigt; een interval van een andere drager
+  // (bijvoorbeeld gas-only) mag dit niet vervangen.
+  const actueel = DRAGERS.flatMap(({ drager, eenheid }) => {
+    const eigen = intervallen
+      .filter((interval) => interval.drager === drager)
+      .sort((a, b) => b.tot_datum.localeCompare(a.tot_datum));
+    const huidig = eigen.find(
+      (interval) =>
+        interval.tot_datum === laatsteDatum && interval.waarde !== null,
+    );
+    return huidig ? [{ drager, eenheid, interval: huidig, eigen }] : [];
+  });
+
+  const heeftTerugloop = teruglopendeMeterstanden.length > 0;
+  const terugloopResultaat = (
+    onafhankelijk: EnergieDragerAnalyse[],
+  ): EnergieAnalyseResultaat => {
+    const dragers = [...teruglopendeMeterstanden, ...onafhankelijk];
     return {
       status: "onwaarschijnlijk",
       van_datum: gesorteerd[1]?.opnamedatum ?? null,
-      tot_datum: gesorteerd[0]?.opnamedatum ?? null,
+      tot_datum: laatsteDatum ?? null,
       aantal_dagen: null,
       bewoners_gemiddeld: null,
       opvolging_nodig: true,
-      dragers: teruglopendeMeterstanden,
-      samenvatting: teruglopendeMeterstanden
+      dragers,
+      samenvatting: dragers
+        .filter((analyse) => analyse.status !== "normaal")
         .map((analyse) => analyse.toelichting)
         .join(" "),
     };
-  }
+  };
 
-  const periodes =
-    berekenVerbruiksperiodes(gesorteerd);
-
-  const huidig = periodes[0];
-
-  if (!huidig || huidig.tot_datum !== gesorteerd[0]?.opnamedatum) {
+  if (actueel.length === 0) {
+    if (heeftTerugloop) {
+      return terugloopResultaat([]);
+    }
     return {
       status: "onvoldoende_data",
       van_datum: null,
@@ -403,41 +463,35 @@ export function analyseerMeterstanden(
     };
   }
 
-  const historie = periodes.slice(1);
+  const dragers: EnergieDragerAnalyse[] = actueel
+    .map(({ drager, eenheid, interval, eigen }) => ({
+      ...analyseerDrager(
+        drager,
+        eenheid,
+        naarVerbruik(interval),
+        eigen
+          .filter((kandidaat) => kandidaat.tot_datum <= interval.van_datum)
+          .map(naarVerbruik),
+      ),
+      van_datum: interval.van_datum,
+      tot_datum: interval.tot_datum,
+      aantal_dagen: interval.dagen,
+      persoonsdagen: interval.bezetting_bekend ? interval.persoonsdagen : null,
+    }))
+    .filter(
+      (analyse) =>
+        analyse.verbruik_totaal !== null ||
+        analyse.historisch_gemiddelde !== null,
+    );
 
-  const dragers: EnergieDragerAnalyse[] = [
-    analyseerDrager(
-      "elektriciteit",
-      "kWh",
-      huidig.elektriciteit,
-      historie.map((periode) =>
-        dragerWaarde(
-          periode,
-          "elektriciteit",
-        ),
-      ),
-    ),
-    analyseerDrager(
-      "gas",
-      "m³",
-      huidig.gas,
-      historie.map((periode) =>
-        dragerWaarde(periode, "gas"),
-      ),
-    ),
-    analyseerDrager(
-      "water",
-      "m³",
-      huidig.water,
-      historie.map((periode) =>
-        dragerWaarde(periode, "water"),
-      ),
-    ),
-  ].filter(
-    (analyse) =>
-      analyse.verbruik_totaal !== null ||
-      analyse.historisch_gemiddelde !== null,
-  );
+  if (heeftTerugloop) {
+    const geblokkeerd = new Set(
+      teruglopendeMeterstanden.map((analyse) => analyse.drager),
+    );
+    return terugloopResultaat(
+      dragers.filter((analyse) => !geblokkeerd.has(analyse.drager)),
+    );
+  }
 
   const status = hoogsteStatus(dragers);
 
@@ -456,15 +510,22 @@ export function analyseerMeterstanden(
       .map((analyse) => analyse.toelichting)
       .join(" ");
 
+  // Datums van het interval van de drager die de totaalstatus bepaalt (bij gelijke status: eerste drager).
+  const bepalend =
+    dragers.find((analyse) => analyse.status === status)?.drager;
+  const gekozen = (
+    actueel.find((item) => item.drager === bepalend) ?? actueel[0]
+  ).interval;
+
   return {
     status,
-    van_datum: huidig.van_datum,
-    tot_datum: huidig.tot_datum,
-    aantal_dagen: huidig.aantal_dagen,
-    bewoners_gemiddeld: rond(
-      huidig.gemiddeld_bewoners_aantal,
-      1,
-    ),
+    van_datum: gekozen.van_datum,
+    tot_datum: gekozen.tot_datum,
+    aantal_dagen: gekozen.dagen,
+    bewoners_gemiddeld:
+      gekozen.bezetting_bekend && gekozen.dagen > 0
+        ? rond(gekozen.persoonsdagen / gekozen.dagen, 1)
+        : null,
     opvolging_nodig: opvolgingNodig,
     dragers,
     samenvatting:
